@@ -1,6 +1,6 @@
 """HTTP client with retry logic and session management."""
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -14,6 +14,9 @@ from ..exceptions import (
     TimeoutError,
     ValidationError,
 )
+
+if TYPE_CHECKING:
+    from ..client import M8tes
 
 
 class HTTPClient:
@@ -41,6 +44,7 @@ class HTTPClient:
         self.timeout = timeout
         self.profile = profile
         self._session: requests.Session | None = None
+        self.client: M8tes  # Set by M8tes.__init__ for circular access
 
         # Initialize HTTP session immediately for backward compatibility
         self._init_session()
