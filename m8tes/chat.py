@@ -52,9 +52,14 @@ class ChatSession:
         """
         Clear conversation history.
 
-        Resets the session ID so the next message starts a fresh conversation.
+        Creates a new run so the next message starts a fresh conversation.
         """
-        self.instance._session_id = None
+        if not self.instance.id:
+            raise ValueError("Instance ID is required")
+        # Create a new chat run for fresh conversation
+        self.run = self.instance.service.http.client.runs.create(
+            instance_id=self.instance.id, run_mode="chat", description="Interactive chat session"
+        )
 
     def end(self) -> None:
         """End chat session."""

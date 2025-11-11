@@ -46,7 +46,6 @@ class AgentInstance:
         self.created_at = data.get("created_at")
         self.updated_at = data.get("updated_at")
         self._data = data
-        self._session_id: str | None = None  # Side-channel for session ID (chat mode only)
 
     def execute_task(
         self, message: str, stream: bool = True, format: StreamFormat = "events"
@@ -109,17 +108,9 @@ class AgentInstance:
         # Build request body
         body = {"task": message, "mode": mode, "stream": stream}
 
-        # Only include session_id for chat mode
-        if mode == "chat":
-            if session_id:
-                body["session_id"] = session_id
-                # print(f"[SDK DEBUG] Sending explicit session_id: {session_id}")
-            elif self._session_id:
-                body["session_id"] = self._session_id
-                # print(f"[SDK DEBUG] Sending captured session_id: {self._session_id}")
-            else:
-                # print("[SDK DEBUG] No session_id available, starting new session")
-                pass  # No session_id available, backend will create new session
+        # Only include session_id if explicitly provided (for resuming conversations)
+        if mode == "chat" and session_id:
+            body["session_id"] = session_id
 
         # Include run_id if provided (backend will reuse instead of creating new)
         if run_id:
@@ -225,23 +216,8 @@ class AgentInstance:
                     #     f"keys={list(event_data.keys())}"
                     # )
 
-                    # Capture session ID ONLY from backend metadata events
-                    # (ignore Claude's session_id to prevent collision)
-                    event_field = event_data.get("event", {})
-
-                    # Only capture session_id from metadata events sent by backend
-                    # This contains the claude_session_id for session resumption
-                    # Claude's internal session_id is handled by the backend
-                    if event_type == "metadata":
-                        session_id_field = event_data.get("session_id")
-                        if (
-                            isinstance(session_id_field, str)
-                            and session_id_field
-                            and session_id_field != self._session_id
-                        ):
-                            self._session_id = session_id_field
-
                     # Detect session.created events and suppress them from downstream consumers
+                    event_field = event_data.get("event", {})
                     if (
                         isinstance(event_field, dict)
                         and event_field.get("type") == "session.created"
@@ -279,16 +255,14 @@ class AgentInstance:
             ChatSession object for multi-turn conversation
         """
         if resume_run_id:
-            # Load existing run and preload session_id for resume
+            # Load existing run for resumption
+            # Backend will handle session resumption based on run.claude_session_id
             run = self.service.http.client.runs.get(resume_run_id)
-            self._session_id = run.claude_session_id
         else:
-            # Create new chat run
+            # Create new chat run for fresh conversation
             run = self.service.http.client.runs.create(
                 instance_id=self.id, run_mode="chat", description="Interactive chat session"
             )
-            # Reset session ID for fresh conversation
-            self._session_id = None
 
         from .chat import ChatSession
 
