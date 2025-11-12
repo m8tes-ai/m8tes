@@ -302,8 +302,8 @@ class MateCLI:
         if tool_input.strip():
             tools = self._parse_tool_selection(tool_input.strip())
             if tools is None:
-                print("❌ Invalid tool selection")
-                return
+                print("❌ Invalid tool selection")  # type: ignore[unreachable]
+                return  # type: ignore[unreachable]
 
         if not tools:
             print("⚠️  Warning: No tools selected. Teammate will have no tool access.")

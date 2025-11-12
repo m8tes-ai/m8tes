@@ -72,8 +72,8 @@ class Run:
             Metrics dictionary from worker execution
         """
         if self._worker_response:
-            return self._worker_response.get("metrics", {})
-        return {}
+            return self._worker_response.get("metrics", {})  # type: ignore[unreachable]
+        return {}  # type: ignore[unreachable]
 
     @property
     def duration_seconds(self) -> float:
