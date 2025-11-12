@@ -245,7 +245,7 @@ class _SplitCommandArgsAction(Action):
             if isinstance(value, str):
                 flattened.extend(shlex.split(value))
             else:
-                flattened.append(value)
+                flattened.append(value)  # type: ignore[unreachable]
 
         existing = getattr(namespace, self.dest, None)
         if isinstance(existing, list):

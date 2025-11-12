@@ -110,7 +110,7 @@ class TaskService:
         response_data = self.http.request("GET", "/api/v1/tasks", params=params)
 
         # API returns list directly
-        tasks_list: list = response_data if isinstance(response_data, list) else []
+        tasks_list: list = response_data if isinstance(response_data, list) else []  # type: ignore[unreachable]
         return [Task(task_service=self, data=task_data) for task_data in tasks_list]
 
     def update(

@@ -279,7 +279,7 @@ class WorkingOAuthServer:
     def stop_server(self):
         """Stop the server."""
         if self.server:
-            self.server.shutdown()
-            self.server.server_close()
-        if self.server_thread and self.server_thread.is_alive():
-            self.server_thread.join(timeout=2)
+            self.server.shutdown()  # type: ignore[unreachable]
+            self.server.server_close()  # type: ignore[unreachable]
+        if self.server_thread and self.server_thread.is_alive():  # type: ignore[unreachable]
+            self.server_thread.join(timeout=2)  # type: ignore[unreachable]
