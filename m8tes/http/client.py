@@ -63,11 +63,13 @@ class HTTPClient:
         self._session = requests.Session()
 
         # Configure retry strategy
+        # Bug #13 fix: Remove POST from allowed_methods - POST is not idempotent
+        # and auto-retrying could create duplicate records
         retry_strategy = Retry(
             total=3,
             backoff_factor=1,
             status_forcelist=[429, 500, 502, 503, 504],
-            allowed_methods=["HEAD", "GET", "PUT", "DELETE", "OPTIONS", "TRACE", "POST"],
+            allowed_methods=["HEAD", "GET", "PUT", "DELETE", "OPTIONS", "TRACE"],
         )
 
         adapter = HTTPAdapter(max_retries=retry_strategy)
