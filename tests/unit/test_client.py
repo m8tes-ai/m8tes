@@ -376,8 +376,9 @@ class TestM8tesErrorHandling:
 class TestM8tesRequestMethod:
     """Test cases for the internal _request method."""
 
+    @patch("m8tes.http.client.HTTPClient._ensure_valid_token")
     @patch("requests.Session.request")
-    def test_request_success(self, mock_request, authenticated_client):
+    def test_request_success(self, mock_request, mock_ensure_token, authenticated_client):
         """Test successful request handling."""
         # Mock successful response
         mock_response = Mock()
@@ -482,3 +483,114 @@ class TestM8tesIntegration:
         # Test deployment - should raise NotImplementedError
         with pytest.raises(NotImplementedError):
             agent.deploy(schedule="daily")
+
+
+@pytest.mark.unit
+class TestHTTPClientRetryStrategy:
+    """
+    Phase 4 Edge Case Tests: HTTP Client Retry Strategy
+
+    Verifies that the retry strategy is correctly configured:
+    - Safe methods (GET, HEAD, OPTIONS) are retried
+    - Non-idempotent methods (POST) are NOT retried (Bug #13 fixed)
+    """
+
+    def test_retry_strategy_excludes_post(self, authenticated_client):
+        """
+        Bug #13 Fixed: POST is NOT included in retry methods.
+
+        POST requests should not be automatically retried since POST is
+        not idempotent. Retrying a POST request (e.g., task creation) could
+        cause duplicate task creation on transient failures.
+        """
+        session = authenticated_client._session
+        adapter = session.get_adapter("https://")
+
+        # Check the retry configuration
+        retry_config = adapter.max_retries
+        allowed_methods = retry_config.allowed_methods
+
+        # POST should NOT be in allowed methods (Bug #13 fix)
+        assert "POST" not in allowed_methods, "POST should not be retried automatically"
+
+    def test_retry_strategy_safe_methods_included(self, authenticated_client):
+        """Safe methods (GET, HEAD, OPTIONS) should be retried."""
+        session = authenticated_client._session
+        adapter = session.get_adapter("https://")
+        allowed_methods = adapter.max_retries.allowed_methods
+
+        # These safe methods should definitely be retried
+        assert "GET" in allowed_methods
+        assert "HEAD" in allowed_methods
+        assert "OPTIONS" in allowed_methods
+
+    def test_retry_strategy_status_codes(self, authenticated_client):
+        """Verify retry is configured for correct status codes."""
+        session = authenticated_client._session
+        adapter = session.get_adapter("https://")
+
+        status_forcelist = adapter.max_retries.status_forcelist
+
+        # Should retry on server errors and rate limits
+        assert 429 in status_forcelist  # Rate limited
+        assert 500 in status_forcelist  # Internal server error
+        assert 502 in status_forcelist  # Bad gateway
+        assert 503 in status_forcelist  # Service unavailable
+        assert 504 in status_forcelist  # Gateway timeout
+
+        # Should NOT retry on client errors
+        assert 400 not in status_forcelist
+        assert 401 not in status_forcelist
+        assert 403 not in status_forcelist
+        assert 404 not in status_forcelist
+
+    def test_retry_backoff_factor(self, authenticated_client):
+        """Verify backoff factor is configured."""
+        session = authenticated_client._session
+        adapter = session.get_adapter("https://")
+
+        backoff_factor = adapter.max_retries.backoff_factor
+
+        # Should have reasonable backoff
+        assert backoff_factor >= 0.5, "Backoff should be at least 0.5 seconds"
+
+
+@pytest.mark.unit
+class TestHTTPClientTimeout:
+    """Tests for HTTP client timeout configuration."""
+
+    def test_default_timeout(self):
+        """Default timeout should be 30 seconds."""
+        client = M8tes(api_key="test-key")
+        assert client.timeout == 30
+
+    def test_custom_timeout(self):
+        """Custom timeout should be respected."""
+        client = M8tes(api_key="test-key", timeout=120)
+        assert client.timeout == 120
+
+    def test_zero_timeout_allowed(self):
+        """Zero timeout (no timeout) should be allowed."""
+        client = M8tes(api_key="test-key", timeout=0)
+        assert client.timeout == 0
+
+
+@pytest.mark.unit
+class TestAPIKeyValidation:
+    """Tests for API key edge cases."""
+
+    def test_empty_string_api_key(self):
+        """Empty string API key should be stored."""
+        client = M8tes(api_key="")
+        assert client.api_key == ""
+
+    def test_whitespace_only_api_key(self):
+        """Whitespace-only API key should be stored as-is."""
+        client = M8tes(api_key="   ")
+        assert client.api_key == "   "
+
+    def test_api_key_with_special_characters(self):
+        """API key with special characters should work."""
+        special_key = "sk_test_abc123!@#$%^&*()"
+        client = M8tes(api_key=special_key)
+        assert client.api_key == special_key
