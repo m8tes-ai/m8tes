@@ -3,11 +3,11 @@
 # ruff: noqa: E501  # Long HTML/CSS lines are acceptable in this file
 # mypy: disable-error-code="no-untyped-def,attr-defined,assignment,var-annotated"
 
-from http.server import BaseHTTPRequestHandler, HTTPServer
 import socket
 import threading
-from typing import ClassVar
 import urllib.parse
+from http.server import BaseHTTPRequestHandler, HTTPServer
+from typing import ClassVar
 
 
 class WorkingOAuthHandler(BaseHTTPRequestHandler):
@@ -182,7 +182,7 @@ class WorkingOAuthHandler(BaseHTTPRequestHandler):
 <body>
     <div class="container">
         <div class="error">❌ Authorization Failed</div>
-        <p>There was an error connecting your Google Ads account.</p>
+        <p>There was an error connecting your account.</p>
 
         <div class="details">
             <strong>Error:</strong> {error}<br>

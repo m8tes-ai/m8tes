@@ -1,8 +1,11 @@
 """User management service for m8tes SDK."""
 
+import logging
 from typing import Any
 
 from ..http.client import HTTPClient
+
+logger = logging.getLogger(__name__)
 
 
 class UserService:
@@ -106,7 +109,8 @@ class UserService:
         try:
             response = self.http.post("/api/v1/auth/logout")
             return response.get("success", False)  # type: ignore[no-any-return]
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Logout request failed (expected if session expired): {e}")
             return False
 
     def refresh_token(self, refresh_token: str) -> dict[str, Any]:
