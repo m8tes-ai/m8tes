@@ -80,6 +80,8 @@ class StreamEventType(str, Enum):
     CLAUDE_CONTENT_BLOCK_START = "content_block_start"
     CLAUDE_CONTENT_BLOCK_DELTA = "content_block_delta"
     CLAUDE_CONTENT_BLOCK_STOP = "content_block_stop"
+    CLAUDE_TOOL_USE = "tool_use"
+    CLAUDE_TOOL_RESULT = "tool_result"
 
 
 @dataclass
@@ -259,6 +261,7 @@ class StreamEvent:
                 input_tokens_used=data.get("input_tokens_used"),
                 output_tokens_used=data.get("output_tokens_used"),
                 claude_token_cost_usd=data.get("claude_token_cost_usd"),
+                stop_reason=data.get("stop_reason"),
             )
         elif event_type == StreamEventType.SANDBOX_METRICS:
             event = SandboxMetricsEvent(
@@ -395,6 +398,37 @@ class StreamEvent:
                 type=StreamEventType.MESSAGE_END,
                 raw=data,
                 message_id=data.get("message_id"),
+            )
+        elif event_type == StreamEventType.CLAUDE_MESSAGE_COMPLETE:
+            event = MessageEndEvent(
+                type=StreamEventType.MESSAGE_END,
+                raw=data,
+                message_id=data.get("message_id"),
+            )
+        elif event_type == StreamEventType.CLAUDE_MESSAGE_DELTA:
+            delta_data = data.get("delta", {})
+            if isinstance(delta_data, dict) and isinstance(delta_data.get("text"), str):
+                event = TextDeltaEvent(
+                    type=StreamEventType.TEXT_DELTA,
+                    raw=data,
+                    delta=delta_data.get("text", ""),
+                    id=data.get("id"),
+                )
+            else:
+                event = StreamEvent(type=event_type, raw=data)
+        elif event_type == StreamEventType.CLAUDE_TOOL_USE:
+            event = ToolCallStartEvent(
+                type=StreamEventType.TOOL_CALL_START,
+                raw=data,
+                tool_call_id=data.get("id"),
+                tool_name=data.get("name"),
+            )
+        elif event_type == StreamEventType.CLAUDE_TOOL_RESULT:
+            event = ToolResultEndEvent(
+                type=StreamEventType.TOOL_RESULT_END,
+                raw=data,
+                tool_call_id=data.get("tool_use_id") or data.get("id"),
+                result=data.get("content") if "content" in data else data.get("result"),
             )
 
         else:
@@ -575,6 +609,7 @@ class MetricsEvent(StreamEvent):
     input_tokens_used: int | None
     output_tokens_used: int | None
     claude_token_cost_usd: float | None
+    stop_reason: str | None = None
 
 
 @dataclass
@@ -624,35 +659,40 @@ class AISDKStreamParser:
     @staticmethod
     def parse_sse_line(line: str) -> list[StreamEvent]:
         """
-        Parse a single SSE line into StreamEvent objects.
+        Parse a single SSE frame into StreamEvent objects.
 
         Args:
-            line: SSE formatted line (e.g., "data: {json}")
+            line: SSE frame content (one or more lines, without trailing blank line)
 
         Returns:
-            List of StreamEvents (possibly empty if the line carries metadata only)
+            List of StreamEvents (possibly empty if the frame carries metadata only)
         """
-        # Skip empty lines
         if not line or not line.strip():
             return []
 
-        # Handle SSE format: "data: {json}"
-        if line.startswith("data: "):
-            json_data = line[6:]  # Remove "data: " prefix
+        data_lines: list[str] = []
+        for raw_line in line.splitlines():
+            stripped = raw_line.strip()
+            if not stripped or stripped.startswith(":"):
+                continue
+            if raw_line.startswith("data:"):
+                data_lines.append(raw_line[5:].lstrip(" "))
 
-            # Handle special [DONE] marker
-            if json_data.strip() == "[DONE]":
-                return [DoneEvent(type=StreamEventType.DONE, raw={})]
+        if not data_lines:
+            return []
 
-            try:
-                data = json.loads(json_data)
-                return StreamEvent.from_dict(data)
-            except json.JSONDecodeError:
-                # Skip malformed JSON
-                return []
+        payload = "\n".join(data_lines).strip()
+        if not payload:
+            return []
 
-        # Ignore other SSE metadata lines (event:, id:, retry:)
-        return []
+        if payload == "[DONE]":
+            return [DoneEvent(type=StreamEventType.DONE, raw={})]
+
+        try:
+            data = json.loads(payload)
+            return StreamEvent.from_dict(data)
+        except json.JSONDecodeError:
+            return []
 
     @staticmethod
     def parse_stream(
@@ -668,8 +708,26 @@ class AISDKStreamParser:
         Yields:
             StreamEvent objects
         """
+        frame_lines: list[str] = []
         for line in response.iter_lines(decode_unicode=decode_unicode):  # type: ignore[attr-defined]
-            events = AISDKStreamParser.parse_sse_line(line)
+            if isinstance(line, bytes):
+                line = line.decode("utf-8", errors="replace")
+
+            # Empty line terminates an SSE frame.
+            if line == "":
+                if frame_lines:
+                    frame = "\n".join(frame_lines)
+                    frame_lines = []
+                    events = AISDKStreamParser.parse_sse_line(frame)
+                    yield from events
+                continue
+
+            frame_lines.append(line)
+
+        # Flush trailing frame if stream ended without a final blank line.
+        if frame_lines:
+            frame = "\n".join(frame_lines)
+            events = AISDKStreamParser.parse_sse_line(frame)
             yield from events
 
 

@@ -208,6 +208,22 @@ class TestStreamEventParsing:
         assert event.input_tokens_used == 111
         assert event.output_tokens_used == 222
         assert event.claude_token_cost_usd == 0.456
+        assert event.stop_reason is None
+
+    def test_parse_run_metrics_event_with_stop_reason(self):
+        """run_metrics stop_reason should be parsed."""
+        line = (
+            'data: {"type":"run_metrics","execution_time_ms":1000,'
+            '"input_tokens_used":111,"output_tokens_used":222,'
+            '"claude_token_cost_usd":0.456,"stop_reason":"refusal"}'
+        )
+
+        events = AISDKStreamParser.parse_sse_line(line)
+        assert len(events) == 1
+        event = events[0]
+
+        assert isinstance(event, MetricsEvent)
+        assert event.stop_reason == "refusal"
 
     def test_parse_sandbox_metrics_event(self):
         """Sandbox metrics events should parse into SandboxMetricsEvent."""
@@ -334,6 +350,34 @@ class TestStreamEventParsing:
         event = events[0]
         assert isinstance(event, TextStartEvent)
         assert event.id == "block_456"
+
+    def test_parse_claude_tool_use_event(self):
+        """Canonical tool_use events should map to ToolCallStartEvent."""
+        line = 'data: {"type":"tool_use","id":"tool_1","name":"run_gaql_query"}'
+        events = AISDKStreamParser.parse_sse_line(line)
+        assert len(events) == 1
+        event = events[0]
+        assert isinstance(event, ToolCallStartEvent)
+        assert event.tool_call_id == "tool_1"
+        assert event.tool_name == "run_gaql_query"
+
+    def test_parse_claude_tool_result_event(self):
+        """Canonical tool_result events should map to ToolResultEndEvent."""
+        line = 'data: {"type":"tool_result","tool_use_id":"tool_1","content":{"count":3}}'
+        events = AISDKStreamParser.parse_sse_line(line)
+        assert len(events) == 1
+        event = events[0]
+        assert isinstance(event, ToolResultEndEvent)
+        assert event.tool_call_id == "tool_1"
+        assert event.result == {"count": 3}
+
+    def test_parse_multiline_sse_frame(self):
+        """Multi-line data frames should be joined and parsed as one payload."""
+        frame = 'data: {"type":"message-start",\ndata: "messageId":"msg_1"}'
+        events = AISDKStreamParser.parse_sse_line(frame)
+        assert len(events) == 1
+        assert isinstance(events[0], MessageStartEvent)
+        assert events[0].message_id == "msg_1"
 
     def test_parse_standard_todo_update_event(self):
         """Direct todo-update events should parse correctly."""
@@ -676,3 +720,24 @@ class TestFullStreamParsing:
         assert accumulator.get_text() == "I found 3 campaigns for you."
         assert "call_1" in accumulator.get_tool_calls()
         assert accumulator.get_tool_calls()["call_1"]["result"]["count"] == 3
+
+    def test_parse_stream_handles_multiline_frames(self):
+        """parse_stream should group lines by blank separators into SSE frames."""
+
+        class MockResponse:
+            def iter_lines(self, decode_unicode=True):
+                _ = decode_unicode
+                lines = [
+                    'data: {"type":"message-start",',
+                    'data: "messageId":"msg_1"}',
+                    "",
+                    'data: {"type":"done"}',
+                    "",
+                ]
+                for item in lines:
+                    yield item
+
+        events = list(AISDKStreamParser.parse_stream(MockResponse()))
+        assert len(events) == 2
+        assert isinstance(events[0], MessageStartEvent)
+        assert isinstance(events[1], DoneEvent)
