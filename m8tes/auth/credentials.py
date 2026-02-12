@@ -11,6 +11,7 @@ This module provides secure API key storage using the system keychain:
 # mypy: disable-error-code="no-any-return"
 from datetime import UTC, datetime
 import json
+import logging
 import os
 from pathlib import Path
 import string
@@ -339,7 +340,8 @@ class CredentialManager:
         try:
             with open(self.CONFIG_FILE) as f:
                 return json.load(f)
-        except Exception:
+        except Exception as e:
+            logger.debug("Failed to load config from %s: %s", self.CONFIG_FILE, e)
             return {}
 
     def _save_to_file(self, config: dict) -> bool:
@@ -367,7 +369,8 @@ class CredentialManager:
             if "profiles" not in config:
                 config["profiles"] = {}
             return config
-        except Exception:
+        except Exception as e:
+            logger.debug("Failed to load config with profiles from %s: %s", self.CONFIG_FILE, e)
             return {"profiles": {}}
 
     def _save_config_with_profiles(self, config: dict) -> bool:
@@ -402,8 +405,8 @@ class CredentialManager:
                 for profile in test_profiles:
                     if keyring.get_password(cls.SERVICE_NAME, profile):
                         profiles.append(profile)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Keyring lookup failed: %s", e)
 
         # Also check config file
         config_file = Path.home() / ".m8tes" / "config.json"
@@ -413,8 +416,8 @@ class CredentialManager:
                     config = json.load(f)
                     if "profile" in config and config["profile"] not in profiles:
                         profiles.append(config["profile"])
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed to read profiles from config file: %s", e)
 
         return profiles if profiles else [cls.DEFAULT_PROFILE]
 

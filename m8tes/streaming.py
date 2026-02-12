@@ -393,13 +393,7 @@ class StreamEvent:
                 raw=data,
                 message_id=message_data.get("id"),
             )
-        elif event_type == StreamEventType.CLAUDE_MESSAGE_STOP:
-            event = MessageEndEvent(
-                type=StreamEventType.MESSAGE_END,
-                raw=data,
-                message_id=data.get("message_id"),
-            )
-        elif event_type == StreamEventType.CLAUDE_MESSAGE_COMPLETE:
+        elif event_type == StreamEventType.CLAUDE_MESSAGE_STOP or event_type == StreamEventType.CLAUDE_MESSAGE_COMPLETE:
             event = MessageEndEvent(
                 type=StreamEventType.MESSAGE_END,
                 raw=data,

@@ -1,10 +1,13 @@
 """Core authentication service for m8tes SDK."""
 
+import logging
 from typing import Any
 
 from ..exceptions import ValidationError
 from ..http.client import HTTPClient
 from ..utils.validation import validate_email, validate_password
+
+logger = logging.getLogger(__name__)
 
 
 class AuthService:
@@ -131,5 +134,6 @@ class AuthService:
         try:
             response = self.http.post("/api/v1/auth/logout")
             return response.get("success", False)  # type: ignore[no-any-return]
-        except Exception:
+        except Exception as e:
+            logger.debug("Logout request failed: %s", e)
             return False
