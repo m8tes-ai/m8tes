@@ -3,11 +3,11 @@
 # ruff: noqa: E501  # Long HTML/CSS lines are acceptable in this file
 # mypy: disable-error-code="no-untyped-def,attr-defined,assignment,var-annotated"
 
+from http.server import BaseHTTPRequestHandler, HTTPServer
 import socket
 import threading
-import urllib.parse
-from http.server import BaseHTTPRequestHandler, HTTPServer
 from typing import ClassVar
+import urllib.parse
 
 
 class WorkingOAuthHandler(BaseHTTPRequestHandler):

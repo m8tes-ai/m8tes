@@ -3,6 +3,7 @@ M8tes client for interacting with the m8tes.ai platform.
 """
 
 # mypy: disable-error-code="arg-type,attr-defined,no-untyped-def,no-any-return"
+import logging
 import os
 from typing import Any
 
@@ -16,6 +17,8 @@ from .services.integrations import IntegrationService
 from .services.runs import RunService
 from .services.tasks import TaskService
 from .services.users import UserService
+
+logger = logging.getLogger(__name__)
 
 
 class M8tes:
@@ -59,8 +62,8 @@ class M8tes:
                             api_key = refreshed_data.get("api_key")
                             if api_key:
                                 credentials.save_api_key(api_key)
-                    except Exception:
-                        # If refresh fails, clear expired tokens and continue
+                    except Exception as e:
+                        logger.debug("Token refresh during init failed: %s", e)
                         credentials.delete_api_key()
                         api_key = None
 
@@ -268,8 +271,8 @@ class M8tes:
             if response.status_code == 200:
                 return response.json()
 
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Token refresh at init failed: %s", e)
 
         return None
 

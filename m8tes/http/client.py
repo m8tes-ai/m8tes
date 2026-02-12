@@ -1,5 +1,6 @@
 """HTTP client with retry logic and session management."""
 
+import logging
 from typing import TYPE_CHECKING, Any
 
 import requests
@@ -17,6 +18,8 @@ from ..exceptions import (
 
 if TYPE_CHECKING:
     from ..client import M8tes
+
+logger = logging.getLogger(__name__)
 
 
 class HTTPClient:
@@ -385,9 +388,8 @@ class HTTPClient:
             if credentials.is_access_token_expired():
                 # Try to refresh the token
                 self._try_refresh_token()
-        except Exception:
-            # If anything fails, just continue with existing token
-            pass
+        except Exception as e:
+            logger.debug("Token validation check failed: %s", e)
 
     def _try_refresh_token(self) -> bool:
         """
@@ -436,8 +438,8 @@ class HTTPClient:
 
             return False
 
-        except Exception:
-            # If refresh fails for any reason, return False
+        except Exception as e:
+            logger.debug("Token refresh failed: %s", e)
             return False
 
     def close(self) -> None:
