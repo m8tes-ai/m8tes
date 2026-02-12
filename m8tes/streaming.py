@@ -262,6 +262,16 @@ class StreamEvent:
                 output_tokens_used=data.get("output_tokens_used"),
                 claude_token_cost_usd=data.get("claude_token_cost_usd"),
                 stop_reason=data.get("stop_reason"),
+                completion_state=data.get("completion_state"),
+                unresolved_tool_use_ids=(
+                    [
+                        tool_id
+                        for tool_id in data.get("unresolved_tool_use_ids", [])
+                        if isinstance(tool_id, str)
+                    ]
+                    if isinstance(data.get("unresolved_tool_use_ids"), list)
+                    else None
+                ),
             )
         elif event_type == StreamEventType.SANDBOX_METRICS:
             event = SandboxMetricsEvent(
@@ -276,7 +286,21 @@ class StreamEvent:
                 error=data.get("error", "Unknown error"),
             )
         elif event_type == StreamEventType.DONE:
-            event = DoneEvent(type=event_type, raw=data)
+            event = DoneEvent(
+                type=event_type,
+                raw=data,
+                completion_state=data.get("completion_state"),
+                unresolved_tool_use_ids=(
+                    [
+                        tool_id
+                        for tool_id in data.get("unresolved_tool_use_ids", [])
+                        if isinstance(tool_id, str)
+                    ]
+                    if isinstance(data.get("unresolved_tool_use_ids"), list)
+                    else None
+                ),
+                stop_reason=data.get("stop_reason"),
+            )
         elif event_type == StreamEventType.SANDBOX_CONNECTING:
             event = SandboxConnectingEvent(
                 type=event_type,
@@ -604,6 +628,8 @@ class MetricsEvent(StreamEvent):
     output_tokens_used: int | None
     claude_token_cost_usd: float | None
     stop_reason: str | None = None
+    completion_state: str | None = None
+    unresolved_tool_use_ids: list[str] | None = None
 
 
 @dataclass
@@ -624,7 +650,9 @@ class ErrorEvent(StreamEvent):
 class DoneEvent(StreamEvent):
     """Stream complete marker."""
 
-    pass
+    completion_state: str | None = None
+    unresolved_tool_use_ids: list[str] | None = None
+    stop_reason: str | None = None
 
 
 @dataclass
