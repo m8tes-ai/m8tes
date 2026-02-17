@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from .._streaming import RunStream
-from .._types import PermissionRequest, Run
+from .._types import PermissionRequest, Run, SyncPage
 
 if TYPE_CHECKING:
     from .._http import HTTPClient
@@ -64,14 +64,15 @@ class Runs:
         resp = self._http.request("POST", "/runs", json=body)
         return Run.from_dict(resp.json())
 
-    def list(self, *, teammate_id: int | None = None, user_id: str | None = None) -> list[Run]:
+    def list(self, *, teammate_id: int | None = None, user_id: str | None = None) -> SyncPage[Run]:
         params = {}
         if teammate_id is not None:
             params["teammate_id"] = teammate_id
         if user_id is not None:
             params["user_id"] = user_id
         resp = self._http.request("GET", "/runs", params=params)
-        return [Run.from_dict(d) for d in resp.json()]
+        body = resp.json()
+        return SyncPage(data=[Run.from_dict(d) for d in body["data"]], has_more=body["has_more"])
 
     def get(self, run_id: int) -> Run:
         resp = self._http.request("GET", f"/runs/{run_id}")
