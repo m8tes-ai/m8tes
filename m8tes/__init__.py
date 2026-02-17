@@ -1,40 +1,58 @@
 """
 m8tes - Python SDK for m8tes.ai
 
-AI teammates that handle paid ads automation.
+Developer SDK for building AI teammates.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
+# ── v2 Developer SDK (primary) ───────────────────────────────────────
+from ._client import M8tes
+from ._exceptions import (
+    APIError,
+    AuthenticationError,
+    M8tesError,
+    NotFoundError,
+    RateLimitError,
+    ValidationError,
+)
+from ._streaming import RunStream
+from ._types import App, Run, Task, Teammate, Trigger
+
+# ── Legacy exports (used by CLI) ─────────────────────────────────────
 from .agent import Agent, Deployment
-from .client import M8tes
 from .exceptions import (
     AgentError,
-    AuthenticationError,
     DeploymentError,
     IntegrationError,
-    M8tesError,
+    M8tesError as _LegacyM8tesError,
     NetworkError,
     OAuthError,
-    RateLimitError,
     TimeoutError,
-    ValidationError,
 )
 
 __all__ = [
-    # Core classes
+    # v2 SDK
+    "M8tes",
+    "M8tesError",
+    "APIError",
+    "AuthenticationError",
+    "NotFoundError",
+    "RateLimitError",
+    "ValidationError",
+    "RunStream",
+    "Teammate",
+    "Run",
+    "Task",
+    "Trigger",
+    "App",
+    # Legacy (CLI)
     "Agent",
     "AgentError",
-    "AuthenticationError",
     "Deployment",
     "DeploymentError",
     "IntegrationError",
-    # Main client
-    "M8tes",
-    "M8tesError",
     "NetworkError",
     "OAuthError",
-    "RateLimitError",
     "TimeoutError",
-    "ValidationError",
 ]

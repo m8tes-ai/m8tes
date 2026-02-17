@@ -138,10 +138,10 @@ def mock_requests():
 
 @pytest.fixture
 def authenticated_client(api_key, base_url):
-    """Create an authenticated M8tes client for testing."""
-    from m8tes import M8tes
+    """Create an authenticated legacy M8tes client for testing."""
+    from m8tes.client import M8tes as LegacyM8tes
 
-    return M8tes(api_key=api_key, base_url=base_url)
+    return LegacyM8tes(api_key=api_key, base_url=base_url)
 
 
 @pytest.fixture
