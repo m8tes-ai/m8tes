@@ -16,7 +16,7 @@ _INITIAL_BACKOFF = 0.5  # seconds
 _RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 
 
-def _raise_for_status(resp: requests.Response) -> None:
+def _raise_for_status(resp: requests.Response, *, method: str = "", path: str = "") -> None:
     """Map HTTP error responses to typed SDK exceptions."""
     # Try to parse structured error from v2 API
     message = f"HTTP {resp.status_code}"
@@ -33,7 +33,9 @@ def _raise_for_status(resp: requests.Response) -> None:
 
     resp.close()
     exc_cls = STATUS_MAP.get(resp.status_code, APIError)
-    raise exc_cls(message, status_code=resp.status_code, request_id=request_id)
+    raise exc_cls(
+        message, status_code=resp.status_code, request_id=request_id, method=method, path=path
+    )
 
 
 class HTTPClient:
@@ -68,7 +70,7 @@ class HTTPClient:
                 return resp
 
             if resp.status_code not in _RETRYABLE_STATUS or attempt == _MAX_RETRIES - 1:
-                _raise_for_status(resp)
+                _raise_for_status(resp, method=method, path=url)
 
             # Retry after delay
             retry_after = resp.headers.get("Retry-After")

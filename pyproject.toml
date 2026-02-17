@@ -105,7 +105,7 @@ addopts = [
     "--tb=short",      # concise traceback format
     "--showlocals",    # show local vars in failures
     "--durations=10",  # show 10 slowest tests
-    "-m", "not e2e and not smoke"  # exclude E2E and smoke tests by default
+    "-m", "not e2e and not smoke and not integration"  # exclude tests requiring backend
 ]
 testpaths = ["tests"]
 python_files = ["test_*.py", "*_test.py"]

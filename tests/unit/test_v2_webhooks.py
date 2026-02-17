@@ -62,7 +62,6 @@ def test_get_webhook():
             "events": ["run.completed"],
             "secret": "a1b2...",
             "active": True,
-            "delivery_status": "active",
             "created_at": "",
         },
     )
@@ -112,7 +111,6 @@ def test_update_webhook():
             "url": "https://new.com/hook",
             "events": ["run.completed"],
             "active": True,
-            "delivery_status": "active",
             "created_at": "",
         },
     )
@@ -136,7 +134,6 @@ def test_update_webhook_rotate_secret():
             "events": ["run.completed"],
             "secret": "newsecretnewsecretnewsecretnewsecret",
             "active": True,
-            "delivery_status": "active",
             "created_at": "",
         },
     )
@@ -158,7 +155,6 @@ def test_update_webhook_partial():
             "url": "https://example.com/hook",
             "events": ["run.started"],
             "active": False,
-            "delivery_status": "active",
             "created_at": "",
         },
     )
