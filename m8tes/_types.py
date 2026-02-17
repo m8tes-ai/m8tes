@@ -264,6 +264,7 @@ class Webhook:
     events: list[str]
     secret: str | None
     active: bool
+    delivery_status: str
     created_at: str
 
     @classmethod
@@ -274,6 +275,7 @@ class Webhook:
             events=data.get("events", []),
             secret=data.get("secret"),
             active=data.get("active", True),
+            delivery_status=data.get("delivery_status", "active"),
             created_at=data.get("created_at", ""),
         )
 

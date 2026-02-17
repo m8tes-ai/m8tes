@@ -11,8 +11,10 @@ from ._client import M8tes
 from ._exceptions import (
     APIError,
     AuthenticationError,
+    ConflictError,
     M8tesError,
     NotFoundError,
+    PermissionDeniedError,
     RateLimitError,
     ValidationError,
 )
@@ -61,6 +63,7 @@ __all__ = [
     "App",
     "AppConnection",
     "AuthenticationError",
+    "ConflictError",
     "Deployment",
     "DeploymentError",
     "DoneEvent",
@@ -73,6 +76,7 @@ __all__ = [
     "NetworkError",
     "NotFoundError",
     "OAuthError",
+    "PermissionDeniedError",
     "PermissionPolicy",
     "PermissionRequest",
     "RateLimitError",
