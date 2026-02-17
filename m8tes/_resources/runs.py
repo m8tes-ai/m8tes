@@ -7,6 +7,8 @@ from typing import TYPE_CHECKING
 from .._streaming import RunStream
 from .._types import PermissionRequest, Run, SyncPage
 
+_list = list  # preserve builtin; shadowed by .list() method
+
 if TYPE_CHECKING:
     from .._http import HTTPClient
 
@@ -63,6 +65,20 @@ class Runs:
         resp = self._http.request("POST", "/runs", json=body)
         return Run.from_dict(resp.json())
 
+    def poll(self, run_id: int, *, interval: float = 2.0, timeout: float = 300.0) -> Run:
+        """Poll until the run reaches a terminal status. Returns the completed Run."""
+        import time as _time
+
+        _TERMINAL = {"completed", "failed", "cancelled"}
+        deadline = _time.monotonic() + timeout
+        while True:
+            run = self.get(run_id)
+            if run.status in _TERMINAL:
+                return run
+            if _time.monotonic() + interval > deadline:
+                raise TimeoutError(f"Run {run_id} did not complete within {timeout}s")
+            _time.sleep(interval)
+
     def list(
         self,
         *,
@@ -85,7 +101,15 @@ class Runs:
             params["starting_after"] = starting_after
         resp = self._http.request("GET", "/runs", params=params)
         body = resp.json()
-        return SyncPage(data=[Run.from_dict(d) for d in body["data"]], has_more=body["has_more"])
+
+        def _fetch_next(**kw: object) -> SyncPage[Run]:
+            return self.list(teammate_id=teammate_id, user_id=user_id, status=status, **kw)  # type: ignore[arg-type]
+
+        return SyncPage(
+            data=[Run.from_dict(d) for d in body["data"]],
+            has_more=body["has_more"],
+            _fetch_next=_fetch_next,
+        )
 
     def get(self, run_id: int) -> Run:
         resp = self._http.request("GET", f"/runs/{run_id}")
@@ -115,7 +139,7 @@ class Runs:
         resp = self._http.request("POST", f"/runs/{run_id}/cancel")
         return Run.from_dict(resp.json())
 
-    def permissions(self, run_id: int) -> list[PermissionRequest]:
+    def permissions(self, run_id: int) -> _list[PermissionRequest]:
         """List tool permission requests for a run."""
         resp = self._http.request("GET", f"/runs/{run_id}/permissions")
         return [PermissionRequest.from_dict(d) for d in resp.json()]

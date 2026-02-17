@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 
 from .._types import SyncPage, Teammate
 
+_list = list  # preserve builtin; shadowed by .list() method
+
 if TYPE_CHECKING:
     from .._http import HTTPClient
 
@@ -62,8 +64,14 @@ class Teammates:
             params["starting_after"] = starting_after
         resp = self._http.request("GET", "/teammates", params=params)
         body = resp.json()
+
+        def _fetch_next(**kw: object) -> SyncPage[Teammate]:
+            return self.list(user_id=user_id, **kw)  # type: ignore[arg-type]
+
         return SyncPage(
-            data=[Teammate.from_dict(d) for d in body["data"]], has_more=body["has_more"]
+            data=[Teammate.from_dict(d) for d in body["data"]],
+            has_more=body["has_more"],
+            _fetch_next=_fetch_next,
         )
 
     def get(self, teammate_id: int) -> Teammate:
@@ -76,11 +84,11 @@ class Teammates:
         *,
         name: str | None = None,
         instructions: str | None = None,
-        tools: list[str] | None = None,
+        tools: _list[str] | None = None,
         role: str | None = None,
         goals: str | None = None,
         metadata: dict | None = None,
-        allowed_senders: list[str] | None = None,
+        allowed_senders: _list[str] | None = None,
     ) -> Teammate:
         body: dict = {}
         if name is not None:

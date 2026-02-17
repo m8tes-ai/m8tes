@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 
 from .._types import SyncPage, Task, Trigger
 
+_list = list  # preserve builtin; shadowed by .list() method
+
 if TYPE_CHECKING:
     from .._http import HTTPClient
 
@@ -92,7 +94,15 @@ class Tasks:
             params["starting_after"] = starting_after
         resp = self._http.request("GET", "/tasks", params=params)
         body = resp.json()
-        return SyncPage(data=[Task.from_dict(d) for d in body["data"]], has_more=body["has_more"])
+
+        def _fetch_next(**kw: object) -> SyncPage[Task]:
+            return self.list(teammate_id=teammate_id, user_id=user_id, **kw)  # type: ignore[arg-type]
+
+        return SyncPage(
+            data=[Task.from_dict(d) for d in body["data"]],
+            has_more=body["has_more"],
+            _fetch_next=_fetch_next,
+        )
 
     def get(self, task_id: int) -> Task:
         resp = self._http.request("GET", f"/tasks/{task_id}")
@@ -104,7 +114,7 @@ class Tasks:
         *,
         name: str | None = None,
         instructions: str | None = None,
-        tools: list[str] | None = None,
+        tools: _list[str] | None = None,
         expected_output: str | None = None,
         goals: str | None = None,
     ) -> Task:
