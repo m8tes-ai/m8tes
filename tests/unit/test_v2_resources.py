@@ -158,7 +158,8 @@ class TestRuns:
     @responses.activate
     def test_list(self, http):
         responses.add(
-            responses.GET, f"{BASE}/runs",
+            responses.GET,
+            f"{BASE}/runs",
             json={"data": [{"id": 1}, {"id": 2}], "has_more": False},
         )
         result = Runs(http).list()
@@ -233,7 +234,8 @@ class TestTasks:
     @responses.activate
     def test_list(self, http):
         responses.add(
-            responses.GET, f"{BASE}/tasks",
+            responses.GET,
+            f"{BASE}/tasks",
             json={"data": [{"id": 1, "teammate_id": 2, "instructions": "Do"}], "has_more": False},
         )
         result = Tasks(http).list()
@@ -260,7 +262,8 @@ class TestTasks:
     @responses.activate
     def test_update_sends_only_provided_fields(self, http):
         responses.add(
-            responses.PATCH, f"{BASE}/tasks/1",
+            responses.PATCH,
+            f"{BASE}/tasks/1",
             json={"id": 1, "teammate_id": 2, "instructions": "X"},
         )
         Tasks(http).update(1, instructions="X", expected_output="Y")
@@ -337,7 +340,8 @@ class TestTeammatesTriggers:
     def test_list_aggregates_across_tasks(self, http):
         # Two tasks for teammate — backend now returns envelope
         responses.add(
-            responses.GET, f"{BASE}/tasks",
+            responses.GET,
+            f"{BASE}/tasks",
             json={"data": [{"id": 1}, {"id": 2}], "has_more": False},
         )
         responses.add(
@@ -361,7 +365,12 @@ class TestApps:
             f"{BASE}/apps",
             json={
                 "data": [
-                    {"name": "gmail", "display_name": "Gmail", "category": "email", "connected": False}
+                    {
+                        "name": "gmail",
+                        "display_name": "Gmail",
+                        "category": "email",
+                        "connected": False,
+                    }
                 ],
                 "has_more": False,
             },

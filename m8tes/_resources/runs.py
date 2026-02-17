@@ -35,7 +35,8 @@ class Runs:
         """Create and execute a run.
 
         With stream=True (default): returns iterable RunStream of events.
-        With stream=False: returns Run with output after execution completes.
+        With stream=False: returns Run immediately (status="running").
+            Poll GET /runs/{id} until status is terminal to get output.
         """
         body: dict = {"task": task, "stream": stream}
         if teammate_id is not None:
@@ -64,12 +65,26 @@ class Runs:
         resp = self._http.request("POST", "/runs", json=body)
         return Run.from_dict(resp.json())
 
-    def list(self, *, teammate_id: int | None = None, user_id: str | None = None) -> SyncPage[Run]:
-        params = {}
+    def list(
+        self,
+        *,
+        teammate_id: int | None = None,
+        user_id: str | None = None,
+        status: str | None = None,
+        limit: int = 20,
+        starting_after: int | None = None,
+    ) -> SyncPage[Run]:
+        params: dict = {}
         if teammate_id is not None:
             params["teammate_id"] = teammate_id
         if user_id is not None:
             params["user_id"] = user_id
+        if status is not None:
+            params["status"] = status
+        if limit != 20:
+            params["limit"] = limit
+        if starting_after is not None:
+            params["starting_after"] = starting_after
         resp = self._http.request("GET", "/runs", params=params)
         body = resp.json()
         return SyncPage(data=[Run.from_dict(d) for d in body["data"]], has_more=body["has_more"])
@@ -85,7 +100,12 @@ class Runs:
         message: str,
         stream: bool = True,
     ) -> RunStream | Run:
-        """Follow-up message on an existing run."""
+        """Follow-up message on an existing run. Creates a new run ID.
+
+        With stream=True (default): returns iterable RunStream of events.
+        With stream=False: returns Run immediately (status="running").
+            Poll GET /runs/{id} until status is terminal to get output.
+        """
         body = {"message": message, "stream": stream}
         if stream:
             resp = self._http.stream("POST", f"/runs/{run_id}/reply", json=body)

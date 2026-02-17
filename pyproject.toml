@@ -1,14 +1,14 @@
 [project]
 name = "m8tes"
-version = "0.1.0"
-description = "Python SDK for m8tes.ai - AI teammates"
+version = "0.2.0"
+description = "Python SDK for building autonomous AI agents on m8tes.ai"
 readme = "README.md"
 requires-python = ">=3.11.9"
 license = "MIT"
 authors = [
     {name = "m8tes.ai", email = "support@m8tes.ai"}
 ]
-keywords = ["ai", "marketing", "automation", "google-ads", "agents"]
+keywords = ["ai", "agents", "automation", "llm", "sdk"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -44,9 +44,7 @@ m8tes = "m8tes.cli.main:main"
 
 [project.urls]
 Homepage = "https://m8tes.ai"
-Documentation = "https://docs.m8tes.ai"
-Repository = "https://github.com/m8tes/python-sdk"
-Issues = "https://github.com/m8tes/python-sdk/issues"
+Documentation = "https://m8tes.ai/docs"
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
@@ -123,7 +121,6 @@ markers = [
     "api: API endpoint tests",
     "auth: Authentication and authorization tests",
     "streaming: Tests for streaming functionality",
-    "google_ads: Google Ads API integration tests"
 ]
 log_cli = true
 log_cli_level = "INFO"

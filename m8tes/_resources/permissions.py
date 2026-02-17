@@ -21,11 +21,24 @@ class Permissions:
         resp = self._http.request("POST", "/permissions", json={"user_id": user_id, "tool": tool})
         return PermissionPolicy.from_dict(resp.json())
 
-    def list(self, *, user_id: str) -> SyncPage[PermissionPolicy]:
+    def list(
+        self,
+        *,
+        user_id: str,
+        limit: int = 20,
+        starting_after: int | None = None,
+    ) -> SyncPage[PermissionPolicy]:
         """List tool permission policies for an end-user."""
-        resp = self._http.request("GET", "/permissions", params={"user_id": user_id})
+        params: dict = {"user_id": user_id}
+        if limit != 20:
+            params["limit"] = limit
+        if starting_after is not None:
+            params["starting_after"] = starting_after
+        resp = self._http.request("GET", "/permissions", params=params)
         body = resp.json()
-        return SyncPage(data=[PermissionPolicy.from_dict(d) for d in body["data"]], has_more=body["has_more"])
+        return SyncPage(
+            data=[PermissionPolicy.from_dict(d) for d in body["data"]], has_more=body["has_more"]
+        )
 
     def delete(self, permission_id: int, *, user_id: str) -> None:
         """Remove a tool permission policy."""
