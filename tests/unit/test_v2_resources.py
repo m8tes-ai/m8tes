@@ -11,7 +11,7 @@ from m8tes._resources.runs import Runs
 from m8tes._resources.tasks import Tasks, TaskTriggers
 from m8tes._resources.teammates import Teammates, TeammatesTriggers
 from m8tes._streaming import RunStream
-from m8tes._types import App, Run, Task, Teammate, Trigger
+from m8tes._types import App, Run, SyncPage, Task, Teammate, Trigger
 
 BASE = "https://api.test/v2"
 
@@ -70,15 +70,17 @@ class TestTeammates:
         responses.add(
             responses.GET,
             f"{BASE}/teammates",
-            json=[{"id": 1, "name": "A"}, {"id": 2, "name": "B"}],
+            json={"data": [{"id": 1, "name": "A"}, {"id": 2, "name": "B"}], "has_more": False},
         )
         result = Teammates(http).list()
-        assert len(result) == 2
-        assert all(isinstance(t, Teammate) for t in result)
+        assert isinstance(result, SyncPage)
+        assert len(result.data) == 2
+        assert all(isinstance(t, Teammate) for t in result.data)
+        assert result.has_more is False
 
     @responses.activate
     def test_list_with_user_id(self, http):
-        responses.add(responses.GET, f"{BASE}/teammates", json=[])
+        responses.add(responses.GET, f"{BASE}/teammates", json={"data": [], "has_more": False})
         Teammates(http).list(user_id="u_1")
         assert "user_id=u_1" in responses.calls[0].request.url
 
@@ -93,6 +95,13 @@ class TestTeammates:
         responses.add(responses.PATCH, f"{BASE}/teammates/1", json={"id": 1, "name": "New"})
         t = Teammates(http).update(1, name="New")
         assert t.name == "New"
+
+    @responses.activate
+    def test_update_sends_only_provided_fields(self, http):
+        responses.add(responses.PATCH, f"{BASE}/teammates/1", json={"id": 1, "name": "X"})
+        Teammates(http).update(1, name="X", tools=["gmail"], allowed_senders=["@a.com"])
+        body = json.loads(responses.calls[0].request.body)
+        assert body == {"name": "X", "tools": ["gmail"], "allowed_senders": ["@a.com"]}
 
     @responses.activate
     def test_delete(self, http):
@@ -148,9 +157,12 @@ class TestRuns:
 
     @responses.activate
     def test_list(self, http):
-        responses.add(responses.GET, f"{BASE}/runs", json=[{"id": 1}, {"id": 2}])
+        responses.add(
+            responses.GET, f"{BASE}/runs",
+            json={"data": [{"id": 1}, {"id": 2}], "has_more": False},
+        )
         result = Runs(http).list()
-        assert len(result) == 2
+        assert len(result.data) == 2
 
     @responses.activate
     def test_get(self, http):
@@ -221,10 +233,11 @@ class TestTasks:
     @responses.activate
     def test_list(self, http):
         responses.add(
-            responses.GET, f"{BASE}/tasks", json=[{"id": 1, "teammate_id": 2, "instructions": "Do"}]
+            responses.GET, f"{BASE}/tasks",
+            json={"data": [{"id": 1, "teammate_id": 2, "instructions": "Do"}], "has_more": False},
         )
         result = Tasks(http).list()
-        assert len(result) == 1
+        assert len(result.data) == 1
 
     @responses.activate
     def test_get(self, http):
@@ -243,6 +256,16 @@ class TestTasks:
         )
         t = Tasks(http).update(1, instructions="New")
         assert t.instructions == "New"
+
+    @responses.activate
+    def test_update_sends_only_provided_fields(self, http):
+        responses.add(
+            responses.PATCH, f"{BASE}/tasks/1",
+            json={"id": 1, "teammate_id": 2, "instructions": "X"},
+        )
+        Tasks(http).update(1, instructions="X", expected_output="Y")
+        body = json.loads(responses.calls[0].request.body)
+        assert body == {"instructions": "X", "expected_output": "Y"}
 
     @responses.activate
     def test_delete(self, http):
@@ -312,8 +335,11 @@ class TestTeammatesTriggers:
 
     @responses.activate
     def test_list_aggregates_across_tasks(self, http):
-        # Two tasks for teammate
-        responses.add(responses.GET, f"{BASE}/tasks", json=[{"id": 1}, {"id": 2}])
+        # Two tasks for teammate — backend now returns envelope
+        responses.add(
+            responses.GET, f"{BASE}/tasks",
+            json={"data": [{"id": 1}, {"id": 2}], "has_more": False},
+        )
         responses.add(
             responses.GET, f"{BASE}/tasks/1/triggers", json=[{"id": 10, "type": "schedule"}]
         )

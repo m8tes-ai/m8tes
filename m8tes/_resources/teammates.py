@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .._types import Task, Teammate, Trigger
+from .._types import SyncPage, Task, Teammate, Trigger
 
 if TYPE_CHECKING:
     from .._http import HTTPClient
@@ -49,7 +49,7 @@ class TeammatesTriggers:
         """List all triggers across all tasks for a teammate."""
         tasks_resp = self._http.request("GET", "/tasks", params={"teammate_id": teammate_id})
         triggers: list[Trigger] = []
-        for task_data in tasks_resp.json():
+        for task_data in tasks_resp.json()["data"]:
             resp = self._http.request("GET", f"/tasks/{task_data['id']}/triggers")
             triggers.extend(Trigger.from_dict(t) for t in resp.json())
         return triggers
@@ -57,7 +57,7 @@ class TeammatesTriggers:
     def delete(self, teammate_id: int, trigger_id: int) -> None:
         """Delete a trigger. Searches tasks for the teammate to find the trigger."""
         tasks_resp = self._http.request("GET", "/tasks", params={"teammate_id": teammate_id})
-        for task_data in tasks_resp.json():
+        for task_data in tasks_resp.json()["data"]:
             resp = self._http.request("GET", f"/tasks/{task_data['id']}/triggers")
             for t in resp.json():
                 if t["id"] == trigger_id:
@@ -105,19 +105,46 @@ class Teammates:
         resp = self._http.request("POST", "/teammates", json=body)
         return Teammate.from_dict(resp.json())
 
-    def list(self, *, user_id: str | None = None) -> list[Teammate]:
+    def list(self, *, user_id: str | None = None) -> SyncPage[Teammate]:
         params = {}
         if user_id is not None:
             params["user_id"] = user_id
         resp = self._http.request("GET", "/teammates", params=params)
-        return [Teammate.from_dict(d) for d in resp.json()]
+        body = resp.json()
+        return SyncPage(data=[Teammate.from_dict(d) for d in body["data"]], has_more=body["has_more"])
 
     def get(self, teammate_id: int) -> Teammate:
         resp = self._http.request("GET", f"/teammates/{teammate_id}")
         return Teammate.from_dict(resp.json())
 
-    def update(self, teammate_id: int, **kwargs) -> Teammate:
-        resp = self._http.request("PATCH", f"/teammates/{teammate_id}", json=kwargs)
+    def update(
+        self,
+        teammate_id: int,
+        *,
+        name: str | None = None,
+        instructions: str | None = None,
+        tools: list[str] | None = None,
+        role: str | None = None,
+        goals: str | None = None,
+        metadata: dict | None = None,
+        allowed_senders: list[str] | None = None,
+    ) -> Teammate:
+        body: dict = {}
+        if name is not None:
+            body["name"] = name
+        if instructions is not None:
+            body["instructions"] = instructions
+        if tools is not None:
+            body["tools"] = tools
+        if role is not None:
+            body["role"] = role
+        if goals is not None:
+            body["goals"] = goals
+        if metadata is not None:
+            body["metadata"] = metadata
+        if allowed_senders is not None:
+            body["allowed_senders"] = allowed_senders
+        resp = self._http.request("PATCH", f"/teammates/{teammate_id}", json=body)
         return Teammate.from_dict(resp.json())
 
     def delete(self, teammate_id: int) -> None:

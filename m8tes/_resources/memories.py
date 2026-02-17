@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .._types import Memory
+from .._types import Memory, SyncPage
 
 if TYPE_CHECKING:
     from .._http import HTTPClient
@@ -21,10 +21,11 @@ class Memories:
         resp = self._http.request("POST", "/memories", json={"user_id": user_id, "content": content})
         return Memory.from_dict(resp.json())
 
-    def list(self, *, user_id: str, limit: int = 20) -> list[Memory]:
+    def list(self, *, user_id: str, limit: int = 20) -> SyncPage[Memory]:
         """List memories for an end-user."""
         resp = self._http.request("GET", "/memories", params={"user_id": user_id, "limit": limit})
-        return [Memory.from_dict(d) for d in resp.json()]
+        body = resp.json()
+        return SyncPage(data=[Memory.from_dict(d) for d in body["data"]], has_more=body["has_more"])
 
     def delete(self, memory_id: int, *, user_id: str) -> None:
         """Delete a specific end-user memory."""

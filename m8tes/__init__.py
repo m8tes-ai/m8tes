@@ -17,7 +17,7 @@ from ._exceptions import (
     ValidationError,
 )
 from ._streaming import RunStream
-from ._types import App, Run, Task, Teammate, Trigger
+from ._types import App, Run, SyncPage, Task, Teammate, Trigger
 
 # ── Legacy exports (used by CLI) ─────────────────────────────────────
 from .agent import Agent, Deployment
@@ -41,6 +41,7 @@ __all__ = [
     "RateLimitError",
     "ValidationError",
     "RunStream",
+    "SyncPage",
     "Teammate",
     "Run",
     "Task",
