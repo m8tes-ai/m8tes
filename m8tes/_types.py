@@ -144,3 +144,87 @@ class App:
             category=data.get("category", "general"),
             connected=data.get("connected", False),
         )
+
+
+@dataclass
+class Memory:
+    """A saved memory for an end-user."""
+
+    id: int
+    user_id: str | None
+    content: str
+    source: str
+    created_at: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Memory:
+        return cls(
+            id=data["id"],
+            user_id=data.get("user_id"),
+            content=data["content"],
+            source=data.get("source", "api"),
+            created_at=data.get("created_at", ""),
+        )
+
+
+@dataclass
+class PermissionRequest:
+    """A pending or resolved tool permission request on a run."""
+
+    request_id: str
+    tool_name: str
+    tool_input: dict | None
+    status: str
+    created_at: str
+    resolved_at: str | None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> PermissionRequest:
+        return cls(
+            request_id=data["request_id"],
+            tool_name=data["tool_name"],
+            tool_input=data.get("tool_input"),
+            status=data["status"],
+            created_at=data.get("created_at", ""),
+            resolved_at=data.get("resolved_at"),
+        )
+
+
+@dataclass
+class PermissionPolicy:
+    """A pre-configured tool permission policy."""
+
+    id: int
+    tool_name: str
+    created_at: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> PermissionPolicy:
+        return cls(
+            id=data["id"],
+            tool_name=data["tool_name"],
+            created_at=data.get("created_at", ""),
+        )
+
+
+@dataclass
+class Webhook:
+    """A registered webhook endpoint."""
+
+    id: int
+    url: str
+    events: list[str]
+    secret: str | None
+    active: bool
+    created_at: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Webhook:
+        return cls(
+            id=data["id"],
+            url=data["url"],
+            events=data.get("events", []),
+            secret=data.get("secret"),
+            active=data.get("active", True),
+            created_at=data.get("created_at", ""),
+        )
