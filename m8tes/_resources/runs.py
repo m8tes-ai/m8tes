@@ -20,7 +20,7 @@ class Runs:
     def create(
         self,
         *,
-        task: str,
+        message: str,
         teammate_id: int | None = None,
         tools: list[str] | None = None,
         stream: bool = True,
@@ -38,7 +38,7 @@ class Runs:
         With stream=False: returns Run immediately (status="running").
             Poll GET /runs/{id} until status is terminal to get output.
         """
-        body: dict = {"task": task, "stream": stream}
+        body: dict = {"message": message, "stream": stream}
         if teammate_id is not None:
             body["teammate_id"] = teammate_id
         if tools is not None:
@@ -51,10 +51,8 @@ class Runs:
             body["user_id"] = user_id
         if metadata is not None:
             body["metadata"] = metadata
-        if not memory:
-            body["memory"] = False
-        if not history:
-            body["history"] = False
+        body["memory"] = memory
+        body["history"] = history
         if permission_mode != "autonomous":
             body["permission_mode"] = permission_mode
 

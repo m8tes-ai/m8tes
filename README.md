@@ -18,8 +18,8 @@ from m8tes import M8tes
 
 client = M8tes()  # uses M8TES_API_KEY env var
 
-for event in client.runs.create(task="Summarize the latest AI news"):
-    print(event.data)
+for event in client.runs.create(message="Summarize the latest AI news"):
+    print(event.type, event.raw)
 ```
 
 ## SDK Usage
@@ -34,22 +34,22 @@ bot = client.teammates.create(
 )
 ```
 
-### Run a task (streaming)
+### Run (streaming)
 
 ```python
 for event in client.runs.create(
     teammate_id=bot.id,
-    task="Close resolved tickets",
+    message="Close resolved tickets",
 ):
-    print(event.data)
+    print(event.type, event.raw)
 ```
 
-### Run a task (non-streaming)
+### Run (non-streaming)
 
 ```python
 run = client.runs.create(
     teammate_id=bot.id,
-    task="Close resolved tickets",
+    message="Close resolved tickets",
     stream=False,
 )
 print(run.output)
@@ -59,18 +59,18 @@ print(run.output)
 
 ```python
 for event in client.runs.reply(run_id=42, message="Also archive them"):
-    print(event.data)
+    print(event.type, event.raw)
 ```
 
 ### Schedule recurring work
 
 ```python
-client.teammates.triggers.create(
-    bot.id,
+# Create a reusable task, then attach a trigger
+task = client.tasks.create(
+    teammate_id=bot.id,
     instructions="Generate weekly report",
-    type="schedule",
-    cron="0 9 * * 1",
 )
+client.tasks.triggers.create(task.id, type="schedule", cron="0 9 * * 1")
 ```
 
 ### Manage per-user memory

@@ -11,10 +11,13 @@ This module provides secure API key storage using the system keychain:
 # mypy: disable-error-code="no-any-return"
 from datetime import UTC, datetime
 import json
+import logging
 import os
 from pathlib import Path
 import string
 import warnings
+
+logger = logging.getLogger(__name__)
 
 try:
     import keyring

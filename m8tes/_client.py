@@ -15,7 +15,7 @@ class M8tes:
     Usage:
         client = M8tes(api_key="m8_...")
         teammate = client.teammates.create(name="Bot", tools=["gmail"])
-        for event in client.runs.create(teammate_id=teammate.id, task="Do X"):
+        for event in client.runs.create(teammate_id=teammate.id, message="Do X"):
             print(event.type, event.raw)
     """
 
@@ -39,3 +39,13 @@ class M8tes:
         self.memories = Memories(self._http)
         self.permissions = Permissions(self._http)
         self.webhooks = Webhooks(self._http)
+
+    def close(self) -> None:
+        """Close the underlying HTTP session."""
+        self._http._session.close()
+
+    def __enter__(self) -> M8tes:
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        self.close()

@@ -2,14 +2,6 @@
 # See https://pre-commit.com for more information
 
 repos:
-  # Code formatting
-  - repo: https://github.com/psf/black
-    rev: 24.4.2
-    hooks:
-      - id: black
-        name: Format code with Black
-        language_version: python3
-
   # Linting and auto-fixes
   - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.5.0
@@ -62,7 +54,7 @@ repos:
     hooks:
       - id: pytest-unit
         name: Run fast unit tests
-        entry: bash -c 'pytest -m unit -x --tb=short --maxfail=1 -q'
+        entry: bash -c 'uv run pytest -m unit -x --tb=short --maxfail=1 -q'
         language: system
         pass_filenames: false
         always_run: true

@@ -28,6 +28,7 @@ def _raise_for_status(resp: requests.Response) -> None:
         message = error_obj.get("message", body.get("detail", message))
         request_id = error_obj.get("request_id", body.get("request_id"))
     except (ValueError, KeyError):
+        logger.debug("Failed to parse error body: %s", resp.text[:200] if resp.text else "empty")
         message = resp.text or message
 
     resp.close()
@@ -57,6 +58,7 @@ class HTTPClient:
                 )
             except (requests.Timeout, requests.ConnectionError) as e:
                 last_exc = e
+                logger.warning("Request failed (attempt %d/%d): %s", attempt + 1, _MAX_RETRIES, e)
                 if attempt < _MAX_RETRIES - 1:
                     time.sleep(_INITIAL_BACKOFF * (2**attempt))
                     continue
@@ -74,6 +76,7 @@ class HTTPClient:
                 try:
                     delay = float(retry_after)
                 except ValueError:
+                    logger.debug("Unparseable Retry-After header: %s", retry_after)
                     delay = _INITIAL_BACKOFF * (2**attempt)
             else:
                 delay = _INITIAL_BACKOFF * (2**attempt)

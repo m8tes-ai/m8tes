@@ -17,7 +17,20 @@ from ._exceptions import (
     ValidationError,
 )
 from ._streaming import RunStream
-from ._types import App, PermissionPolicy, Run, SyncPage, Task, Teammate, Trigger
+from ._types import (
+    App,
+    AppConnection,
+    Memory,
+    PermissionPolicy,
+    PermissionRequest,
+    Run,
+    SyncPage,
+    Task,
+    Teammate,
+    Trigger,
+    Webhook,
+    WebhookDelivery,
+)
 
 # ── Legacy exports (used by CLI) ─────────────────────────────────────
 from .agent import Agent, Deployment
@@ -25,36 +38,38 @@ from .exceptions import (
     AgentError,
     DeploymentError,
     IntegrationError,
-    M8tesError as _LegacyM8tesError,
     NetworkError,
     OAuthError,
     TimeoutError,
 )
 
 __all__ = [
-    # v2 SDK
-    "M8tes",
-    "M8tesError",
     "APIError",
-    "AuthenticationError",
-    "NotFoundError",
-    "RateLimitError",
-    "ValidationError",
-    "RunStream",
-    "SyncPage",
-    "Teammate",
-    "Run",
-    "Task",
-    "Trigger",
-    "App",
-    "PermissionPolicy",
-    # Legacy (CLI)
     "Agent",
     "AgentError",
+    "App",
+    "AppConnection",
+    "AuthenticationError",
     "Deployment",
     "DeploymentError",
     "IntegrationError",
+    "M8tes",
+    "M8tesError",
+    "Memory",
     "NetworkError",
+    "NotFoundError",
     "OAuthError",
+    "PermissionPolicy",
+    "PermissionRequest",
+    "RateLimitError",
+    "Run",
+    "RunStream",
+    "SyncPage",
+    "Task",
+    "Teammate",
     "TimeoutError",
+    "Trigger",
+    "ValidationError",
+    "Webhook",
+    "WebhookDelivery",
 ]

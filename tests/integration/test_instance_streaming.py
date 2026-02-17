@@ -5,18 +5,18 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from m8tes import M8tes
 from m8tes.instance import AgentInstance
 from m8tes.streaming import DoneEvent, TextDeltaEvent, ToolCallStartEvent
 
 
+@pytest.mark.integration
 class TestInstanceStreaming:
     """Test SDK instance streaming functionality."""
 
     @pytest.fixture
-    def client(self):
-        """Create M8tes client."""
-        return M8tes(api_key="test-key", base_url="http://test.local")
+    def mock_service(self):
+        """Mock instance service — tests patch requests.post directly."""
+        return Mock()
 
     @pytest.fixture
     def mock_instance_data(self):
@@ -46,10 +46,10 @@ class TestInstanceStreaming:
         return "\n".join(lines).encode()
 
     @patch("m8tes.instance.requests.post")
-    def test_execute_task_with_streaming(self, mock_post, client, mock_instance_data):
+    def test_execute_task_with_streaming(self, mock_post, mock_service, mock_instance_data):
         """Test execute_task with streaming enabled."""
         # Create instance
-        instance = AgentInstance(client.instances, mock_instance_data)
+        instance = AgentInstance(mock_service, mock_instance_data)
 
         # Mock SSE response
         sse_events = [
@@ -89,9 +89,9 @@ class TestInstanceStreaming:
         assert len(done_events) == 1
 
     @patch("m8tes.instance.requests.post")
-    def test_execute_task_text_format(self, mock_post, client, mock_instance_data):
+    def test_execute_task_text_format(self, mock_post, mock_service, mock_instance_data):
         """Test execute_task with text format."""
-        instance = AgentInstance(client.instances, mock_instance_data)
+        instance = AgentInstance(mock_service, mock_instance_data)
 
         sse_events = [
             {"type": "text-delta", "delta": "Hello", "id": "0"},
@@ -114,9 +114,9 @@ class TestInstanceStreaming:
         assert "".join(text_chunks) == "Hello world"
 
     @patch("m8tes.instance.requests.post")
-    def test_execute_task_with_tool_calls(self, mock_post, client, mock_instance_data):
+    def test_execute_task_with_tool_calls(self, mock_post, mock_service, mock_instance_data):
         """Test execute_task with tool call events."""
-        instance = AgentInstance(client.instances, mock_instance_data)
+        instance = AgentInstance(mock_service, mock_instance_data)
 
         sse_events = [
             {"type": "text-delta", "delta": "Let me check", "id": "0"},
@@ -143,9 +143,9 @@ class TestInstanceStreaming:
         assert tool_starts[0].tool_call_id == "tool-123"
 
     @patch("m8tes.instance.requests.post")
-    def test_execute_task_without_streaming(self, mock_post, client, mock_instance_data):
+    def test_execute_task_without_streaming(self, mock_post, mock_service, mock_instance_data):
         """Test execute_task with streaming disabled."""
-        instance = AgentInstance(client.instances, mock_instance_data)
+        instance = AgentInstance(mock_service, mock_instance_data)
 
         # Mock non-streaming JSON response
         mock_response = Mock()
@@ -178,9 +178,9 @@ class TestInstanceStreaming:
         assert isinstance(events[1], DoneEvent)
 
     @patch("m8tes.instance.requests.post")
-    def test_execute_task_handles_errors(self, mock_post, client, mock_instance_data):
+    def test_execute_task_handles_errors(self, mock_post, mock_service, mock_instance_data):
         """Test execute_task handles streaming errors correctly."""
-        instance = AgentInstance(client.instances, mock_instance_data)
+        instance = AgentInstance(mock_service, mock_instance_data)
 
         # Mock 401 error
         import requests
@@ -202,9 +202,9 @@ class TestInstanceStreaming:
             list(instance.execute_task("Say hello"))
 
     @patch("m8tes.instance.requests.post")
-    def test_execute_task_json_format(self, mock_post, client, mock_instance_data):
+    def test_execute_task_json_format(self, mock_post, mock_service, mock_instance_data):
         """Test execute_task with JSON format."""
-        instance = AgentInstance(client.instances, mock_instance_data)
+        instance = AgentInstance(mock_service, mock_instance_data)
 
         sse_events = [
             {"type": "text-delta", "delta": "Hello", "id": "0"},
@@ -227,9 +227,9 @@ class TestInstanceStreaming:
         assert json_events[0]["delta"] == "Hello"
 
     @patch("m8tes.instance.requests.post")
-    def test_session_created_event_filtered(self, mock_post, client, mock_instance_data):
+    def test_session_created_event_filtered(self, mock_post, mock_service, mock_instance_data):
         """Test that session.created events are filtered out (not yielded to consumers)."""
-        instance = AgentInstance(client.instances, mock_instance_data)
+        instance = AgentInstance(mock_service, mock_instance_data)
 
         # Mock SSE response with session.created event (nested structure)
         # Note: session_id from session.created should NOT be captured (Claude's internal ID)

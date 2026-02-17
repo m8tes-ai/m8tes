@@ -9,9 +9,18 @@ from m8tes._http import HTTPClient
 from m8tes._resources.apps import Apps
 from m8tes._resources.runs import Runs
 from m8tes._resources.tasks import Tasks, TaskTriggers
-from m8tes._resources.teammates import Teammates, TeammatesTriggers
+from m8tes._resources.teammates import Teammates
 from m8tes._streaming import RunStream
-from m8tes._types import App, Run, SyncPage, Task, Teammate, Trigger
+from m8tes._types import (
+    App,
+    AppConnection,
+    PermissionRequest,
+    Run,
+    SyncPage,
+    Task,
+    Teammate,
+    Trigger,
+)
 
 BASE = "https://api.test/v2"
 
@@ -123,7 +132,7 @@ class TestRuns:
             status=200,
             content_type="text/event-stream",
         )
-        result = Runs(http).create(task="Do X")
+        result = Runs(http).create(message="Do X")
         assert isinstance(result, RunStream)
         result._response.close()
 
@@ -134,7 +143,7 @@ class TestRuns:
             f"{BASE}/runs",
             json={"id": 1, "status": "running"},
         )
-        result = Runs(http).create(task="Do X", stream=False)
+        result = Runs(http).create(message="Do X", stream=False)
         assert isinstance(result, Run)
         assert result.id == 1
 
@@ -142,7 +151,7 @@ class TestRuns:
     def test_create_with_all_fields(self, http):
         responses.add(responses.POST, f"{BASE}/runs", json={"id": 1})
         Runs(http).create(
-            task="Do",
+            message="Do",
             teammate_id=1,
             tools=["slack"],
             stream=False,
@@ -200,6 +209,54 @@ class TestRuns:
         )
         r = Runs(http).cancel(1)
         assert r.status == "cancelled"
+
+    @responses.activate
+    def test_permissions(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/1/permissions",
+            json=[
+                {"request_id": "req_1", "tool_name": "gmail", "status": "pending"},
+                {"request_id": "req_2", "tool_name": "slack", "status": "resolved"},
+            ],
+        )
+        result = Runs(http).permissions(1)
+        assert len(result) == 2
+        assert all(isinstance(r, PermissionRequest) for r in result)
+        assert result[0].tool_name == "gmail"
+        assert result[1].status == "resolved"
+
+    @responses.activate
+    def test_approve_allow(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/1/approve",
+            json={
+                "request_id": "req_1",
+                "tool_name": "gmail",
+                "status": "allowed",
+            },
+        )
+        result = Runs(http).approve(1, request_id="req_1", decision="allow")
+        assert isinstance(result, PermissionRequest)
+        assert result.status == "allowed"
+        body = json.loads(responses.calls[0].request.body)
+        assert body == {"request_id": "req_1", "decision": "allow", "remember": False}
+
+    @responses.activate
+    def test_approve_deny_with_remember(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/1/approve",
+            json={
+                "request_id": "req_1",
+                "tool_name": "gmail",
+                "status": "denied",
+            },
+        )
+        Runs(http).approve(1, request_id="req_1", decision="deny", remember=True)
+        body = json.loads(responses.calls[0].request.body)
+        assert body == {"request_id": "req_1", "decision": "deny", "remember": True}
 
 
 # ── Tasks (advanced) ─────────────────────────────────────────────────
@@ -303,57 +360,6 @@ class TestTaskTriggers:
         TaskTriggers(http).delete(1, 10)
 
 
-# ── Teammates Triggers (sugar) ───────────────────────────────────────
-
-
-class TestTeammatesTriggers:
-    @responses.activate
-    def test_create_creates_task_then_trigger(self, http):
-        # Step 1: task created
-        responses.add(
-            responses.POST,
-            f"{BASE}/tasks",
-            json={"id": 5, "teammate_id": 1, "instructions": "Weekly recap"},
-            status=201,
-        )
-        # Step 2: trigger attached
-        responses.add(
-            responses.POST,
-            f"{BASE}/tasks/5/triggers",
-            json={"id": 20, "type": "schedule", "enabled": True, "cron": "0 9 * * 1"},
-            status=201,
-        )
-        t = TeammatesTriggers(http).create(
-            1,
-            instructions="Weekly recap",
-            type="schedule",
-            cron="0 9 * * 1",
-        )
-        assert isinstance(t, Trigger)
-        assert t.id == 20
-        # Verify task was created with correct teammate_id
-        task_body = json.loads(responses.calls[0].request.body)
-        assert task_body["teammate_id"] == 1
-        assert task_body["instructions"] == "Weekly recap"
-
-    @responses.activate
-    def test_list_aggregates_across_tasks(self, http):
-        # Two tasks for teammate — backend now returns envelope
-        responses.add(
-            responses.GET,
-            f"{BASE}/tasks",
-            json={"data": [{"id": 1}, {"id": 2}], "has_more": False},
-        )
-        responses.add(
-            responses.GET, f"{BASE}/tasks/1/triggers", json=[{"id": 10, "type": "schedule"}]
-        )
-        responses.add(
-            responses.GET, f"{BASE}/tasks/2/triggers", json=[{"id": 20, "type": "webhook"}]
-        )
-        result = TeammatesTriggers(http).list(1)
-        assert len(result) == 2
-
-
 # ── Apps ─────────────────────────────────────────────────────────────
 
 
@@ -379,3 +385,42 @@ class TestApps:
         assert len(result.data) == 1
         assert isinstance(result.data[0], App)
         assert result.data[0].name == "gmail"
+
+    @responses.activate
+    def test_connect(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/apps/gmail/connect",
+            json={
+                "authorization_url": "https://accounts.google.com/o/oauth2",
+                "connection_id": "conn_1",
+            },
+            status=200,
+        )
+        result = Apps(http).connect("gmail", "https://myapp.com/callback", user_id="cust_1")
+        assert isinstance(result, AppConnection)
+        assert result.authorization_url == "https://accounts.google.com/o/oauth2"
+        assert result.connection_id == "conn_1"
+        body = json.loads(responses.calls[0].request.body)
+        assert body == {"redirect_uri": "https://myapp.com/callback", "user_id": "cust_1"}
+
+    @responses.activate
+    def test_connect_complete(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/apps/gmail/connect/complete",
+            json={"status": "connected", "app": "gmail"},
+            status=200,
+        )
+        result = Apps(http).connect_complete("gmail", "conn_1", user_id="cust_1")
+        assert isinstance(result, AppConnection)
+        assert result.status == "connected"
+        assert result.app == "gmail"
+        body = json.loads(responses.calls[0].request.body)
+        assert body == {"connection_id": "conn_1", "user_id": "cust_1"}
+
+    @responses.activate
+    def test_disconnect(self, http):
+        responses.add(responses.DELETE, f"{BASE}/apps/gmail/connections", status=204)
+        Apps(http).disconnect("gmail", user_id="cust_1")
+        assert "user_id=cust_1" in responses.calls[0].request.url
