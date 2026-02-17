@@ -49,19 +49,18 @@ class TestTeammatesCRUD:
         updated = v2_client.teammates.update(t.id, name="UpdatedBot")
         assert updated.name == "UpdatedBot"
 
-        # Delete
+        # Delete (soft delete — archives the teammate)
         v2_client.teammates.delete(t.id)
 
-        # Verify deleted
-        with pytest.raises(NotFoundError):
-            v2_client.teammates.get(t.id)
+        # Verify excluded from list (archived teammates are filtered out)
+        page_after = v2_client.teammates.list()
+        assert not any(tm.id == t.id for tm in page_after.data)
 
     def test_create_with_all_fields(self, v2_client):
         """Create teammate with every optional field."""
         t = v2_client.teammates.create(
             name="FullBot",
             instructions="Help with everything",
-            tools=["gmail", "slack"],
             role="support",
             goals="Resolve tickets",
             user_id="tenant_1",
@@ -117,10 +116,10 @@ class TestTasksCRUD:
         updated = v2_client.tasks.update(task.id, instructions="Daily summary")
         assert updated.instructions == "Daily summary"
 
-        # Delete
+        # Delete (soft delete — archives the task)
         v2_client.tasks.delete(task.id)
-        with pytest.raises(NotFoundError):
-            v2_client.tasks.get(task.id)
+        page_after = v2_client.tasks.list(teammate_id=tm.id)
+        assert not any(t.id == task.id for t in page_after.data)
 
         # Cleanup
         v2_client.teammates.delete(tm.id)
@@ -318,12 +317,12 @@ class TestErrorHandling:
             v2_client.teammates.get(999999)
         assert exc_info.value.status_code == 404
 
-    def test_unauthenticated(self):
+    def test_unauthenticated(self, backend_url):
         """Invalid API key raises error on first request."""
         from m8tes import M8tes
         from m8tes._exceptions import AuthenticationError, M8tesError
 
-        bad_client = M8tes(api_key="invalid_key", base_url="http://localhost:8000/api/v2")
+        bad_client = M8tes(api_key="invalid_key", base_url=f"{backend_url}/api/v2")
         with pytest.raises((AuthenticationError, M8tesError)):
             bad_client.teammates.list()
         bad_client.close()
