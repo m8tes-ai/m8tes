@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from .._streaming import RunStream
-from .._types import Run
+from .._types import PermissionRequest, Run
 
 if TYPE_CHECKING:
     from .._http import HTTPClient
@@ -28,6 +28,9 @@ class Runs:
         instructions: str | None = None,
         user_id: str | None = None,
         metadata: dict | None = None,
+        memory: bool = True,
+        history: bool = True,
+        permission_mode: str = "autonomous",
     ) -> RunStream | Run:
         """Create and execute a run.
 
@@ -47,6 +50,12 @@ class Runs:
             body["user_id"] = user_id
         if metadata is not None:
             body["metadata"] = metadata
+        if not memory:
+            body["memory"] = False
+        if not history:
+            body["history"] = False
+        if permission_mode != "autonomous":
+            body["permission_mode"] = permission_mode
 
         if stream:
             resp = self._http.stream("POST", "/runs", json=body)
@@ -86,3 +95,21 @@ class Runs:
     def cancel(self, run_id: int) -> Run:
         resp = self._http.request("POST", f"/runs/{run_id}/cancel")
         return Run.from_dict(resp.json())
+
+    def permissions(self, run_id: int) -> list[PermissionRequest]:
+        """List tool permission requests for a run."""
+        resp = self._http.request("GET", f"/runs/{run_id}/permissions")
+        return [PermissionRequest.from_dict(d) for d in resp.json()]
+
+    def approve(
+        self,
+        run_id: int,
+        *,
+        request_id: str,
+        decision: str = "allow",
+        remember: bool = False,
+    ) -> PermissionRequest:
+        """Approve or deny a pending tool permission request."""
+        body = {"request_id": request_id, "decision": decision, "remember": remember}
+        resp = self._http.request("POST", f"/runs/{run_id}/approve", json=body)
+        return PermissionRequest.from_dict(resp.json())
