@@ -1,4 +1,4 @@
-"""RunStream context manager wrapping existing AISDKStreamParser for developer-friendly streaming."""
+"""RunStream — wraps AISDKStreamParser for developer-friendly streaming."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ class RunStream:
     """Iterable stream of run events. Use as context manager or iterate directly.
 
     Usage:
-        with client.runs.create(task="Do X") as stream:
+        with client.runs.create(message="Do X") as stream:
             for event in stream:
                 print(event.type, event.raw)
         print(stream.text)  # full accumulated text

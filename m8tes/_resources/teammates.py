@@ -1,71 +1,13 @@
-"""Teammates resource — CRUD + trigger management for agent personas."""
+"""Teammates resource — CRUD for agent personas."""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .._types import SyncPage, Task, Teammate, Trigger
+from .._types import SyncPage, Teammate
 
 if TYPE_CHECKING:
     from .._http import HTTPClient
-
-
-class TeammatesTriggers:
-    """Triggers on teammates. Creates a task internally, attaches the trigger."""
-
-    def __init__(self, http: HTTPClient):
-        self._http = http
-
-    def create(
-        self,
-        teammate_id: int,
-        *,
-        instructions: str,
-        type: str,
-        cron: str | None = None,
-        interval_seconds: int | None = None,
-        timezone: str = "UTC",
-    ) -> Trigger:
-        """Create a trigger on a teammate. Internally creates a task, then attaches the trigger."""
-        # 1. Create task for this trigger
-        task_resp = self._http.request(
-            "POST",
-            "/tasks",
-            json={"teammate_id": teammate_id, "instructions": instructions},
-        )
-        task = Task.from_dict(task_resp.json())
-
-        # 2. Attach trigger to the task
-        trigger_body: dict = {"type": type, "timezone": timezone}
-        if cron:
-            trigger_body["cron"] = cron
-        if interval_seconds:
-            trigger_body["interval_seconds"] = interval_seconds
-
-        resp = self._http.request("POST", f"/tasks/{task.id}/triggers", json=trigger_body)
-        return Trigger.from_dict(resp.json())
-
-    def list(self, teammate_id: int) -> list[Trigger]:
-        """List all triggers across all tasks for a teammate."""
-        tasks_resp = self._http.request("GET", "/tasks", params={"teammate_id": teammate_id})
-        triggers: list[Trigger] = []
-        for task_data in tasks_resp.json()["data"]:
-            resp = self._http.request("GET", f"/tasks/{task_data['id']}/triggers")
-            triggers.extend(Trigger.from_dict(t) for t in resp.json())
-        return triggers
-
-    def delete(self, teammate_id: int, trigger_id: int) -> None:
-        """Delete a trigger. Searches tasks for the teammate to find the trigger."""
-        tasks_resp = self._http.request("GET", "/tasks", params={"teammate_id": teammate_id})
-        for task_data in tasks_resp.json()["data"]:
-            resp = self._http.request("GET", f"/tasks/{task_data['id']}/triggers")
-            for t in resp.json():
-                if t["id"] == trigger_id:
-                    self._http.request("DELETE", f"/tasks/{task_data['id']}/triggers/{trigger_id}")
-                    return
-        from .._exceptions import NotFoundError
-
-        raise NotFoundError(f"Trigger {trigger_id} not found", status_code=404)
 
 
 class Teammates:
@@ -73,7 +15,6 @@ class Teammates:
 
     def __init__(self, http: HTTPClient):
         self._http = http
-        self.triggers = TeammatesTriggers(http)
 
     def create(
         self,

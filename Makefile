@@ -107,39 +107,21 @@ clean:
 build: clean
 	uv run python -m build
 
-# Publishing (requires PYPI_TOKEN environment variable)
-publish-test: build
-	uv run python -m twine upload --repository testpypi dist/*
-
-publish: build
-	@if [ -z "$$PYPI_TOKEN" ]; then \
-		echo "Error: PYPI_TOKEN environment variable not set"; \
-		exit 1; \
-	fi
-	uv run python -m twine upload -u __token__ -p $$PYPI_TOKEN dist/*
+# Publishing — use GitHub Actions workflow (.github/workflows/publish-sdk.yml)
+# which handles PyPI upload via OIDC trusted publishing (no tokens needed).
+publish:
+	@echo "Publishing is handled by GitHub Actions (OIDC trusted publishing)."
+	@echo "Create a GitHub release to trigger the publish workflow."
 
 # Verification commands
 verify-install:
 	python -c "import m8tes; print(f'✅ m8tes SDK v{m8tes.__version__} imported successfully')"
-
-verify-example:
-	@echo "🧪 Testing example script..."
-	@cd examples && python -c "import basic_usage; print('✅ Example script imports successfully')"
 
 # Development helpers
 watch-tests:
 	@echo "👀 Watching for changes and running tests..."
 	@which entr > /dev/null || (echo "Install entr: brew install entr" && exit 1)
 	find . -name "*.py" | entr -c make test
-
-run-example:
-	@echo "🚀 Running basic usage example..."
-	@cd examples && uv run python basic_usage.py
-
-# Documentation
-docs-serve:
-	@echo "📚 Serving documentation (if available)..."
-	@echo "This would start a local docs server"
 
 # CI/CD helpers
 ci-install:
