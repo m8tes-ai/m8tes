@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from m8tes import M8tes
+from m8tes.client import M8tes
 from m8tes.exceptions import AuthenticationError, NetworkError, ValidationError
 from tests.utils.assertions import assert_valid_agent_id
 from tests.utils.mocks import mock_environment_variables
