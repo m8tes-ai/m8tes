@@ -206,6 +206,7 @@ class PermissionPolicy:
     """A pre-configured tool permission policy."""
 
     id: int
+    user_id: str
     tool_name: str
     created_at: str
 
@@ -213,6 +214,7 @@ class PermissionPolicy:
     def from_dict(cls, data: dict) -> PermissionPolicy:
         return cls(
             id=data["id"],
+            user_id=data["user_id"],
             tool_name=data["tool_name"],
             created_at=data.get("created_at", ""),
         )
