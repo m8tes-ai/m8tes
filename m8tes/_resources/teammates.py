@@ -105,13 +105,25 @@ class Teammates:
         resp = self._http.request("POST", "/teammates", json=body)
         return Teammate.from_dict(resp.json())
 
-    def list(self, *, user_id: str | None = None) -> SyncPage[Teammate]:
-        params = {}
+    def list(
+        self,
+        *,
+        user_id: str | None = None,
+        limit: int = 20,
+        starting_after: int | None = None,
+    ) -> SyncPage[Teammate]:
+        params: dict = {}
         if user_id is not None:
             params["user_id"] = user_id
+        if limit != 20:
+            params["limit"] = limit
+        if starting_after is not None:
+            params["starting_after"] = starting_after
         resp = self._http.request("GET", "/teammates", params=params)
         body = resp.json()
-        return SyncPage(data=[Teammate.from_dict(d) for d in body["data"]], has_more=body["has_more"])
+        return SyncPage(
+            data=[Teammate.from_dict(d) for d in body["data"]], has_more=body["has_more"]
+        )
 
     def get(self, teammate_id: int) -> Teammate:
         resp = self._http.request("GET", f"/teammates/{teammate_id}")

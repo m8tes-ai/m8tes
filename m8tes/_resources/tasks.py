@@ -73,12 +73,23 @@ class Tasks:
         resp = self._http.request("POST", "/tasks", json=body)
         return Task.from_dict(resp.json())
 
-    def list(self, *, teammate_id: int | None = None, user_id: str | None = None) -> SyncPage[Task]:
-        params = {}
+    def list(
+        self,
+        *,
+        teammate_id: int | None = None,
+        user_id: str | None = None,
+        limit: int = 20,
+        starting_after: int | None = None,
+    ) -> SyncPage[Task]:
+        params: dict = {}
         if teammate_id is not None:
             params["teammate_id"] = teammate_id
         if user_id is not None:
             params["user_id"] = user_id
+        if limit != 20:
+            params["limit"] = limit
+        if starting_after is not None:
+            params["starting_after"] = starting_after
         resp = self._http.request("GET", "/tasks", params=params)
         body = resp.json()
         return SyncPage(data=[Task.from_dict(d) for d in body["data"]], has_more=body["has_more"])

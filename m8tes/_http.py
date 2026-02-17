@@ -77,7 +77,9 @@ class HTTPClient:
                     delay = _INITIAL_BACKOFF * (2**attempt)
             else:
                 delay = _INITIAL_BACKOFF * (2**attempt)
-            logger.debug("Retrying %s %s (attempt %d, delay %.1fs)", method, url, attempt + 1, delay)
+            logger.debug(
+                "Retrying %s %s (attempt %d, delay %.1fs)", method, url, attempt + 1, delay
+            )
             time.sleep(delay)
 
         # Should not reach here, but just in case

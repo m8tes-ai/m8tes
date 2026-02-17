@@ -59,9 +59,11 @@ class Run:
     teammate_id: int | None
     status: str
     output: str | None
+    error: str | None
     user_id: str | None
     metadata: dict | None
     created_at: str
+    updated_at: str | None
 
     @classmethod
     def from_dict(cls, data: dict) -> Run:
@@ -70,9 +72,11 @@ class Run:
             teammate_id=data.get("teammate_id"),
             status=data.get("status", "running"),
             output=data.get("output"),
+            error=data.get("error"),
             user_id=data.get("user_id"),
             metadata=data.get("metadata"),
             created_at=data.get("created_at", ""),
+            updated_at=data.get("updated_at"),
         )
 
 
