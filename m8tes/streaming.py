@@ -7,11 +7,14 @@ streaming responses from the agent worker.
 Protocol: https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol
 """
 
+import logging
 from collections.abc import Generator
 from dataclasses import dataclass
 from enum import Enum
 import json
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class StreamEventType(str, Enum):
@@ -717,6 +720,7 @@ class AISDKStreamParser:
             data = json.loads(payload)
             return StreamEvent.from_dict(data)
         except json.JSONDecodeError:
+            logger.warning("Failed to parse SSE JSON: %s", payload[:200])
             return []
 
     @staticmethod

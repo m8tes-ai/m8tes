@@ -27,9 +27,10 @@ def _raise_for_status(resp: requests.Response) -> None:
         error_obj = body.get("error", {})
         message = error_obj.get("message", body.get("detail", message))
         request_id = error_obj.get("request_id", body.get("request_id"))
-    except Exception:
+    except (ValueError, KeyError):
         message = resp.text or message
 
+    resp.close()
     exc_cls = STATUS_MAP.get(resp.status_code, APIError)
     raise exc_cls(message, status_code=resp.status_code, request_id=request_id)
 

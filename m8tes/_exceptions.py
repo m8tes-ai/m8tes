@@ -33,6 +33,7 @@ class APIError(M8tesError):
 
 # Map HTTP status codes to exception classes.
 STATUS_MAP: dict[int, type[M8tesError]] = {
+    400: ValidationError,
     401: AuthenticationError,
     403: AuthenticationError,
     404: NotFoundError,
