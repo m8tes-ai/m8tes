@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .._types import Task, Trigger
+from .._types import SyncPage, Task, Trigger
 
 if TYPE_CHECKING:
     from .._http import HTTPClient
@@ -73,21 +73,42 @@ class Tasks:
         resp = self._http.request("POST", "/tasks", json=body)
         return Task.from_dict(resp.json())
 
-    def list(self, *, teammate_id: int | None = None, user_id: str | None = None) -> list[Task]:
+    def list(self, *, teammate_id: int | None = None, user_id: str | None = None) -> SyncPage[Task]:
         params = {}
         if teammate_id is not None:
             params["teammate_id"] = teammate_id
         if user_id is not None:
             params["user_id"] = user_id
         resp = self._http.request("GET", "/tasks", params=params)
-        return [Task.from_dict(d) for d in resp.json()]
+        body = resp.json()
+        return SyncPage(data=[Task.from_dict(d) for d in body["data"]], has_more=body["has_more"])
 
     def get(self, task_id: int) -> Task:
         resp = self._http.request("GET", f"/tasks/{task_id}")
         return Task.from_dict(resp.json())
 
-    def update(self, task_id: int, **kwargs) -> Task:
-        resp = self._http.request("PATCH", f"/tasks/{task_id}", json=kwargs)
+    def update(
+        self,
+        task_id: int,
+        *,
+        name: str | None = None,
+        instructions: str | None = None,
+        tools: list[str] | None = None,
+        expected_output: str | None = None,
+        goals: str | None = None,
+    ) -> Task:
+        body: dict = {}
+        if name is not None:
+            body["name"] = name
+        if instructions is not None:
+            body["instructions"] = instructions
+        if tools is not None:
+            body["tools"] = tools
+        if expected_output is not None:
+            body["expected_output"] = expected_output
+        if goals is not None:
+            body["goals"] = goals
+        resp = self._http.request("PATCH", f"/tasks/{task_id}", json=body)
         return Task.from_dict(resp.json())
 
     def delete(self, task_id: int) -> None:

@@ -3,6 +3,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Generic, TypeVar
+
+T = TypeVar("T")
+
+
+@dataclass
+class SyncPage(Generic[T]):
+    """Paginated list response matching the backend ListResponse envelope."""
+
+    data: list[T]
+    has_more: bool
 
 
 @dataclass
@@ -216,6 +227,7 @@ class Webhook:
     events: list[str]
     secret: str | None
     active: bool
+    delivery_status: str
     created_at: str
 
     @classmethod
@@ -226,5 +238,6 @@ class Webhook:
             events=data.get("events", []),
             secret=data.get("secret"),
             active=data.get("active", True),
+            delivery_status=data.get("delivery_status", "coming_soon"),
             created_at=data.get("created_at", ""),
         )
