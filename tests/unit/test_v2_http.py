@@ -6,7 +6,9 @@ import responses
 from m8tes._exceptions import (
     APIError,
     AuthenticationError,
+    ConflictError,
     NotFoundError,
+    PermissionDeniedError,
     RateLimitError,
     ValidationError,
 )
@@ -49,6 +51,28 @@ class TestErrorMapping:
             http.request("GET", "/x")
         assert exc_info.value.status_code == 401
         assert "Bad key" in exc_info.value.message
+
+    @responses.activate
+    def test_403_raises_permission_denied(self, http):
+        responses.add(
+            responses.GET, "https://api.m8tes.ai/v2/x", json={"detail": "Forbidden"}, status=403
+        )
+        with pytest.raises(PermissionDeniedError) as exc_info:
+            http.request("GET", "/x")
+        assert exc_info.value.status_code == 403
+
+    @responses.activate
+    def test_409_raises_conflict(self, http):
+        responses.add(
+            responses.POST,
+            "https://api.m8tes.ai/v2/memories",
+            json={"error": {"message": "Duplicate memory", "code": "conflict"}},
+            status=409,
+        )
+        with pytest.raises(ConflictError) as exc_info:
+            http.request("POST", "/memories")
+        assert exc_info.value.status_code == 409
+        assert "Duplicate" in exc_info.value.message
 
     @responses.activate
     def test_404_raises_not_found(self, http):
@@ -94,6 +118,16 @@ class TestErrorMapping:
         with pytest.raises(APIError) as exc_info:
             http.request("GET", "/x")
         assert exc_info.value.request_id == "req_abc"
+
+    @responses.activate
+    def test_error_includes_method_and_path(self, http):
+        responses.add(
+            responses.POST, "https://api.m8tes.ai/v2/runs", json={"detail": "err"}, status=422
+        )
+        with pytest.raises(ValidationError) as exc_info:
+            http.request("POST", "/runs")
+        assert exc_info.value.method == "POST"
+        assert "runs" in exc_info.value.path
 
     @responses.activate
     def test_non_json_error_body(self, http):

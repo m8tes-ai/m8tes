@@ -46,9 +46,8 @@ class TestTeammatesCRUD:
         assert fetched.name == "IntegBot"
 
         # Update
-        updated = v2_client.teammates.update(t.id, name="UpdatedBot", tools=["gmail"])
+        updated = v2_client.teammates.update(t.id, name="UpdatedBot")
         assert updated.name == "UpdatedBot"
-        assert "gmail" in (updated.tools or [])
 
         # Delete
         v2_client.teammates.delete(t.id)

@@ -43,7 +43,7 @@ def v2_client(backend_url):
     # Register
     resp = requests.post(
         f"{backend_url}/api/v1/auth/register",
-        json={"email": email, "password": password, "full_name": "SDK Integration Test"},
+        json={"email": email, "password": password, "first_name": "SDKTest"},
     )
     assert resp.status_code == 201, f"Registration failed: {resp.text}"
     token = resp.json()["api_key"]
