@@ -21,6 +21,7 @@ from m8tes._types import (
     Teammate,
     Trigger,
     Webhook,
+    WebhookDelivery,
 )
 
 # Load schemas.py directly from file path, bypassing app.routers.__init__
@@ -39,6 +40,7 @@ TriggerResponse = _schemas.TriggerResponse
 AppResponse = _schemas.AppResponse
 MemoryResponse = _schemas.MemoryResponse
 WebhookResponse = _schemas.WebhookResponse
+WebhookDeliveryResponse = _schemas.WebhookDeliveryResponse
 PermissionRequestResponse = _schemas.PermissionRequestResponse
 PermissionPolicyResponse = _schemas.PermissionPolicyResponse
 
@@ -60,6 +62,7 @@ SCHEMA_PAIRS = [
     (AppResponse, App, set()),
     (MemoryResponse, Memory, set()),
     (WebhookResponse, Webhook, set()),
+    (WebhookDeliveryResponse, WebhookDelivery, set()),
     (PermissionRequestResponse, PermissionRequest, set()),
     (PermissionPolicyResponse, PermissionPolicy, set()),
 ]

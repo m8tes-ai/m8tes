@@ -13,6 +13,7 @@ from m8tes.streaming import (
 )
 
 
+@pytest.mark.e2e
 class TestStreamingIntegration:
     """Integration tests for streaming execution."""
 
@@ -224,7 +225,10 @@ def authenticated_client():
     from m8tes import M8tes
 
     # This requires M8TES_API_KEY to be set in environment
-    client = M8tes()
+    try:
+        client = M8tes()
+    except Exception as e:
+        pytest.skip(f"No API key configured: {e}")
 
     # Verify authentication works
     try:

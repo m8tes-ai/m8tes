@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 
 from .._types import SyncPage, Webhook, WebhookDelivery
 
+_list = list  # preserve builtin; shadowed by .list() method
+
 if TYPE_CHECKING:
     from .._http import HTTPClient
 
@@ -15,6 +17,24 @@ class Webhooks:
 
     def __init__(self, http: HTTPClient):
         self._http = http
+
+    @staticmethod
+    def verify_signature(body: str | bytes, headers: dict[str, str], secret: str) -> bool:
+        """Verify webhook HMAC-SHA256 signature.
+
+        Args:
+            body: Raw request body (string or bytes).
+            headers: Request headers (Webhook-Id, Webhook-Timestamp, Webhook-Signature).
+            secret: Webhook signing secret from creation.
+        """
+        import hashlib
+        import hmac as _hmac
+
+        if isinstance(body, bytes):
+            body = body.decode("utf-8")
+        msg = f"{headers['Webhook-Id']}.{headers['Webhook-Timestamp']}.{body}"
+        expected = "v1=" + _hmac.new(secret.encode(), msg.encode(), hashlib.sha256).hexdigest()
+        return _hmac.compare_digest(expected, headers["Webhook-Signature"])
 
     def create(self, *, url: str, events: list[str] | None = None) -> Webhook:
         """Register a webhook endpoint. Secret returned only on creation."""
@@ -43,8 +63,14 @@ class Webhooks:
             params["starting_after"] = starting_after
         resp = self._http.request("GET", "/webhooks", params=params)
         body = resp.json()
+
+        def _fetch_next(**kw: object) -> SyncPage[Webhook]:
+            return self.list(**kw)  # type: ignore[arg-type]
+
         return SyncPage(
-            data=[Webhook.from_dict(d) for d in body["data"]], has_more=body["has_more"]
+            data=[Webhook.from_dict(d) for d in body["data"]],
+            has_more=body["has_more"],
+            _fetch_next=_fetch_next,
         )
 
     def update(
@@ -52,7 +78,7 @@ class Webhooks:
         webhook_id: int,
         *,
         url: str | None = None,
-        events: list[str] | None = None,
+        events: _list[str] | None = None,
         active: bool | None = None,
         rotate_secret: bool = False,
     ) -> Webhook:
@@ -84,9 +110,14 @@ class Webhooks:
             params["starting_after"] = starting_after
         resp = self._http.request("GET", f"/webhooks/{webhook_id}/deliveries", params=params)
         body = resp.json()
+
+        def _fetch_next(**kw: object) -> SyncPage[WebhookDelivery]:
+            return self.list_deliveries(webhook_id, **kw)  # type: ignore[arg-type]
+
         return SyncPage(
             data=[WebhookDelivery.from_dict(d) for d in body["data"]],
             has_more=body["has_more"],
+            _fetch_next=_fetch_next,
         )
 
     def delete(self, webhook_id: int) -> None:

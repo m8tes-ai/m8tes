@@ -539,7 +539,7 @@ class TestAutoDetectInstance:
         }
         mock_http_client.request.return_value = response_data
 
-        instance, metadata = instance_service.auto_detect()
+        _instance, metadata = instance_service.auto_detect()
 
         # Verify metadata keys
         assert "reason" in metadata
