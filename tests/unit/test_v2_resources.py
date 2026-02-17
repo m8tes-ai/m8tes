@@ -359,11 +359,14 @@ class TestApps:
         responses.add(
             responses.GET,
             f"{BASE}/apps",
-            json=[
-                {"name": "gmail", "display_name": "Gmail", "category": "email", "connected": False}
-            ],
+            json={
+                "data": [
+                    {"name": "gmail", "display_name": "Gmail", "category": "email", "connected": False}
+                ],
+                "has_more": False,
+            },
         )
         result = Apps(http).list()
-        assert len(result) == 1
-        assert isinstance(result[0], App)
-        assert result[0].name == "gmail"
+        assert len(result.data) == 1
+        assert isinstance(result.data[0], App)
+        assert result.data[0].name == "gmail"
