@@ -55,8 +55,8 @@ from m8tes import M8tes
 
 client = M8tes(api_key="m8_...")
 bot = client.teammates.create(name="Ops Mate", tools=["gmail"])
-for event in client.runs.create(teammate_id=bot.id, task="Close tickets"):
-    print(event.data)
+for event in client.runs.create(teammate_id=bot.id, message="Close tickets"):
+    print(event.type, event.raw)
 ```
 
 Legacy CLI usage:

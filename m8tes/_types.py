@@ -162,6 +162,25 @@ class App:
 
 
 @dataclass
+class AppConnection:
+    """Result of an OAuth connection initiation or completion."""
+
+    authorization_url: str | None
+    connection_id: str | None
+    status: str | None
+    app: str | None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> AppConnection:
+        return cls(
+            authorization_url=data.get("authorization_url"),
+            connection_id=data.get("connection_id"),
+            status=data.get("status"),
+            app=data.get("app"),
+        )
+
+
+@dataclass
 class Memory:
     """A saved memory for an end-user."""
 
@@ -244,6 +263,35 @@ class Webhook:
             events=data.get("events", []),
             secret=data.get("secret"),
             active=data.get("active", True),
-            delivery_status=data.get("delivery_status", "coming_soon"),
+            delivery_status=data.get("delivery_status", "active"),
+            created_at=data.get("created_at", ""),
+        )
+
+
+@dataclass
+class WebhookDelivery:
+    """A webhook delivery attempt."""
+
+    id: int
+    webhook_endpoint_id: int
+    event_type: str
+    event_id: str
+    run_id: int
+    status: str
+    response_status_code: int | None
+    attempts: int
+    created_at: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> WebhookDelivery:
+        return cls(
+            id=data["id"],
+            webhook_endpoint_id=data["webhook_endpoint_id"],
+            event_type=data["event_type"],
+            event_id=data["event_id"],
+            run_id=data["run_id"],
+            status=data["status"],
+            response_status_code=data.get("response_status_code"),
+            attempts=data.get("attempts", 0),
             created_at=data.get("created_at", ""),
         )

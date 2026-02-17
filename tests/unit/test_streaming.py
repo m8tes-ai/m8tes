@@ -734,8 +734,7 @@ class TestFullStreamParsing:
                     'data: {"type":"done"}',
                     "",
                 ]
-                for item in lines:
-                    yield item
+                yield from lines
 
         events = list(AISDKStreamParser.parse_stream(MockResponse()))
         assert len(events) == 2
