@@ -468,7 +468,7 @@ class TestM8tesIntegration:
                 'data: {"type": "start", "timestamp": "2024-01-01T00:00:00Z"}',
                 'data: {"type": "complete", "timestamp": "2024-01-01T00:00:01Z"}',
             ]
-            mock_response_body = "\n".join(mock_stream_response) + "\n"
+            mock_response_body = "\n\n".join(mock_stream_response) + "\n\n"
             rsps.add(
                 responses.POST,
                 f"https://api.test.m8tes.ai/api/v1/agents/{agent.id}/run",
