@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Generic, TypeVar
+from collections.abc import Callable, Iterator
+from dataclasses import dataclass, field
+from typing import Any, Generic, TypeVar
 
 T = TypeVar("T")
 
@@ -14,6 +15,17 @@ class SyncPage(Generic[T]):
 
     data: list[T]
     has_more: bool
+    _fetch_next: Callable[..., SyncPage[T]] | None = field(default=None, repr=False)
+
+    def auto_paging_iter(self) -> Iterator[T]:
+        """Iterate through all pages automatically."""
+        page: SyncPage[T] = self
+        while True:
+            yield from page.data
+            if not page.has_more or not page.data or not page._fetch_next:
+                break
+            last: Any = page.data[-1]
+            page = page._fetch_next(starting_after=last.id)
 
 
 @dataclass
@@ -31,7 +43,7 @@ class Teammate:
     allowed_senders: list[str] | None
     status: str
     created_at: str
-    updated_at: str
+    updated_at: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> Teammate:
@@ -47,7 +59,7 @@ class Teammate:
             allowed_senders=data.get("allowed_senders"),
             status=data.get("status", "enabled"),
             created_at=data.get("created_at", ""),
-            updated_at=data.get("updated_at", ""),
+            updated_at=data.get("updated_at"),
         )
 
 
@@ -94,7 +106,7 @@ class Task:
     user_id: str | None
     status: str
     created_at: str
-    updated_at: str
+    updated_at: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> Task:
@@ -109,7 +121,7 @@ class Task:
             user_id=data.get("user_id"),
             status=data.get("status", "enabled"),
             created_at=data.get("created_at", ""),
-            updated_at=data.get("updated_at", ""),
+            updated_at=data.get("updated_at"),
         )
 
 
@@ -279,7 +291,9 @@ class WebhookDelivery:
     run_id: int
     status: str
     response_status_code: int | None
+    response_body: str | None
     attempts: int
+    next_retry_at: str | None
     created_at: str
 
     @classmethod
@@ -292,6 +306,8 @@ class WebhookDelivery:
             run_id=data["run_id"],
             status=data["status"],
             response_status_code=data.get("response_status_code"),
+            response_body=data.get("response_body"),
             attempts=data.get("attempts", 0),
+            next_retry_at=data.get("next_retry_at"),
             created_at=data.get("created_at", ""),
         )

@@ -28,7 +28,7 @@ def run_streamlined_oauth_flow(
 
         # Start local callback server
         server = WorkingOAuthServer(port=port)
-        actual_port, redirect_uri = server.start_server()
+        _actual_port, redirect_uri = server.start_server()
 
         # Start OAuth flow with local server
         oauth_data = client.google.start_connect(  # type: ignore[attr-defined]
