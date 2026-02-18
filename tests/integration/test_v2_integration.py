@@ -25,6 +25,8 @@ from m8tes._exceptions import (
     ValidationError,
 )
 from m8tes._types import (
+    AccountSettings,
+    EndUser,
     Memory,
     PermissionPolicy,
     SyncPage,
@@ -1774,3 +1776,126 @@ class TestWebhookSignatureVerification:
 
         assert Webhooks.verify_signature("body", {}, "secret") is False
         assert Webhooks.verify_signature("body", {"Webhook-Id": "x"}, "secret") is False
+
+
+# ── End Users ────────────────────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestEndUsersCRUD:
+    def test_full_lifecycle(self, v2_client):
+        """Create -> list -> get -> update -> delete -> verify gone."""
+        uid = _uid()
+        eu = v2_client.users.create(
+            user_id=uid, name="Alice", email="alice@example.com", company="Acme",
+        )
+        try:
+            assert isinstance(eu, EndUser)
+            assert eu.user_id == uid
+            assert eu.name == "Alice"
+            assert eu.email == "alice@example.com"
+            assert eu.company == "Acme"
+            assert eu.id is not None
+            assert eu.created_at
+
+            # List
+            page = v2_client.users.list()
+            assert isinstance(page, SyncPage)
+            assert any(u.user_id == uid for u in page.data)
+
+            # Get
+            fetched = v2_client.users.get(uid)
+            assert fetched.user_id == uid
+            assert fetched.name == "Alice"
+
+            # Update
+            updated = v2_client.users.update(uid, name="Alice Jones", company="NewCo")
+            assert updated.name == "Alice Jones"
+            assert updated.company == "NewCo"
+            assert updated.email == "alice@example.com"  # unchanged
+
+            # Verify update persisted
+            refetched = v2_client.users.get(uid)
+            assert refetched.name == "Alice Jones"
+        finally:
+            v2_client.users.delete(uid)
+
+        # Verify gone
+        with pytest.raises(NotFoundError):
+            v2_client.users.get(uid)
+
+    def test_create_with_metadata(self, v2_client):
+        """Create with metadata dict."""
+        uid = _uid()
+        eu = v2_client.users.create(user_id=uid, metadata={"tier": "premium"})
+        try:
+            assert eu.metadata == {"tier": "premium"}
+        finally:
+            v2_client.users.delete(uid)
+
+    def test_duplicate_returns_conflict(self, v2_client):
+        """Creating the same user_id twice returns ConflictError."""
+        uid = _uid()
+        v2_client.users.create(user_id=uid)
+        try:
+            with pytest.raises(ConflictError):
+                v2_client.users.create(user_id=uid)
+        finally:
+            v2_client.users.delete(uid)
+
+    def test_get_not_found(self, v2_client):
+        """Non-existent user_id returns NotFoundError."""
+        with pytest.raises(NotFoundError):
+            v2_client.users.get("nonexistent-user-id-xyz")
+
+    def test_delete_not_found(self, v2_client):
+        """Deleting non-existent user_id returns NotFoundError."""
+        with pytest.raises(NotFoundError):
+            v2_client.users.delete("nonexistent-user-id-xyz")
+
+    def test_auto_creation_via_memory(self, v2_client):
+        """Creating a memory with user_id auto-creates an EndUser profile."""
+        uid = _uid()
+        mem = v2_client.memories.create(user_id=uid, content="Prefers dark mode")
+        try:
+            # Should be able to get the auto-created user
+            eu = v2_client.users.get(uid)
+            assert eu.user_id == uid
+            assert eu.name is None  # auto-created, no profile data
+
+            # Direct create should 409 since it already exists
+            with pytest.raises(ConflictError):
+                v2_client.users.create(user_id=uid)
+
+            # But update should work
+            updated = v2_client.users.update(uid, name="Bob")
+            assert updated.name == "Bob"
+        finally:
+            v2_client.memories.delete(mem.id)
+            v2_client.users.delete(uid)
+
+
+# ── Settings ─────────────────────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestSettingsCRUD:
+    def test_get_defaults(self, v2_client):
+        """Default settings: company_research enabled."""
+        settings = v2_client.settings.get()
+        assert isinstance(settings, AccountSettings)
+        assert settings.company_research is True
+
+    def test_toggle_company_research(self, v2_client):
+        """Disable and re-enable company research."""
+        # Disable
+        updated = v2_client.settings.update(company_research=False)
+        assert updated.company_research is False
+
+        # Verify persisted
+        fetched = v2_client.settings.get()
+        assert fetched.company_research is False
+
+        # Re-enable
+        restored = v2_client.settings.update(company_research=True)
+        assert restored.company_research is True
