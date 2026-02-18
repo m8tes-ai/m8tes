@@ -69,13 +69,21 @@ class Runs:
         """Poll until the run reaches a terminal status. Returns the completed Run."""
         import time as _time
 
+        from .._exceptions import APIError
+
         _TERMINAL = {"completed", "failed", "cancelled"}
         deadline = _time.monotonic() + timeout
         while True:
-            run = self.get(run_id)
+            try:
+                run = self.get(run_id)
+            except APIError:
+                if _time.monotonic() >= deadline:
+                    raise TimeoutError(f"Run {run_id} did not complete within {timeout}s") from None
+                _time.sleep(interval)
+                continue
             if run.status in _TERMINAL:
                 return run
-            if _time.monotonic() + interval > deadline:
+            if _time.monotonic() >= deadline:
                 raise TimeoutError(f"Run {run_id} did not complete within {timeout}s")
             _time.sleep(interval)
 
