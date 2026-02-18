@@ -327,19 +327,20 @@ class TestRuns:
         assert body == {"answers": {"What priority?": "High"}}
 
     @responses.activate
-    def test_create_with_ask_user_false(self, http):
+    def test_create_with_hitl_true(self, http):
+        """human_in_the_loop=True is non-default, so it IS sent in body."""
         responses.add(responses.POST, f"{BASE}/runs", json={"id": 1, "status": "running"})
-        Runs(http).create(message="Do X", stream=False, ask_user=False)
+        Runs(http).create(message="Do X", stream=False, human_in_the_loop=True)
         body = json.loads(responses.calls[0].request.body)
-        assert body["ask_user"] is False
+        assert body["human_in_the_loop"] is True
 
     @responses.activate
-    def test_create_ask_user_default_not_sent(self, http):
-        """ask_user=True (default) is NOT sent in the body to avoid noise."""
+    def test_create_default_hitl_not_sent(self, http):
+        """human_in_the_loop=False (default) is NOT sent in the body."""
         responses.add(responses.POST, f"{BASE}/runs", json={"id": 1, "status": "running"})
         Runs(http).create(message="Do X", stream=False)
         body = json.loads(responses.calls[0].request.body)
-        assert "ask_user" not in body
+        assert "human_in_the_loop" not in body
 
     @responses.activate
     def test_list_files(self, http):
@@ -557,19 +558,20 @@ class TestTasks:
         assert body["permission_mode"] == "approval"
 
     @responses.activate
-    def test_run_with_ask_user_false(self, http):
+    def test_run_with_hitl_true(self, http):
+        """human_in_the_loop=True is non-default, so it IS sent in body."""
         responses.add(
             responses.POST,
             f"{BASE}/tasks/10/runs",
             json={"id": 1, "status": "running", "created_at": "2026-01-01T00:00:00Z"},
         )
-        Tasks(http).run(10, stream=False, ask_user=False)
+        Tasks(http).run(10, stream=False, human_in_the_loop=True)
         body = json.loads(responses.calls[0].request.body)
-        assert body["ask_user"] is False
+        assert body["human_in_the_loop"] is True
 
     @responses.activate
-    def test_run_ask_user_default_not_sent(self, http):
-        """ask_user=True (default) is NOT sent in the body."""
+    def test_run_default_hitl_not_sent(self, http):
+        """human_in_the_loop=False (default) is NOT sent in the body."""
         responses.add(
             responses.POST,
             f"{BASE}/tasks/10/runs",
@@ -577,7 +579,7 @@ class TestTasks:
         )
         Tasks(http).run(10, stream=False)
         body = json.loads(responses.calls[0].request.body)
-        assert "ask_user" not in body
+        assert "human_in_the_loop" not in body
 
     @responses.activate
     def test_delete(self, http):

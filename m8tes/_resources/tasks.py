@@ -137,7 +137,7 @@ class Tasks:
         metadata: dict | None = None,
         memory: bool = True,
         history: bool = True,
-        ask_user: bool = True,
+        human_in_the_loop: bool = False,
         permission_mode: str = "autonomous",
     ) -> RunStream | Run:
         """Execute a saved task, creating a new run.
@@ -146,15 +146,16 @@ class Tasks:
         With stream=False: returns Run immediately (status="running").
             Poll runs.poll(run.id) until status is terminal to get output.
 
-        Set ask_user=False to prevent the agent from asking clarifying questions.
+        Set human_in_the_loop=True to enable interactive features
+        (clarifying questions, tool approval, plan mode).
         """
         body: dict = {"stream": stream, "memory": memory, "history": history}
         if user_id is not None:
             body["user_id"] = user_id
         if metadata is not None:
             body["metadata"] = metadata
-        if not ask_user:
-            body["ask_user"] = False
+        if human_in_the_loop:
+            body["human_in_the_loop"] = True
         if permission_mode != "autonomous":
             body["permission_mode"] = permission_mode
 

@@ -34,7 +34,7 @@ class Runs:
         metadata: dict | None = None,
         memory: bool = True,
         history: bool = True,
-        ask_user: bool = True,
+        human_in_the_loop: bool = False,
         permission_mode: str = "autonomous",
     ) -> RunStream | Run:
         """Create and execute a run.
@@ -43,7 +43,8 @@ class Runs:
         With stream=False: returns Run immediately (status="running").
             Poll GET /runs/{id} until status is terminal to get output.
 
-        Set ask_user=False to prevent the agent from asking clarifying questions.
+        Set human_in_the_loop=True to enable interactive features
+        (clarifying questions, tool approval, plan mode).
         """
         body: dict = {"message": message, "stream": stream}
         if teammate_id is not None:
@@ -60,8 +61,8 @@ class Runs:
             body["metadata"] = metadata
         body["memory"] = memory
         body["history"] = history
-        if not ask_user:
-            body["ask_user"] = False
+        if human_in_the_loop:
+            body["human_in_the_loop"] = True
         if permission_mode != "autonomous":
             body["permission_mode"] = permission_mode
 
@@ -106,7 +107,7 @@ class Runs:
         metadata: dict | None = None,
         memory: bool = True,
         history: bool = True,
-        ask_user: bool = True,
+        human_in_the_loop: bool = False,
         permission_mode: str = "autonomous",
         poll_interval: float = 2.0,
         poll_timeout: float = 300.0,
@@ -123,7 +124,7 @@ class Runs:
             metadata=metadata,
             memory=memory,
             history=history,
-            ask_user=ask_user,
+            human_in_the_loop=human_in_the_loop,
             permission_mode=permission_mode,
         )
         assert isinstance(run, Run)
@@ -154,7 +155,7 @@ class Runs:
         metadata: dict | None = None,
         memory: bool = True,
         history: bool = True,
-        ask_user: bool = True,
+        human_in_the_loop: bool = False,
         permission_mode: str = "autonomous",
     ) -> Generator[str, None, None]:
         """Create a streaming run and yield only text delta strings.
@@ -176,7 +177,7 @@ class Runs:
             metadata=metadata,
             memory=memory,
             history=history,
-            ask_user=ask_user,
+            human_in_the_loop=human_in_the_loop,
             permission_mode=permission_mode,
         )
         assert isinstance(stream, RunStream)
