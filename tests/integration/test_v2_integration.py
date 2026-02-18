@@ -693,8 +693,8 @@ class TestTaskTriggers:
                 t_sched = v2_client.tasks.triggers.create(
                     task.id, type="schedule", cron="0 9 * * *"
                 )
-                t_wh = v2_client.tasks.triggers.create(task.id, type="webhook")
-                t_email = v2_client.tasks.triggers.create(task.id, type="email")
+                v2_client.tasks.triggers.create(task.id, type="webhook")
+                v2_client.tasks.triggers.create(task.id, type="email")
 
                 triggers = v2_client.tasks.triggers.list(task.id)
                 types = {tr.type for tr in triggers}
