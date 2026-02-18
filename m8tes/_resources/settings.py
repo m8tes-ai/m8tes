@@ -21,6 +21,7 @@ class Settings:
         return AccountSettings.from_dict(resp.json())
 
     def update(self, *, company_research: bool | None = None) -> AccountSettings:
+        """Update account settings. Pass company_research=False to disable automatic research."""
         body: dict = {}
         if company_research is not None:
             body["company_research"] = company_research

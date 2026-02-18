@@ -6,7 +6,17 @@ import os
 
 from ._exceptions import AuthenticationError
 from ._http import HTTPClient
-from ._resources import Apps, Memories, Permissions, Runs, Settings, Tasks, Teammates, Users, Webhooks
+from ._resources import (
+    Apps,
+    Memories,
+    Permissions,
+    Runs,
+    Settings,
+    Tasks,
+    Teammates,
+    Users,
+    Webhooks,
+)
 
 
 class M8tes:
