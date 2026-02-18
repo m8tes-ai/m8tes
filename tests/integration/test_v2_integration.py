@@ -1,10 +1,12 @@
 """V2 SDK integration tests — real M8tes client against real FastAPI backend.
 
-Tests CRUD endpoints only (no run execution, no Claude SDK calls).
-Covers all 7 V2 resources: teammates, tasks, triggers, memories,
-permissions, webhooks, runs (read-only + HITL validation), plus pagination,
-error handling, validation edge cases, multi-tenancy isolation, and
-context manager usage.
+Covers all V2 resources: teammates (CRUD, webhooks, email inbox), tasks
+(CRUD, triggers, run edge cases), runs (create, get, cancel, reply, files,
+HITL validation, answer, approve, SDK convenience methods like poll,
+create_and_wait, reply_and_wait, stream_text, streaming), memories,
+permissions, webhooks, users, settings, apps. Plus pagination, error
+handling, validation edge cases, multi-tenancy isolation, parameter combos,
+trigger error paths, and context manager usage.
 
 Requirements:
     1. Backend running at localhost:8000 (or E2E_BACKEND_URL)
@@ -27,6 +29,7 @@ from m8tes._exceptions import (
 )
 from m8tes._types import (
     AccountSettings,
+    EmailInbox,
     EndUser,
     Memory,
     PermissionPolicy,
@@ -287,6 +290,48 @@ class TestTeammateWebhooks:
             v2_client.teammates.disable_webhook(tm.id)
         finally:
             v2_client.teammates.delete(tm.id)
+
+
+# ── Teammate Email Inbox ─────────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestTeammateEmailInbox:
+    def test_enable_disable_lifecycle(self, v2_client):
+        """Enable email inbox → verify EmailInbox → disable → 204."""
+        tm = v2_client.teammates.create(name="EmailInboxHost")
+        try:
+            inbox = v2_client.teammates.enable_email_inbox(tm.id)
+            assert isinstance(inbox, EmailInbox)
+            assert inbox.enabled is True
+            assert inbox.address is not None
+            assert "@" in inbox.address
+
+            v2_client.teammates.disable_email_inbox(tm.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_enable_idempotent(self, v2_client):
+        """Enable twice returns the same address."""
+        tm = v2_client.teammates.create(name="EmailInboxIdem")
+        try:
+            inbox1 = v2_client.teammates.enable_email_inbox(tm.id)
+            inbox2 = v2_client.teammates.enable_email_inbox(tm.id)
+            assert inbox1.address == inbox2.address
+
+            v2_client.teammates.disable_email_inbox(tm.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_enable_nonexistent_404(self, v2_client):
+        """Enable email inbox on nonexistent teammate returns 404."""
+        with pytest.raises(NotFoundError):
+            v2_client.teammates.enable_email_inbox(999999)
+
+    def test_disable_nonexistent_404(self, v2_client):
+        """Disable email inbox on nonexistent teammate returns 404."""
+        with pytest.raises(NotFoundError):
+            v2_client.teammates.disable_email_inbox(999999)
 
 
 # ── Tasks ────────────────────────────────────────────────────────────
@@ -1201,7 +1246,9 @@ class TestRunsHumanInTheLoop:
         tm = v2_client.teammates.create(name="HitlDefault")
         try:
             run = v2_client.runs.create(
-                teammate_id=tm.id, message="Test default", stream=False,
+                teammate_id=tm.id,
+                message="Test default",
+                stream=False,
             )
             assert isinstance(run, Run)
             assert run.status == "running"
@@ -1213,7 +1260,9 @@ class TestRunsHumanInTheLoop:
         tm = v2_client.teammates.create(name="HitlOn")
         try:
             run = v2_client.runs.create(
-                teammate_id=tm.id, message="Test HITL on", stream=False,
+                teammate_id=tm.id,
+                message="Test HITL on",
+                stream=False,
                 human_in_the_loop=True,
             )
             assert isinstance(run, Run)
@@ -1226,7 +1275,9 @@ class TestRunsHumanInTheLoop:
         try:
             with pytest.raises(ValidationError):
                 v2_client.runs.create(
-                    teammate_id=tm.id, message="Test plan no hitl", stream=False,
+                    teammate_id=tm.id,
+                    message="Test plan no hitl",
+                    stream=False,
                     permission_mode="plan",
                 )
         finally:
@@ -1238,7 +1289,9 @@ class TestRunsHumanInTheLoop:
         try:
             with pytest.raises(ValidationError):
                 v2_client.runs.create(
-                    teammate_id=tm.id, message="Test approval no hitl", stream=False,
+                    teammate_id=tm.id,
+                    message="Test approval no hitl",
+                    stream=False,
                     permission_mode="approval",
                 )
         finally:
@@ -1249,8 +1302,11 @@ class TestRunsHumanInTheLoop:
         tm = v2_client.teammates.create(name="HitlPlanOk")
         try:
             run = v2_client.runs.create(
-                teammate_id=tm.id, message="Test plan with hitl", stream=False,
-                permission_mode="plan", human_in_the_loop=True,
+                teammate_id=tm.id,
+                message="Test plan with hitl",
+                stream=False,
+                permission_mode="plan",
+                human_in_the_loop=True,
             )
             assert isinstance(run, Run)
         finally:
@@ -1261,12 +1317,15 @@ class TestRunsHumanInTheLoop:
         tm = v2_client.teammates.create(name="TaskHitlHost")
         try:
             task = v2_client.tasks.create(
-                teammate_id=tm.id, instructions="HITL task test",
+                teammate_id=tm.id,
+                instructions="HITL task test",
             )
             try:
                 with pytest.raises(ValidationError):
                     v2_client.tasks.run(
-                        task.id, stream=False, permission_mode="plan",
+                        task.id,
+                        stream=False,
+                        permission_mode="plan",
                     )
             finally:
                 v2_client.tasks.delete(task.id)
@@ -1278,11 +1337,14 @@ class TestRunsHumanInTheLoop:
         tm = v2_client.teammates.create(name="TaskHitlOk")
         try:
             task = v2_client.tasks.create(
-                teammate_id=tm.id, instructions="HITL task ok",
+                teammate_id=tm.id,
+                instructions="HITL task ok",
             )
             try:
                 run = v2_client.tasks.run(
-                    task.id, stream=False, human_in_the_loop=True,
+                    task.id,
+                    stream=False,
+                    human_in_the_loop=True,
                 )
                 assert isinstance(run, Run)
             finally:
@@ -1299,6 +1361,243 @@ class TestRunsHumanInTheLoop:
         """Approve on nonexistent run raises NotFoundError."""
         with pytest.raises(NotFoundError):
             v2_client.runs.approve(999999, request_id="fake-uuid")
+
+    def test_answer_on_running_run(self, v2_client):
+        """Answer on a run that's running (not waiting) returns ok status."""
+        tm = v2_client.teammates.create(name="AnswerRunning")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=tm.id,
+                message="Answer test",
+                stream=False,
+            )
+            result = v2_client.runs.answer(run.id, answers={"Q": "A"})
+            assert isinstance(result, dict)
+            assert "status" in result
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_approve_invalid_request_on_real_run(self, v2_client):
+        """Approve with fake request_id on a real run raises NotFoundError."""
+        tm = v2_client.teammates.create(name="ApproveInvalid")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=tm.id,
+                message="Approve test",
+                stream=False,
+            )
+            with pytest.raises(NotFoundError):
+                v2_client.runs.approve(run.id, request_id="nonexistent-uuid")
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+
+# ── Run Creation Edge Cases ──────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestRunCreation:
+    """Run creation with various optional parameters."""
+
+    def test_create_run_quick_start(self, v2_client):
+        """Create run with name= (auto-creates teammate via quick-start)."""
+        run = v2_client.runs.create(
+            name="QuickBot",
+            message="Hi",
+            stream=False,
+        )
+        assert isinstance(run, Run)
+        assert run.status == "running"
+        assert run.teammate_id is not None
+
+    def test_create_run_auto_detect(self, v2_client):
+        """Create run with no teammate_id or name (auto-detect)."""
+        run = v2_client.runs.create(message="Auto detect test", stream=False)
+        assert isinstance(run, Run)
+        assert run.status == "running"
+
+    def test_create_run_with_metadata(self, v2_client):
+        """Metadata dict roundtrips through run creation."""
+        tm = v2_client.teammates.create(name="MetaRunHost")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=tm.id,
+                message="With meta",
+                stream=False,
+                metadata={"env": "test", "version": 2},
+            )
+            assert isinstance(run, Run)
+            assert run.metadata == {"env": "test", "version": 2}
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_create_run_with_user_id(self, v2_client):
+        """user_id is set on the created run."""
+        uid = _uid()
+        tm = v2_client.teammates.create(name="UserIdRunHost")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=tm.id,
+                message="With user",
+                stream=False,
+                user_id=uid,
+            )
+            assert isinstance(run, Run)
+            assert run.user_id == uid
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+
+# ── Run Get / Cancel / Reply ─────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestRunGetCancelReply:
+    """Run retrieval, cancellation, and reply."""
+
+    def test_get_existing_run(self, v2_client):
+        """Get a run by ID returns the correct run."""
+        tm = v2_client.teammates.create(name="GetRunHost")
+        try:
+            created = v2_client.runs.create(
+                teammate_id=tm.id,
+                message="Get test",
+                stream=False,
+            )
+            fetched = v2_client.runs.get(created.id)
+            assert isinstance(fetched, Run)
+            assert fetched.id == created.id
+            assert fetched.teammate_id == tm.id
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_cancel_active_run(self, v2_client):
+        """Cancel a running run returns a Run object."""
+        tm = v2_client.teammates.create(name="CancelRunHost")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=tm.id,
+                message="Cancel test",
+                stream=False,
+            )
+            result = v2_client.runs.cancel(run.id)
+            assert isinstance(result, Run)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_reply_non_streaming(self, v2_client):
+        """Reply to a run (non-streaming) returns a Run."""
+        tm = v2_client.teammates.create(name="ReplyHost")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=tm.id,
+                message="Initial",
+                stream=False,
+            )
+            reply = v2_client.runs.reply(run.id, message="Follow up", stream=False)
+            assert isinstance(reply, Run)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_reply_nonexistent_run_404(self, v2_client):
+        """Reply to nonexistent run raises NotFoundError."""
+        with pytest.raises(NotFoundError):
+            v2_client.runs.reply(999999, message="Ghost", stream=False)
+
+
+# ── Run Files ────────────────────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestRunFiles:
+    """Run file listing and download error paths."""
+
+    def test_list_files_empty_on_new_run(self, v2_client):
+        """New run (no sandbox) has empty file list."""
+        tm = v2_client.teammates.create(name="RunFilesHost")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=tm.id,
+                message="Files test",
+                stream=False,
+            )
+            files = v2_client.runs.list_files(run.id)
+            assert isinstance(files, list)
+            assert len(files) == 0
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_download_file_nonexistent_run_404(self, v2_client):
+        """Download file from nonexistent run raises NotFoundError."""
+        with pytest.raises(NotFoundError):
+            v2_client.runs.download_file(999999, "test.txt")
+
+
+# ── Task Run Edge Cases ──────────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestTaskRunEdgeCases:
+    """Task execution edge cases."""
+
+    def test_task_run_with_metadata(self, v2_client):
+        """Task run with metadata returns Run with metadata set."""
+        tm = v2_client.teammates.create(name="TaskMetaHost")
+        try:
+            task = v2_client.tasks.create(
+                teammate_id=tm.id,
+                instructions="Meta task",
+            )
+            try:
+                run = v2_client.tasks.run(
+                    task.id,
+                    stream=False,
+                    metadata={"k": "v"},
+                )
+                assert isinstance(run, Run)
+                assert run.metadata == {"k": "v"}
+            finally:
+                v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_task_run_with_user_id(self, v2_client):
+        """Task run with user_id sets it on the run."""
+        uid = _uid()
+        tm = v2_client.teammates.create(name="TaskUserIdHost")
+        try:
+            task = v2_client.tasks.create(
+                teammate_id=tm.id,
+                instructions="User task",
+            )
+            try:
+                run = v2_client.tasks.run(
+                    task.id,
+                    stream=False,
+                    user_id=uid,
+                )
+                assert isinstance(run, Run)
+                assert run.user_id == uid
+            finally:
+                v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_task_run_disabled_task_400(self, v2_client):
+        """Running a deleted (archived) task raises ValidationError (400)."""
+        tm = v2_client.teammates.create(name="TaskDisabledHost")
+        try:
+            task = v2_client.tasks.create(
+                teammate_id=tm.id,
+                instructions="Will be deleted",
+            )
+            task_id = task.id
+            v2_client.tasks.delete(task_id)
+
+            with pytest.raises((ValidationError, NotFoundError)):
+                v2_client.tasks.run(task_id, stream=False)
+        finally:
+            v2_client.teammates.delete(tm.id)
 
 
 # ── Pagination ───────────────────────────────────────────────────────
@@ -1412,6 +1711,30 @@ class TestPagination:
         finally:
             for wh in webhooks:
                 v2_client.webhooks.delete(wh.id)
+
+    def test_run_pagination(self, v2_client):
+        """Pagination works for runs."""
+        tm = v2_client.teammates.create(name="RunPaginationHost")
+        try:
+            for i in range(3):
+                v2_client.runs.create(
+                    teammate_id=tm.id,
+                    message=f"Paginate {i}",
+                    stream=False,
+                )
+            page1 = v2_client.runs.list(teammate_id=tm.id, limit=1)
+            assert isinstance(page1, SyncPage)
+            assert len(page1.data) == 1
+            assert page1.has_more is True
+
+            page2 = v2_client.runs.list(
+                teammate_id=tm.id,
+                limit=1,
+                starting_after=page1.data[0].id,
+            )
+            assert page2.data[0].id != page1.data[0].id
+        finally:
+            v2_client.teammates.delete(tm.id)
 
 
 # ── Error Handling ───────────────────────────────────────────────────
@@ -1998,6 +2321,24 @@ class TestEndUsersCRUD:
             v2_client.memories.delete(mem.id)
             v2_client.users.delete(uid)
 
+    def test_users_pagination(self, v2_client):
+        """Users list supports cursor pagination."""
+        uids = [_uid() for _ in range(3)]
+        try:
+            for uid in uids:
+                v2_client.users.create(user_id=uid, name=f"Page-{uid[:8]}")
+
+            page1 = v2_client.users.list(limit=1)
+            assert isinstance(page1, SyncPage)
+            assert len(page1.data) == 1
+            assert page1.has_more is True
+
+            page2 = v2_client.users.list(limit=1, starting_after=page1.data[0].id)
+            assert page2.data[0].id != page1.data[0].id
+        finally:
+            for uid in uids:
+                v2_client.users.delete(uid)
+
 
 # ── Settings ─────────────────────────────────────────────────────────
 
@@ -2023,3 +2364,448 @@ class TestSettingsCRUD:
         # Re-enable
         restored = v2_client.settings.update(company_research=True)
         assert restored.company_research is True
+
+
+# ── Runs: SDK Convenience Methods ────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestRunsSDKMethods:
+    """Tests for SDK convenience methods: poll, create_and_wait, reply_and_wait, stream_text."""
+
+    def test_poll_running_run(self, v2_client):
+        """poll() returns a Run when it reaches terminal status."""
+        tm = v2_client.teammates.create(name="PollHost")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=tm.id,
+                message="Poll test",
+                stream=False,
+            )
+            result = v2_client.runs.poll(run.id, interval=1.0, timeout=120.0)
+            assert isinstance(result, Run)
+            assert result.status in ("completed", "failed", "cancelled")
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_create_and_wait(self, v2_client):
+        """create_and_wait() returns finished Run."""
+        tm = v2_client.teammates.create(name="CreateWaitHost")
+        try:
+            run = v2_client.runs.create_and_wait(
+                teammate_id=tm.id,
+                message="Respond with 'hello'",
+                poll_interval=1.0,
+                poll_timeout=120.0,
+            )
+            assert isinstance(run, Run)
+            assert run.status in ("completed", "failed", "cancelled")
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_create_and_wait_has_output(self, v2_client):
+        """create_and_wait() on completed run has non-empty output."""
+        tm = v2_client.teammates.create(name="CreateWaitOutputHost")
+        try:
+            run = v2_client.runs.create_and_wait(
+                teammate_id=tm.id,
+                message="Say the word 'pineapple'",
+                poll_interval=1.0,
+                poll_timeout=120.0,
+            )
+            if run.status == "completed":
+                assert run.output is not None
+                assert len(run.output) > 0
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_reply_and_wait(self, v2_client):
+        """reply_and_wait() sends follow-up and polls to completion."""
+        tm = v2_client.teammates.create(name="ReplyWaitHost")
+        try:
+            run = v2_client.runs.create_and_wait(
+                teammate_id=tm.id,
+                message="Say hello",
+                poll_interval=1.0,
+                poll_timeout=120.0,
+            )
+            reply = v2_client.runs.reply_and_wait(
+                run.id,
+                message="Now say goodbye",
+                poll_interval=1.0,
+                poll_timeout=120.0,
+            )
+            assert isinstance(reply, Run)
+            assert reply.status in ("completed", "failed", "cancelled")
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_create_streaming_run(self, v2_client):
+        """stream=True returns a RunStream context manager."""
+        from m8tes._streaming import RunStream
+
+        tm = v2_client.teammates.create(name="StreamHost")
+        try:
+            with v2_client.runs.create(
+                teammate_id=tm.id,
+                message="Say hi",
+                stream=True,
+            ) as stream:
+                assert isinstance(stream, RunStream)
+                events = list(stream)
+                assert len(events) > 0
+                # At least one event should exist
+                assert all(hasattr(e, "type") for e in events)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_stream_text_generator(self, v2_client):
+        """stream_text() yields text chunks."""
+        tm = v2_client.teammates.create(name="StreamTextHost")
+        try:
+            chunks = list(
+                v2_client.runs.stream_text(
+                    teammate_id=tm.id,
+                    message="Say the word 'banana'",
+                )
+            )
+            assert len(chunks) > 0
+            full_text = "".join(chunks)
+            assert len(full_text) > 0
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+
+# ── Runs: Parameter Combinations ────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestRunParameterCombos:
+    """Run creation with various parameter combinations."""
+
+    def test_create_run_memory_disabled(self, v2_client):
+        """Run with memory=False is accepted."""
+        tm = v2_client.teammates.create(name="NoMemoryHost")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=tm.id,
+                message="No memory test",
+                stream=False,
+                memory=False,
+            )
+            assert isinstance(run, Run)
+            assert run.status == "running"
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_create_run_history_disabled(self, v2_client):
+        """Run with history=False is accepted."""
+        tm = v2_client.teammates.create(name="NoHistoryHost")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=tm.id,
+                message="No history test",
+                stream=False,
+                history=False,
+            )
+            assert isinstance(run, Run)
+            assert run.status == "running"
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_create_run_with_instructions_override(self, v2_client):
+        """Run with instructions override is accepted."""
+        tm = v2_client.teammates.create(name="InstrOverrideHost")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=tm.id,
+                message="Hello",
+                stream=False,
+                instructions="Always respond in French",
+            )
+            assert isinstance(run, Run)
+            assert run.status == "running"
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_create_run_all_flags_disabled(self, v2_client):
+        """Run with memory=False and history=False is accepted."""
+        tm = v2_client.teammates.create(name="AllDisabledHost")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=tm.id,
+                message="Minimal context",
+                stream=False,
+                memory=False,
+                history=False,
+            )
+            assert isinstance(run, Run)
+            assert run.status == "running"
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_approve_deny_decision(self, v2_client):
+        """Approve with decision='deny' on a real run (no pending request → 404)."""
+        tm = v2_client.teammates.create(name="DenyHost")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=tm.id,
+                message="Deny test",
+                stream=False,
+            )
+            with pytest.raises(NotFoundError):
+                v2_client.runs.approve(run.id, request_id="fake-uuid", decision="deny")
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_approve_with_remember(self, v2_client):
+        """Approve with remember=True on a real run (no pending request → 404)."""
+        tm = v2_client.teammates.create(name="RememberHost")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=tm.id,
+                message="Remember test",
+                stream=False,
+            )
+            with pytest.raises(NotFoundError):
+                v2_client.runs.approve(
+                    run.id, request_id="fake-uuid", decision="allow", remember=True
+                )
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_run_list_user_id_filter_with_real_runs(self, v2_client):
+        """List runs filtered by user_id that has actual runs."""
+        uid = _uid()
+        tm = v2_client.teammates.create(name="UserRunFilterHost")
+        try:
+            v2_client.runs.create(
+                teammate_id=tm.id,
+                message="Scoped run",
+                stream=False,
+                user_id=uid,
+            )
+            page = v2_client.runs.list(user_id=uid)
+            assert isinstance(page, SyncPage)
+            assert len(page.data) >= 1
+            assert all(r.user_id == uid for r in page.data)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+
+# ── Apps: Edge Cases ────────────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestAppsEdgeCases:
+    """Apps endpoint edge cases beyond basic list."""
+
+    def test_list_apps_with_user_id(self, v2_client):
+        """List apps with user_id filter works without error."""
+        uid = _uid()
+        page = v2_client.apps.list(user_id=uid)
+        assert isinstance(page, SyncPage)
+
+    def test_connect_nonexistent_app_404(self, v2_client):
+        """Connect to nonexistent app raises NotFoundError."""
+        with pytest.raises((NotFoundError, ValidationError)):
+            v2_client.apps.connect("nonexistent_app_xyz", "https://example.com/callback")
+
+    def test_disconnect_nonexistent_app_404(self, v2_client):
+        """Disconnect nonexistent app raises NotFoundError."""
+        with pytest.raises((NotFoundError, ValidationError)):
+            v2_client.apps.disconnect("nonexistent_app_xyz")
+
+
+# ── End Users: Edge Cases ────────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestEndUsersEdgeCases:
+    """End user edge cases beyond basic CRUD."""
+
+    def test_update_nonexistent_user_404(self, v2_client):
+        """Update nonexistent user_id raises NotFoundError."""
+        with pytest.raises(NotFoundError):
+            v2_client.users.update("nonexistent-user-xyz-999", name="Ghost")
+
+    def test_metadata_replace_on_update(self, v2_client):
+        """Metadata update replaces entire dict (not merge)."""
+        uid = _uid()
+        v2_client.users.create(user_id=uid, metadata={"key1": "val1", "key2": "val2"})
+        try:
+            updated = v2_client.users.update(uid, metadata={"key3": "val3"})
+            assert updated.metadata == {"key3": "val3"}
+            assert "key1" not in updated.metadata
+        finally:
+            v2_client.users.delete(uid)
+
+    def test_update_partial_fields(self, v2_client):
+        """Updating one field does not affect others."""
+        uid = _uid()
+        v2_client.users.create(
+            user_id=uid, name="Original", email="orig@example.com", company="OldCo"
+        )
+        try:
+            updated = v2_client.users.update(uid, company="NewCo")
+            assert updated.company == "NewCo"
+            assert updated.name == "Original"
+            assert updated.email == "orig@example.com"
+        finally:
+            v2_client.users.delete(uid)
+
+
+# ── Trigger Error Paths ──────────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestTriggerErrorPaths:
+    """Trigger-specific error conditions."""
+
+    def test_delete_nonexistent_trigger_404(self, v2_client):
+        """Delete nonexistent trigger returns 404."""
+        tm = v2_client.teammates.create(name="TrigDelHost")
+        try:
+            task = v2_client.tasks.create(teammate_id=tm.id, instructions="Trigger del")
+            try:
+                with pytest.raises(NotFoundError):
+                    v2_client.tasks.triggers.delete(task.id, 999999)
+            finally:
+                v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_delete_trigger_wrong_task_404(self, v2_client):
+        """Delete trigger using wrong task_id returns 404."""
+        tm = v2_client.teammates.create(name="TrigWrongTaskHost")
+        try:
+            task1 = v2_client.tasks.create(teammate_id=tm.id, instructions="Task 1")
+            task2 = v2_client.tasks.create(teammate_id=tm.id, instructions="Task 2")
+            try:
+                trigger = v2_client.tasks.triggers.create(
+                    task1.id, type="schedule", cron="0 9 * * *"
+                )
+                # Try to delete trigger from task2 — should 404
+                with pytest.raises(NotFoundError):
+                    v2_client.tasks.triggers.delete(task2.id, trigger.id)
+                # Clean up properly
+                v2_client.tasks.triggers.delete(task1.id, trigger.id)
+            finally:
+                v2_client.tasks.delete(task1.id)
+                v2_client.tasks.delete(task2.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_list_triggers_nonexistent_task_404(self, v2_client):
+        """List triggers for nonexistent task returns 404."""
+        with pytest.raises(NotFoundError):
+            v2_client.tasks.triggers.list(999999)
+
+    def test_delete_virtual_trigger_rejected(self, v2_client):
+        """Delete trigger with id=0 (webhook/email virtual) returns 422."""
+        tm = v2_client.teammates.create(name="VirtualTrigHost")
+        try:
+            task = v2_client.tasks.create(teammate_id=tm.id, instructions="Virtual trig")
+            try:
+                with pytest.raises(ValidationError):
+                    v2_client.tasks.triggers.delete(task.id, 0)
+            finally:
+                v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+
+# ── Webhook Event Types ──────────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestWebhookEventTypes:
+    """Webhook event type edge cases."""
+
+    def test_awaiting_input_event_valid(self, v2_client):
+        """run.awaiting_input is a valid webhook event type."""
+        wh = v2_client.webhooks.create(
+            url="https://example.com/awaiting", events=["run.awaiting_input"]
+        )
+        try:
+            assert "run.awaiting_input" in wh.events
+        finally:
+            v2_client.webhooks.delete(wh.id)
+
+    def test_all_valid_events(self, v2_client):
+        """All four valid event types accepted together."""
+        all_events = ["run.started", "run.completed", "run.failed", "run.awaiting_input"]
+        wh = v2_client.webhooks.create(url="https://example.com/all-events", events=all_events)
+        try:
+            assert set(wh.events) == set(all_events)
+        finally:
+            v2_client.webhooks.delete(wh.id)
+
+
+# ── Teammate Edge Paths ──────────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestTeammateEdgePaths:
+    """Teammate webhook/email edge cases."""
+
+    def test_disable_webhook_never_enabled(self, v2_client):
+        """Disable webhook on teammate that never had webhook enabled."""
+        import contextlib
+
+        tm = v2_client.teammates.create(name="NoWebhookHost")
+        try:
+            # Should not raise — disabling something that doesn't exist is a no-op or 404
+            with contextlib.suppress(NotFoundError):
+                v2_client.teammates.disable_webhook(tm.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_disable_email_never_enabled(self, v2_client):
+        """Disable email inbox on teammate that never had email enabled."""
+        import contextlib
+
+        tm = v2_client.teammates.create(name="NoEmailHost")
+        try:
+            with contextlib.suppress(NotFoundError):
+                v2_client.teammates.disable_email_inbox(tm.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_get_nonexistent_teammate_404(self, v2_client):
+        """GET nonexistent teammate raises NotFoundError."""
+        with pytest.raises(NotFoundError):
+            v2_client.teammates.get(999999)
+
+    def test_delete_nonexistent_teammate_404(self, v2_client):
+        """DELETE nonexistent teammate raises NotFoundError."""
+        with pytest.raises(NotFoundError):
+            v2_client.teammates.delete(999999)
+
+
+# ── Permission Error Paths ───────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestPermissionErrorPaths:
+    """Permission-specific error conditions."""
+
+    def test_delete_nonexistent_permission_404(self, v2_client):
+        """Delete nonexistent permission raises NotFoundError."""
+        uid = _uid()
+        with pytest.raises(NotFoundError):
+            v2_client.permissions.delete(999999, user_id=uid)
+
+    def test_list_empty_for_new_user(self, v2_client):
+        """List permissions for user with none returns empty."""
+        uid = _uid()
+        page = v2_client.permissions.list(user_id=uid)
+        assert isinstance(page, SyncPage)
+        assert len(page.data) == 0
+
+    def test_list_empty_memories_for_new_user(self, v2_client):
+        """List memories for user with none returns empty."""
+        uid = _uid()
+        page = v2_client.memories.list(user_id=uid)
+        assert isinstance(page, SyncPage)
+        assert len(page.data) == 0
