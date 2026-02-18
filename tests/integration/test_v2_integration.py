@@ -701,8 +701,6 @@ class TestTaskTriggers:
                 assert {"schedule", "webhook", "email"} == types
 
                 v2_client.tasks.triggers.delete(task.id, t_sched.id)
-                v2_client.tasks.triggers.delete(task.id, t_wh.id)
-                v2_client.tasks.triggers.delete(task.id, t_email.id)
             finally:
                 v2_client.tasks.delete(task.id)
         finally:
