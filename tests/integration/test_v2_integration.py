@@ -2,8 +2,9 @@
 
 Tests CRUD endpoints only (no run execution, no Claude SDK calls).
 Covers all 7 V2 resources: teammates, tasks, triggers, memories,
-permissions, webhooks, runs (read-only), plus pagination, error handling,
-validation edge cases, multi-tenancy isolation, and context manager usage.
+permissions, webhooks, runs (read-only + HITL validation), plus pagination,
+error handling, validation edge cases, multi-tenancy isolation, and
+context manager usage.
 
 Requirements:
     1. Backend running at localhost:8000 (or E2E_BACKEND_URL)
@@ -29,6 +30,7 @@ from m8tes._types import (
     EndUser,
     Memory,
     PermissionPolicy,
+    Run,
     SyncPage,
     Task,
     Teammate,
@@ -1185,6 +1187,118 @@ class TestRunsReadOnly:
         page = v2_client.runs.list(teammate_id=999999)
         assert isinstance(page, SyncPage)
         assert len(page.data) == 0
+
+
+# ── Runs: Human-in-the-Loop ─────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestRunsHumanInTheLoop:
+    """HITL validation via SDK — permission_mode + human_in_the_loop combos."""
+
+    def test_create_run_default_autonomous(self, v2_client):
+        """Default run (no HITL params) is accepted as autonomous."""
+        tm = v2_client.teammates.create(name="HitlDefault")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=tm.id, message="Test default", stream=False,
+            )
+            assert isinstance(run, Run)
+            assert run.status == "running"
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_create_run_with_hitl_enabled(self, v2_client):
+        """Run with human_in_the_loop=True is accepted."""
+        tm = v2_client.teammates.create(name="HitlOn")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=tm.id, message="Test HITL on", stream=False,
+                human_in_the_loop=True,
+            )
+            assert isinstance(run, Run)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_plan_mode_without_hitl_rejected(self, v2_client):
+        """permission_mode=plan without HITL raises ValidationError."""
+        tm = v2_client.teammates.create(name="HitlPlanNoHitl")
+        try:
+            with pytest.raises(ValidationError):
+                v2_client.runs.create(
+                    teammate_id=tm.id, message="Test plan no hitl", stream=False,
+                    permission_mode="plan",
+                )
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_approval_mode_without_hitl_rejected(self, v2_client):
+        """permission_mode=approval without HITL raises ValidationError."""
+        tm = v2_client.teammates.create(name="HitlApprNoHitl")
+        try:
+            with pytest.raises(ValidationError):
+                v2_client.runs.create(
+                    teammate_id=tm.id, message="Test approval no hitl", stream=False,
+                    permission_mode="approval",
+                )
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_plan_mode_with_hitl_accepted(self, v2_client):
+        """permission_mode=plan + human_in_the_loop=True is accepted."""
+        tm = v2_client.teammates.create(name="HitlPlanOk")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=tm.id, message="Test plan with hitl", stream=False,
+                permission_mode="plan", human_in_the_loop=True,
+            )
+            assert isinstance(run, Run)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_task_run_plan_mode_without_hitl_rejected(self, v2_client):
+        """Task run with permission_mode=plan without HITL raises ValidationError."""
+        tm = v2_client.teammates.create(name="TaskHitlHost")
+        try:
+            task = v2_client.tasks.create(
+                teammate_id=tm.id, instructions="HITL task test",
+            )
+            try:
+                with pytest.raises(ValidationError):
+                    v2_client.tasks.run(
+                        task.id, stream=False, permission_mode="plan",
+                    )
+            finally:
+                v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_task_run_with_hitl_accepted(self, v2_client):
+        """Task run with human_in_the_loop=True is accepted."""
+        tm = v2_client.teammates.create(name="TaskHitlOk")
+        try:
+            task = v2_client.tasks.create(
+                teammate_id=tm.id, instructions="HITL task ok",
+            )
+            try:
+                run = v2_client.tasks.run(
+                    task.id, stream=False, human_in_the_loop=True,
+                )
+                assert isinstance(run, Run)
+            finally:
+                v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_answer_nonexistent_run(self, v2_client):
+        """Answer on nonexistent run raises NotFoundError."""
+        with pytest.raises(NotFoundError):
+            v2_client.runs.answer(999999, answers={"Q": "A"})
+
+    def test_approve_nonexistent_run(self, v2_client):
+        """Approve on nonexistent run raises NotFoundError."""
+        with pytest.raises(NotFoundError):
+            v2_client.runs.approve(999999, request_id="fake-uuid")
 
 
 # ── Pagination ───────────────────────────────────────────────────────

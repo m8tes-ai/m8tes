@@ -56,11 +56,47 @@ run = client.runs.create(
 print(run.output)
 ```
 
+### Streaming events
+
+```python
+for event in client.runs.create(message="analyze sales data"):
+    match event.type:
+        case "text-delta":      print(event.delta, end="")
+        case "tool-call-start": print(f"\n🔧 {event.tool_name}")
+        case "tool-result-end": print(f"  → {event.result[:100]}")
+        case "done":            print(f"\n✓ {event.stop_reason}")
+```
+
 ### Reply to a run
 
 ```python
 for event in client.runs.reply(run_id=42, message="also archive them"):
     print(event.type, event.raw)
+```
+
+### Convenience helpers
+
+```python
+# block until complete
+run = client.runs.create_and_wait(message="generate report")
+
+# stream text only
+text = client.runs.stream_text(message="summarize inbox")
+```
+
+### Human-in-the-loop
+
+```python
+run = client.runs.create(
+    teammate_id=bot.id,
+    message="draft and send the weekly report",
+    human_in_the_loop=True,
+    permission_mode="approval",  # or "plan", "autonomous"
+    stream=False,
+)
+
+# approve a pending tool use
+client.runs.approve(run.id, request_id="req_123", decision="allow")
 ```
 
 ### Schedule recurring work
@@ -71,6 +107,12 @@ task = client.tasks.create(
     instructions="generate weekly report",
 )
 client.tasks.triggers.create(task.id, type="schedule", cron="0 9 * * 1")
+
+# email trigger — forward emails to trigger runs
+client.tasks.triggers.create(task.id, type="email")
+
+# webhook trigger — POST to a URL to trigger runs
+client.tasks.triggers.create(task.id, type="webhook")
 ```
 
 ### Manage per-user memory
@@ -87,6 +129,16 @@ for m in memories.data:
 
 ```python
 client.permissions.create(user_id="customer_123", tool="gmail")
+```
+
+### List and download files
+
+```python
+files = client.runs.list_files(run_id=42)
+for f in files:
+    print(f.filename, f.size)
+
+content = client.runs.download_file(run_id=42, filename="report.csv")
 ```
 
 ### Register webhooks
@@ -113,6 +165,8 @@ client.apps         # list tools, manage OAuth connections
 client.memories     # pre-populate end-user memories
 client.permissions  # pre-approve tools for end-users
 client.webhooks     # webhook endpoint CRUD + delivery tracking
+client.users        # end-user profiles (CRUD, auto-created on first resource)
+client.settings     # account settings
 ```
 
 ## Multi-tenancy
