@@ -5,6 +5,7 @@ import json
 import pytest
 import responses
 
+from m8tes._exceptions import NotFoundError
 from m8tes._http import HTTPClient
 from m8tes._resources.apps import Apps
 from m8tes._resources.runs import Runs
@@ -138,6 +139,17 @@ class TestTeammates:
         responses.add(responses.DELETE, f"{BASE}/teammates/1/webhook", status=204)
         Teammates(http).disable_webhook(1)
         assert responses.calls[0].request.method == "DELETE"
+
+    @responses.activate
+    def test_enable_webhook_not_found(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/teammates/999/webhook",
+            json={"error": {"message": "Teammate not found"}},
+            status=404,
+        )
+        with pytest.raises(NotFoundError):
+            Teammates(http).enable_webhook(999)
 
 
 # ── Runs ─────────────────────────────────────────────────────────────
@@ -307,6 +319,28 @@ class TestRuns:
         )
         content = Runs(http).download_file(1, "report.csv")
         assert content == b"col1,col2\na,b\n"
+
+    @responses.activate
+    def test_list_files_not_found(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/999/files",
+            json={"error": {"message": "Run not found"}},
+            status=404,
+        )
+        with pytest.raises(NotFoundError):
+            Runs(http).list_files(999)
+
+    @responses.activate
+    def test_download_file_not_found(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/1/files/missing.csv/download",
+            json={"error": {"message": "File not found"}},
+            status=404,
+        )
+        with pytest.raises(NotFoundError):
+            Runs(http).download_file(1, "missing.csv")
 
 
 # ── Tasks (advanced) ─────────────────────────────────────────────────

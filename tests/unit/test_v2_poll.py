@@ -78,3 +78,27 @@ class TestPoll:
 
         with pytest.raises(TimeoutError, match="did not complete"):
             Runs(http).poll(1, interval=0.01, timeout=0.05)
+
+    @responses.activate
+    def test_transient_error_retried(self, http):
+        """Poll retries on transient 500 errors."""
+        # First call: server error
+        err = {"error": {"message": "oops"}}
+        responses.add(responses.GET, f"{BASE}/runs/1", json=err, status=500)
+        # Second call: completed
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/1",
+            json={"id": 1, "status": "completed", "output": "OK"},
+        )
+        run = Runs(http).poll(1, interval=0.01, timeout=5.0)
+        assert run.status == "completed"
+        assert len(responses.calls) == 2
+
+    @responses.activate
+    def test_transient_error_timeout(self, http):
+        """Poll raises TimeoutError if server errors persist past deadline."""
+        err = {"error": {"message": "oops"}}
+        responses.add(responses.GET, f"{BASE}/runs/1", json=err, status=500)
+        with pytest.raises(TimeoutError, match="did not complete"):
+            Runs(http).poll(1, interval=0.01, timeout=0.05)
