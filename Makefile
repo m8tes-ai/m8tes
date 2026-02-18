@@ -57,6 +57,9 @@ test-unit:
 	uv run pytest -m unit
 
 test-integration:
+	uv run pytest -m "integration and not runtime"
+
+test-integration-full:
 	uv run pytest -m integration
 
 test-e2e:

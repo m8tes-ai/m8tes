@@ -1236,6 +1236,7 @@ class TestRunsReadOnly:
 
 
 @pytest.mark.integration
+@pytest.mark.runtime
 class TestRunsHumanInTheLoop:
     """HITL validation via SDK — permission_mode + human_in_the_loop combos."""
 
@@ -1394,6 +1395,7 @@ class TestRunsHumanInTheLoop:
 
 
 @pytest.mark.integration
+@pytest.mark.runtime
 class TestRunCreation:
     """Run creation with various optional parameters."""
 
@@ -1450,6 +1452,7 @@ class TestRunCreation:
 
 
 @pytest.mark.integration
+@pytest.mark.runtime
 class TestRunGetCancelReply:
     """Run retrieval, cancellation, and reply."""
 
@@ -1507,6 +1510,7 @@ class TestRunGetCancelReply:
 
 
 @pytest.mark.integration
+@pytest.mark.runtime
 class TestRunFiles:
     """Run file listing and download error paths."""
 
@@ -1535,6 +1539,7 @@ class TestRunFiles:
 
 
 @pytest.mark.integration
+@pytest.mark.runtime
 class TestTaskRunEdgeCases:
     """Task execution edge cases."""
 
@@ -1602,6 +1607,7 @@ class TestTaskRunEdgeCases:
 
 
 @pytest.mark.integration
+@pytest.mark.runtime
 class TestPagination:
     def test_cursor_pagination(self, v2_client):
         """Create 3 teammates, paginate with limit=1."""
@@ -2316,7 +2322,7 @@ class TestEndUsersCRUD:
             updated = v2_client.users.update(uid, name="Bob")
             assert updated.name == "Bob"
         finally:
-            v2_client.memories.delete(mem.id)
+            v2_client.memories.delete(mem.id, user_id=uid)
             v2_client.users.delete(uid)
 
     def test_users_pagination(self, v2_client):
@@ -2368,6 +2374,7 @@ class TestSettingsCRUD:
 
 
 @pytest.mark.integration
+@pytest.mark.runtime
 class TestRunsSDKMethods:
     """Tests for SDK convenience methods: poll, create_and_wait, reply_and_wait, stream_text."""
 
@@ -2478,6 +2485,7 @@ class TestRunsSDKMethods:
 
 
 @pytest.mark.integration
+@pytest.mark.runtime
 class TestRunParameterCombos:
     """Run creation with various parameter combinations."""
 

@@ -123,6 +123,7 @@ markers = [
     "api: API endpoint tests",
     "auth: Authentication and authorization tests",
     "streaming: Tests for streaming functionality",
+    "runtime: Tests that trigger agent execution (requires working runtime + API key)",
 ]
 log_cli = true
 log_cli_level = "INFO"
