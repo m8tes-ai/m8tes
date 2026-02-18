@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Generator
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from .._streaming import RunStream
 from .._types import PermissionRequest, Run, RunFile, SyncPage
@@ -34,6 +34,7 @@ class Runs:
         metadata: dict | None = None,
         memory: bool = True,
         history: bool = True,
+        ask_user: bool = True,
         permission_mode: str = "autonomous",
     ) -> RunStream | Run:
         """Create and execute a run.
@@ -41,6 +42,8 @@ class Runs:
         With stream=True (default): returns iterable RunStream of events.
         With stream=False: returns Run immediately (status="running").
             Poll GET /runs/{id} until status is terminal to get output.
+
+        Set ask_user=False to prevent the agent from asking clarifying questions.
         """
         body: dict = {"message": message, "stream": stream}
         if teammate_id is not None:
@@ -57,6 +60,8 @@ class Runs:
             body["metadata"] = metadata
         body["memory"] = memory
         body["history"] = history
+        if not ask_user:
+            body["ask_user"] = False
         if permission_mode != "autonomous":
             body["permission_mode"] = permission_mode
 
@@ -101,6 +106,7 @@ class Runs:
         metadata: dict | None = None,
         memory: bool = True,
         history: bool = True,
+        ask_user: bool = True,
         permission_mode: str = "autonomous",
         poll_interval: float = 2.0,
         poll_timeout: float = 300.0,
@@ -117,6 +123,7 @@ class Runs:
             metadata=metadata,
             memory=memory,
             history=history,
+            ask_user=ask_user,
             permission_mode=permission_mode,
         )
         assert isinstance(run, Run)
@@ -147,6 +154,7 @@ class Runs:
         metadata: dict | None = None,
         memory: bool = True,
         history: bool = True,
+        ask_user: bool = True,
         permission_mode: str = "autonomous",
     ) -> Generator[str, None, None]:
         """Create a streaming run and yield only text delta strings.
@@ -168,6 +176,7 @@ class Runs:
             metadata=metadata,
             memory=memory,
             history=history,
+            ask_user=ask_user,
             permission_mode=permission_mode,
         )
         assert isinstance(stream, RunStream)
@@ -236,6 +245,16 @@ class Runs:
         """List tool permission requests for a run."""
         resp = self._http.request("GET", f"/runs/{run_id}/permissions")
         return [PermissionRequest.from_dict(d) for d in resp.json()]
+
+    def answer(self, run_id: int, *, answers: dict[str, str]) -> dict[str, Any]:
+        """Submit an answer to an agent's AskUserQuestion.
+
+        Use this when the run is paused waiting for user input (AskUserQuestion).
+        The answers dict maps question text to the selected option label.
+        """
+        resp = self._http.request("POST", f"/runs/{run_id}/answer", json={"answers": answers})
+        result: dict[str, Any] = resp.json()
+        return result
 
     def approve(
         self,
