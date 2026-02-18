@@ -6,7 +6,7 @@ import os
 
 from ._exceptions import AuthenticationError
 from ._http import HTTPClient
-from ._resources import Apps, Memories, Permissions, Runs, Tasks, Teammates, Webhooks
+from ._resources import Apps, Memories, Permissions, Runs, Settings, Tasks, Teammates, Users, Webhooks
 
 
 class M8tes:
@@ -38,6 +38,8 @@ class M8tes:
         self.apps = Apps(self._http)
         self.memories = Memories(self._http)
         self.permissions = Permissions(self._http)
+        self.users = Users(self._http)
+        self.settings = Settings(self._http)
         self.webhooks = Webhooks(self._http)
 
     def close(self) -> None:
