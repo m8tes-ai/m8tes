@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Generator
 from typing import TYPE_CHECKING
 
 from .._streaming import RunStream
@@ -147,7 +148,7 @@ class Runs:
         memory: bool = True,
         history: bool = True,
         permission_mode: str = "autonomous",
-    ):
+    ) -> Generator[str, None, None]:
         """Create a streaming run and yield only text delta strings.
 
         Usage:
