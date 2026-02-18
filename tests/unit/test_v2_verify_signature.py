@@ -89,6 +89,21 @@ class TestVerifySignature:
         }
         assert Webhooks.verify_signature(tampered, headers, secret) is False
 
+    def test_missing_webhook_id(self):
+        """Missing Webhook-Id header returns False (not KeyError)."""
+        headers = {"Webhook-Timestamp": "1700000000", "Webhook-Signature": "v1=abc"}
+        assert Webhooks.verify_signature("body", headers, "secret") is False
+
+    def test_missing_timestamp(self):
+        """Missing Webhook-Timestamp header returns False (not KeyError)."""
+        headers = {"Webhook-Id": "msg_1", "Webhook-Signature": "v1=abc"}
+        assert Webhooks.verify_signature("body", headers, "secret") is False
+
+    def test_missing_signature(self):
+        """Missing Webhook-Signature header returns False (not KeyError)."""
+        headers = {"Webhook-Id": "msg_1", "Webhook-Timestamp": "1700000000"}
+        assert Webhooks.verify_signature("body", headers, "secret") is False
+
     def test_empty_body(self):
         """Empty body still produces valid signature."""
         body = ""

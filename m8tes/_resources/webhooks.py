@@ -32,9 +32,15 @@ class Webhooks:
 
         if isinstance(body, bytes):
             body = body.decode("utf-8")
-        msg = f"{headers['Webhook-Id']}.{headers['Webhook-Timestamp']}.{body}"
+        try:
+            webhook_id = headers["Webhook-Id"]
+            timestamp = headers["Webhook-Timestamp"]
+            signature = headers["Webhook-Signature"]
+        except KeyError:
+            return False
+        msg = f"{webhook_id}.{timestamp}.{body}"
         expected = "v1=" + _hmac.new(secret.encode(), msg.encode(), hashlib.sha256).hexdigest()
-        return _hmac.compare_digest(expected, headers["Webhook-Signature"])
+        return _hmac.compare_digest(expected, signature)
 
     def create(self, *, url: str, events: list[str] | None = None) -> Webhook:
         """Register a webhook endpoint. Secret returned only on creation."""
