@@ -38,6 +38,35 @@ sdk/py/
 - **V2 SDK** (`_client.py`, `_resources/`): Stripe-style `client.resource.method()` pattern, API key auth, targets `/api/v2/`. Used by developers.
 - **Legacy** (`client.py`, `agent.py`): OAuth/keychain auth, targets `/api/v1/`. Used by CLI.
 
+### V2 SDK Architecture
+
+The V2 SDK follows a Stripe-style resource pattern:
+
+```
+M8tes (entry point)
+├── teammates   → Teammates CRUD + webhook enable/disable
+├── runs        → Create (streaming/non-streaming), list, get, cancel, reply
+├── tasks       → Tasks CRUD + triggers (schedule, webhook, email)
+├── apps        → List tools, manage OAuth connections
+├── memories    → Pre-populate end-user memories
+├── permissions → Pre-approve tools for end-users
+└── webhooks    → Webhook endpoint CRUD + delivery tracking
+```
+
+**Key files:**
+- `_client.py` — Entry point, initializes all resources
+- `_http.py` — Auth, retries (429/5xx), structured error parsing
+- `_types.py` — Dataclasses: Teammate, Run, Task, Trigger, App, etc.
+- `_exceptions.py` — Typed hierarchy: M8tesError → NotFoundError, AuthenticationError, etc.
+- `_streaming.py` — RunStream context manager wrapping SSE parser
+- `_resources/` — One module per resource (teammates.py, runs.py, tasks.py, etc.)
+
+**Conventions:**
+- All list methods return `ListResponse` with `.data`, `.has_more`, and `.auto_paging_iter()`
+- Methods that accept `user_id` map to `end_user_id` internally for multi-tenancy
+- Create/update methods accept keyword args matching the V2 API schema
+- HTTP errors are parsed into typed exceptions with `.status_code`, `.message`, `.request_id`
+
 ## Setup & Daily Commands
 
 ```bash
@@ -74,8 +103,17 @@ for event in client.execute_agent(instance_id=mate.id, task="Close open tickets"
 
 - **TDD**: Write failing unit tests around clients/commands before implementation.
 - Unit tests mock HTTP + SSE to validate parsing and error handling.
-- Integration tests in `tests/integration/` run against a live FastAPI instance for end-to-end coverage.
+- Integration tests in `tests/integration/` run against a live FastAPI instance.
+- **Every new V2 resource or method MUST have integration tests** in `tests/integration/test_v2_integration.py`. Follow existing patterns: try/finally cleanup, `_uid()` for unique user_ids, test both success and error paths.
+- Run `make test-integration` with the backend running at localhost:8000 to verify.
 - Use `pytest -k streaming` for focused SSE tests; `make check` before sharing work.
+
+### Before Pushing
+
+```bash
+make check                    # lint + type-check + tests (must pass)
+make test-integration         # requires backend running at localhost:8000
+```
 
 ## Patterns & Guardrails
 
@@ -91,6 +129,32 @@ for event in client.execute_agent(instance_id=mate.id, task="Close open tickets"
 - `make check` clean, integration suite green.
 - CLI help (`m8tes --help`) reflects new commands/flags.
 - Changelog entry summarizing mate/API changes.
+
+## Documentation (Source of Truth)
+
+The developer-facing docs live in `vite-frontend/src/constants/docs/` as TypeScript string constants rendered on the docs site. These are the **source of truth** for SDK behavior, API contracts, and usage patterns.
+
+Key doc files (read these to understand the SDK surface):
+- `core-concepts.ts` — Teammates, Tasks, Runs, Tools overview
+- `quickstart.ts` — end-to-end getting-started guide
+- `teammates.ts`, `tasks.ts`, `runs.ts` — detailed resource guides
+- `streaming.ts` — SSE event streaming
+- `webhooks.ts`, `webhooks-guide.ts`, `webhook-triggers.ts` — webhook system
+- `users.ts` — multi-tenancy / end-user isolation
+- `permissions-guide.ts` — permission system
+- `files.ts` — file upload/download
+- `scheduling.ts`, `email-inbox.ts`, `memories.ts`, `skills.ts` — features
+
+Doc sidebar structure: `vite-frontend/src/components/docs/docs-sidebar.tsx`
+
+### Keeping Docs in Sync
+
+**When changing SDK behavior, API responses, or adding new features, update the corresponding doc files.** Docs must stay accurate — they're what developers read. Specifically:
+- New SDK methods/resources → update or create the relevant doc file + add to sidebar
+- Changed request/response shapes → update code examples in the doc
+- New concepts or features → add a doc file and wire it into the sidebar nav
+- Renamed fields or deprecated params → grep docs for old names and update
+- **Update `vite-frontend/public/llms.txt` and `vite-frontend/public/llms-full.txt`** — these are the LLM-friendly versions of the docs (following the [llms.txt standard](https://llmstxt.org/)). `llms.txt` is the concise overview with links; `llms-full.txt` is the complete documentation dump. Both must reflect current SDK surface and API contracts.
 
 ## References
 
