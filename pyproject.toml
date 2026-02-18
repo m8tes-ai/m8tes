@@ -45,8 +45,8 @@ m8tes = "m8tes.cli.main:main"
 [project.urls]
 Homepage = "https://m8tes.ai"
 Documentation = "https://m8tes.ai/docs"
-Repository = "https://github.com/m8tes/m8tes-python"
-Changelog = "https://github.com/m8tes/m8tes-python/blob/main/CHANGELOG.md"
+Repository = "https://github.com/m8tes-ai/m8tes"
+Changelog = "https://github.com/m8tes-ai/m8tes/blob/main/CHANGELOG.md"
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
