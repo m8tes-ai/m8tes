@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .._types import SyncPage, Teammate
+from .._types import SyncPage, Teammate, TeammateWebhook
 
 _list = list  # preserve builtin; shadowed by .list() method
 
@@ -110,3 +110,12 @@ class Teammates:
 
     def delete(self, teammate_id: int) -> None:
         self._http.request("DELETE", f"/teammates/{teammate_id}")
+
+    def enable_webhook(self, teammate_id: int) -> TeammateWebhook:
+        """Enable webhook trigger on a teammate. Returns the webhook URL (shown once)."""
+        resp = self._http.request("POST", f"/teammates/{teammate_id}/webhook")
+        return TeammateWebhook.from_dict(resp.json())
+
+    def disable_webhook(self, teammate_id: int) -> None:
+        """Disable webhook trigger on a teammate."""
+        self._http.request("DELETE", f"/teammates/{teammate_id}/webhook")
