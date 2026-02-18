@@ -351,3 +351,41 @@ class WebhookDelivery:
             next_retry_at=data.get("next_retry_at"),
             created_at=data.get("created_at", ""),
         )
+
+
+@dataclass
+class EndUser:
+    """A structured end-user profile."""
+
+    id: int
+    user_id: str
+    name: str | None
+    email: str | None
+    company: str | None
+    metadata: dict | None
+    created_at: str
+    updated_at: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> EndUser:
+        return cls(
+            id=data["id"],
+            user_id=data["user_id"],
+            name=data.get("name"),
+            email=data.get("email"),
+            company=data.get("company"),
+            metadata=data.get("metadata"),
+            created_at=data.get("created_at", ""),
+            updated_at=data.get("updated_at"),
+        )
+
+
+@dataclass
+class AccountSettings:
+    """Account-level settings."""
+
+    company_research: bool
+
+    @classmethod
+    def from_dict(cls, data: dict) -> AccountSettings:
+        return cls(company_research=data["company_research"])
