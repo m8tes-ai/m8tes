@@ -121,7 +121,7 @@ make test-integration         # requires backend running at localhost:8000
 - Emit structured errors (status, code, message, request_id) so users can debug quickly.
 - Streaming helpers should return iterables of typed events (`MessageEvent`, `ToolEvent`, `ErrorEvent`).
 - Any change to FastAPI payloads must update `types.py` and regenerate documentation/snippets.
-- Always support both `task` and `chat` modes when adding new mate commands or SDK methods.
+- Chat and task are the same flow (both create a Task + Run). Ensure new commands/methods work consistently for both patterns.
 
 ## Release Checklist
 

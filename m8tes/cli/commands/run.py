@@ -19,7 +19,7 @@ class RunCommandGroup(CommandGroup):
 
     name = "run"
     aliases: ClassVar[list[str]] = ["r"]
-    description = "View agent run details and history"
+    description = "View run details and history"
     requires_auth = True
 
     def __init__(self) -> None:
@@ -27,7 +27,7 @@ class RunCommandGroup(CommandGroup):
         # Register all run subcommands
         self.add_subcommand(GetRunCommand())
         self.add_subcommand(ListRunsCommand())
-        self.add_subcommand(ListAgentRunsCommand())
+        self.add_subcommand(ListTeammateRunsCommand())
         self.add_subcommand(ConversationCommand())
         self.add_subcommand(UsageCommand())
         self.add_subcommand(ToolsCommand())
@@ -132,7 +132,7 @@ class ListRunsCommand(Command):
 
             for run in runs:
                 print(f"🏃 Run {run.id} - {run.run_mode}")
-                print(f"   Agent ID: {run.instance_id}")
+                print(f"   Teammate ID: {run.instance_id}")
                 if run.description:
                     desc = (
                         run.description[:60] + "..."
@@ -149,35 +149,35 @@ class ListRunsCommand(Command):
             return 1
 
 
-class ListAgentRunsCommand(Command):
-    """List runs for a specific agent command."""
+class ListTeammateRunsCommand(Command):
+    """List runs for a specific teammate."""
 
-    name = "list-agent"
-    aliases: ClassVar[list[str]] = ["la"]
-    description = "List runs for a specific agent"
+    name = "list-mate"
+    aliases: ClassVar[list[str]] = ["lm"]
+    description = "List runs for a specific teammate"
     requires_auth = True
 
     def add_arguments(self, parser: ArgumentParser) -> None:
-        """Add list-agent-specific arguments."""
-        parser.add_argument("agent_id", help="Agent ID")
+        """Add list-mate-specific arguments."""
+        parser.add_argument("mate_id", help="Teammate ID")
         parser.add_argument("--limit", type=int, default=10, help="Maximum runs to return")
 
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
-        """Execute agent run listing."""
+        """Execute teammate run listing."""
         if not client:
             print("❌ Authentication required")
             return 1
 
         try:
-            agent_id = int(args.agent_id)
+            mate_id = int(args.mate_id)
             limit = getattr(args, "limit", 10)
-            runs = client.runs.list_for_instance(agent_id, limit=limit)
+            runs = client.runs.list_for_instance(mate_id, limit=limit)
 
-            print(f"🏃 Runs for Agent {agent_id} (showing {len(runs)})")
+            print(f"🏃 Runs for Teammate {mate_id} (showing {len(runs)})")
             print()
 
             if not runs:
-                print("No runs found for this agent.")
+                print("No runs found for this teammate.")
                 return 0
 
             for run in runs:
@@ -199,7 +199,7 @@ class ListAgentRunsCommand(Command):
             print(f"❌ Error listing runs: {e}")
             return 1
         except ValueError:
-            print("❌ Invalid agent ID")
+            print("❌ Invalid teammate ID")
             return 1
 
 

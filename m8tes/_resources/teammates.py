@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from .._types import SyncPage, Teammate, TeammateWebhook
+from ._utils import _build_params
 
 _list = list  # preserve builtin; shadowed by .list() method
 
@@ -55,13 +56,7 @@ class Teammates:
         limit: int = 20,
         starting_after: int | None = None,
     ) -> SyncPage[Teammate]:
-        params: dict = {}
-        if user_id is not None:
-            params["user_id"] = user_id
-        if limit != 20:
-            params["limit"] = limit
-        if starting_after is not None:
-            params["starting_after"] = starting_after
+        params = _build_params(user_id=user_id, limit=limit, starting_after=starting_after)
         resp = self._http.request("GET", "/teammates", params=params)
         body = resp.json()
 

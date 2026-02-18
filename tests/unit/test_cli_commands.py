@@ -505,7 +505,6 @@ class TestMateCommands:
         args = parser.parse_args(["mate-123", "Run analysis on campaign"])
         assert args.command_args == ["mate-123", "Run", "analysis", "on", "campaign"]
         assert args.output == "verbose"
-        assert args.no_stream is False
         assert args.debug is False
 
     @patch("m8tes.cli.mates.MateCLI")
@@ -517,9 +516,7 @@ class TestMateCommands:
         mock_client = Mock()
 
         cmd = TaskCommand()
-        args = Namespace(
-            command_args=["123", "Run", "analysis"], output="verbose", no_stream=False, debug=False
-        )
+        args = Namespace(command_args=["123", "Run", "analysis"], output="verbose", debug=False)
 
         result = cmd.execute(args, mock_client)
 
@@ -552,3 +549,128 @@ class TestMateCommands:
 
         assert result == 0
         mock_mate_cli.chat_interactive.assert_called_once_with("123", resume_run_id=None)
+
+
+class TestRunCommands:
+    """Test cases for run management commands."""
+
+    def test_run_command_group_setup(self):
+        """Test that run command group has correct subcommands."""
+        from m8tes.cli.commands.run import RunCommandGroup
+
+        group = RunCommandGroup()
+        subcommands = group.get_subcommands()
+
+        assert len(subcommands) == 6
+
+    def test_run_command_group_attributes(self):
+        """Test run command group has correct attributes."""
+        from m8tes.cli.commands.run import RunCommandGroup
+
+        group = RunCommandGroup()
+        assert group.name == "run"
+        assert "r" in group.aliases
+        assert group.requires_auth
+        assert "run" in group.description.lower()
+        # Must not contain "agent" in description
+        assert "agent" not in group.description.lower()
+
+    def test_get_run_command_attributes(self):
+        """Test get run command has correct attributes."""
+        from m8tes.cli.commands.run import GetRunCommand
+
+        cmd = GetRunCommand()
+        assert cmd.name == "get"
+        assert "g" in cmd.aliases
+        assert cmd.requires_auth
+
+    def test_get_run_command_arguments(self):
+        """Test get run command adds correct arguments."""
+        from m8tes.cli.commands.run import GetRunCommand
+
+        cmd = GetRunCommand()
+        parser = ArgumentParser()
+        cmd.add_arguments(parser)
+
+        args = parser.parse_args(["123"])
+        assert args.run_id == "123"
+
+    def test_list_runs_command_attributes(self):
+        """Test list runs command has correct attributes."""
+        from m8tes.cli.commands.run import ListRunsCommand
+
+        cmd = ListRunsCommand()
+        assert cmd.name == "list"
+        assert "ls" in cmd.aliases
+        assert cmd.requires_auth
+
+    def test_list_runs_command_arguments(self):
+        """Test list runs command adds correct arguments."""
+        from m8tes.cli.commands.run import ListRunsCommand
+
+        cmd = ListRunsCommand()
+        parser = ArgumentParser()
+        cmd.add_arguments(parser)
+
+        args = parser.parse_args(["--limit", "25"])
+        assert args.limit == 25
+
+    def test_list_teammate_runs_command_attributes(self):
+        """Test list teammate runs command uses 'teammate' not 'agent' terminology."""
+        from m8tes.cli.commands.run import ListTeammateRunsCommand
+
+        cmd = ListTeammateRunsCommand()
+        assert cmd.name == "list-mate"
+        assert "lm" in cmd.aliases
+        assert cmd.requires_auth
+        assert "teammate" in cmd.description.lower()
+        assert "agent" not in cmd.description.lower()
+
+    def test_list_teammate_runs_command_arguments(self):
+        """Test list teammate runs command uses mate_id parameter."""
+        from m8tes.cli.commands.run import ListTeammateRunsCommand
+
+        cmd = ListTeammateRunsCommand()
+        parser = ArgumentParser()
+        cmd.add_arguments(parser)
+
+        args = parser.parse_args(["7", "--limit", "5"])
+        assert args.mate_id == "7"
+        assert args.limit == 5
+
+    def test_list_teammate_runs_requires_client(self):
+        """Test list teammate runs command requires authenticated client."""
+        from m8tes.cli.commands.run import ListTeammateRunsCommand
+
+        cmd = ListTeammateRunsCommand()
+        args = Namespace(mate_id="7", limit=10)
+
+        result = cmd.execute(args, None)
+        assert result == 1
+
+    def test_conversation_command_attributes(self):
+        """Test conversation command has correct attributes."""
+        from m8tes.cli.commands.run import ConversationCommand
+
+        cmd = ConversationCommand()
+        assert cmd.name == "conversation"
+        assert "conv" in cmd.aliases
+        assert cmd.requires_auth
+
+    def test_usage_command_attributes(self):
+        """Test usage command has correct attributes."""
+        from m8tes.cli.commands.run import UsageCommand
+
+        cmd = UsageCommand()
+        assert cmd.name == "usage"
+        assert "cost" in cmd.aliases
+        assert cmd.requires_auth
+
+    def test_tools_command_attributes(self):
+        """Test tools command has correct attributes."""
+        from m8tes.cli.commands.run import ToolsCommand
+
+        cmd = ToolsCommand()
+        assert cmd.name == "tools"
+        assert "executions" in cmd.aliases
+        assert cmd.requires_auth

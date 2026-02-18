@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from .._types import SyncPage, Webhook, WebhookDelivery
+from ._utils import _build_params
 
 _list = list  # preserve builtin; shadowed by .list() method
 
@@ -19,25 +20,42 @@ class Webhooks:
         self._http = http
 
     @staticmethod
-    def verify_signature(body: str | bytes, headers: dict[str, str], secret: str) -> bool:
-        """Verify webhook HMAC-SHA256 signature.
+    def verify_signature(
+        body: str | bytes,
+        headers: dict[str, str],
+        secret: str,
+        *,
+        tolerance_seconds: int | None = None,
+    ) -> bool:
+        """Verify webhook HMAC-SHA256 signature with optional replay protection.
 
         Args:
             body: Raw request body (string or bytes).
             headers: Request headers (Webhook-Id, Webhook-Timestamp, Webhook-Signature).
             secret: Webhook signing secret from creation.
+            tolerance_seconds: Max age of timestamp in seconds. None disables the check.
         """
         import hashlib
         import hmac as _hmac
+        import time
 
         if isinstance(body, bytes):
             body = body.decode("utf-8")
-        try:
-            webhook_id = headers["Webhook-Id"]
-            timestamp = headers["Webhook-Timestamp"]
-            signature = headers["Webhook-Signature"]
-        except KeyError:
+        # Case-insensitive header lookup
+        h = {k.lower(): v for k, v in headers.items()}
+        webhook_id = h.get("webhook-id")
+        timestamp = h.get("webhook-timestamp")
+        signature = h.get("webhook-signature")
+        if not webhook_id or not timestamp or not signature:
             return False
+        # Replay protection: reject stale timestamps when tolerance is set
+        if tolerance_seconds is not None:
+            try:
+                ts = int(timestamp)
+            except (ValueError, TypeError):
+                return False
+            if abs(int(time.time()) - ts) > tolerance_seconds:
+                return False
         msg = f"{webhook_id}.{timestamp}.{body}"
         expected = "v1=" + _hmac.new(secret.encode(), msg.encode(), hashlib.sha256).hexdigest()
         return _hmac.compare_digest(expected, signature)
@@ -62,11 +80,7 @@ class Webhooks:
         starting_after: int | None = None,
     ) -> SyncPage[Webhook]:
         """List registered webhook endpoints (secrets masked)."""
-        params: dict = {}
-        if limit != 20:
-            params["limit"] = limit
-        if starting_after is not None:
-            params["starting_after"] = starting_after
+        params = _build_params(limit=limit, starting_after=starting_after)
         resp = self._http.request("GET", "/webhooks", params=params)
         body = resp.json()
 
@@ -109,11 +123,7 @@ class Webhooks:
         starting_after: int | None = None,
     ) -> SyncPage[WebhookDelivery]:
         """List delivery attempts for a webhook endpoint."""
-        params: dict = {}
-        if limit != 20:
-            params["limit"] = limit
-        if starting_after is not None:
-            params["starting_after"] = starting_after
+        params = _build_params(limit=limit, starting_after=starting_after)
         resp = self._http.request("GET", f"/webhooks/{webhook_id}/deliveries", params=params)
         body = resp.json()
 

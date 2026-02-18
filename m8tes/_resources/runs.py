@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from .._streaming import RunStream
 from .._types import PermissionRequest, Run, RunFile, SyncPage
+from ._utils import _build_params
 
 _list = list  # preserve builtin; shadowed by .list() method
 
@@ -96,17 +97,13 @@ class Runs:
         limit: int = 20,
         starting_after: int | None = None,
     ) -> SyncPage[Run]:
-        params: dict = {}
-        if teammate_id is not None:
-            params["teammate_id"] = teammate_id
-        if user_id is not None:
-            params["user_id"] = user_id
-        if status is not None:
-            params["status"] = status
-        if limit != 20:
-            params["limit"] = limit
-        if starting_after is not None:
-            params["starting_after"] = starting_after
+        params = _build_params(
+            teammate_id=teammate_id,
+            user_id=user_id,
+            status=status,
+            limit=limit,
+            starting_after=starting_after,
+        )
         resp = self._http.request("GET", "/runs", params=params)
         body = resp.json()
 

@@ -8,6 +8,8 @@ import responses
 from m8tes._exceptions import NotFoundError
 from m8tes._http import HTTPClient
 from m8tes._resources.apps import Apps
+from m8tes._resources.memories import Memories
+from m8tes._resources.permissions import Permissions
 from m8tes._resources.runs import Runs
 from m8tes._resources.tasks import Tasks, TaskTriggers
 from m8tes._resources.teammates import Teammates
@@ -508,3 +510,56 @@ class TestApps:
         responses.add(responses.DELETE, f"{BASE}/apps/gmail/connections", status=204)
         Apps(http).disconnect("gmail", user_id="cust_1")
         assert "user_id=cust_1" in responses.calls[0].request.url
+
+
+# ── Memories ────────────────────────────────────────────────────────
+
+
+class TestMemories:
+    @responses.activate
+    def test_auto_paging_iter(self, http):
+        """Memories.list() must support auto_paging_iter across pages."""
+        page1 = {
+            "data": [{"id": 1, "content": "a", "user_id": "u1", "source": "api", "created_at": ""}],
+            "has_more": True,
+        }
+        page2 = {
+            "data": [{"id": 2, "content": "b", "user_id": "u1", "source": "api", "created_at": ""}],
+            "has_more": False,
+        }
+        responses.add(responses.GET, f"{BASE}/memories", json=page1, status=200)
+        responses.add(responses.GET, f"{BASE}/memories", json=page2, status=200)
+
+        page = Memories(http).list(user_id="u1")
+        items = list(page.auto_paging_iter())
+        assert len(items) == 2
+        assert items[0].content == "a"
+        assert items[1].content == "b"
+        # Second request should have starting_after=1
+        assert "starting_after=1" in responses.calls[1].request.url
+
+
+# ── Permissions ─────────────────────────────────────────────────────
+
+
+class TestPermissions:
+    @responses.activate
+    def test_auto_paging_iter(self, http):
+        """Permissions.list() must support auto_paging_iter across pages."""
+        page1 = {
+            "data": [{"id": 10, "user_id": "u1", "tool_name": "bash", "created_at": ""}],
+            "has_more": True,
+        }
+        page2 = {
+            "data": [{"id": 11, "user_id": "u1", "tool_name": "gmail", "created_at": ""}],
+            "has_more": False,
+        }
+        responses.add(responses.GET, f"{BASE}/permissions", json=page1, status=200)
+        responses.add(responses.GET, f"{BASE}/permissions", json=page2, status=200)
+
+        page = Permissions(http).list(user_id="u1")
+        items = list(page.auto_paging_iter())
+        assert len(items) == 2
+        assert items[0].tool_name == "bash"
+        assert items[1].tool_name == "gmail"
+        assert "starting_after=10" in responses.calls[1].request.url

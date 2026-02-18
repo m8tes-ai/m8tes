@@ -8,6 +8,8 @@ import argparse
 import os
 import sys
 
+from m8tes import __version__
+
 from ..client import M8tes
 from .registry import registry
 from .util import graceful_main
@@ -65,7 +67,7 @@ def _real_main(argv: list[str]) -> int:
             "Use local development server (http://127.0.0.1:8000, or port from M8TES_PORT env var)"
         ),
     )
-    parser.add_argument("--version", action="version", version="%(prog)s 0.1.0")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
 
     # Create subparsers for commands
     subparsers = parser.add_subparsers(dest="command", help="Available commands")

@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from .._types import PermissionPolicy, SyncPage
+from ._utils import _build_params
 
 if TYPE_CHECKING:
     from .._http import HTTPClient
@@ -29,15 +30,17 @@ class Permissions:
         starting_after: int | None = None,
     ) -> SyncPage[PermissionPolicy]:
         """List tool permission policies for an end-user."""
-        params: dict = {"user_id": user_id}
-        if limit != 20:
-            params["limit"] = limit
-        if starting_after is not None:
-            params["starting_after"] = starting_after
+        params = _build_params(user_id=user_id, limit=limit, starting_after=starting_after)
         resp = self._http.request("GET", "/permissions", params=params)
         body = resp.json()
+
+        def _fetch_next(**kw: object) -> SyncPage[PermissionPolicy]:
+            return self.list(user_id=user_id, **kw)  # type: ignore[arg-type]
+
         return SyncPage(
-            data=[PermissionPolicy.from_dict(d) for d in body["data"]], has_more=body["has_more"]
+            data=[PermissionPolicy.from_dict(d) for d in body["data"]],
+            has_more=body["has_more"],
+            _fetch_next=_fetch_next,
         )
 
     def delete(self, permission_id: int, *, user_id: str) -> None:

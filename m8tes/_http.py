@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 _MAX_RETRIES = 3
 _INITIAL_BACKOFF = 0.5  # seconds
 _RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+_SAFE_RETRY_METHODS = {"GET", "HEAD", "PUT", "DELETE", "OPTIONS"}
 
 
 def _raise_for_status(resp: requests.Response, *, method: str = "", path: str = "") -> None:
@@ -25,9 +26,13 @@ def _raise_for_status(resp: requests.Response, *, method: str = "", path: str = 
         body = resp.json()
         # v2 API returns {"error": {"code", "message", "request_id"}}
         error_obj = body.get("error", {})
-        message = error_obj.get("message", body.get("detail", message))
-        request_id = error_obj.get("request_id", body.get("request_id"))
-    except (ValueError, KeyError):
+        if isinstance(error_obj, str):
+            # Proxy/gateway may return {"error": "plain string"} instead of dict
+            message = error_obj
+        else:
+            message = error_obj.get("message", body.get("detail", message))
+            request_id = error_obj.get("request_id", body.get("request_id"))
+    except (ValueError, KeyError, AttributeError):
         logger.debug("Failed to parse error body: %s", resp.text[:200] if resp.text else "empty")
         message = resp.text or message
 
@@ -69,7 +74,11 @@ class HTTPClient:
             if resp.ok:
                 return resp
 
-            if resp.status_code not in _RETRYABLE_STATUS or attempt == _MAX_RETRIES - 1:
+            if (
+                resp.status_code not in _RETRYABLE_STATUS
+                or method.upper() not in _SAFE_RETRY_METHODS
+                or attempt == _MAX_RETRIES - 1
+            ):
                 _raise_for_status(resp, method=method, path=url)
 
             # Retry after delay
