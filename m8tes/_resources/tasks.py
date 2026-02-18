@@ -1,10 +1,11 @@
-"""Tasks resource — reusable task definitions (advanced/power-user API)."""
+"""Tasks resource — reusable task definitions with direct execution."""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .._types import SyncPage, Task, Trigger
+from .._streaming import RunStream
+from .._types import Run, SyncPage, Task, Trigger
 from ._utils import _build_params
 
 _list = list  # preserve builtin; shadowed by .list() method
@@ -126,6 +127,38 @@ class Tasks:
             body["goals"] = goals
         resp = self._http.request("PATCH", f"/tasks/{task_id}", json=body)
         return Task.from_dict(resp.json())
+
+    def run(
+        self,
+        task_id: int,
+        *,
+        stream: bool = True,
+        user_id: str | None = None,
+        metadata: dict | None = None,
+        memory: bool = True,
+        history: bool = True,
+        permission_mode: str = "autonomous",
+    ) -> RunStream | Run:
+        """Execute a saved task, creating a new run.
+
+        With stream=True (default): returns iterable RunStream of events.
+        With stream=False: returns Run immediately (status="running").
+            Poll runs.poll(run.id) until status is terminal to get output.
+        """
+        body: dict = {"stream": stream, "memory": memory, "history": history}
+        if user_id is not None:
+            body["user_id"] = user_id
+        if metadata is not None:
+            body["metadata"] = metadata
+        if permission_mode != "autonomous":
+            body["permission_mode"] = permission_mode
+
+        if stream:
+            resp = self._http.stream("POST", f"/tasks/{task_id}/runs", json=body)
+            return RunStream(resp)
+
+        resp = self._http.request("POST", f"/tasks/{task_id}/runs", json=body)
+        return Run.from_dict(resp.json())
 
     def delete(self, task_id: int) -> None:
         self._http.request("DELETE", f"/tasks/{task_id}")

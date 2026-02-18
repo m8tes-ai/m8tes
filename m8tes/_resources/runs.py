@@ -88,6 +88,93 @@ class Runs:
                 raise TimeoutError(f"Run {run_id} did not complete within {timeout}s")
             _time.sleep(interval)
 
+    def create_and_wait(
+        self,
+        *,
+        message: str,
+        teammate_id: int | None = None,
+        tools: list[str] | None = None,
+        name: str | None = None,
+        instructions: str | None = None,
+        user_id: str | None = None,
+        metadata: dict | None = None,
+        memory: bool = True,
+        history: bool = True,
+        permission_mode: str = "autonomous",
+        poll_interval: float = 2.0,
+        poll_timeout: float = 300.0,
+    ) -> Run:
+        """Create a run and poll until it completes. Returns the finished Run."""
+        run = self.create(
+            message=message,
+            teammate_id=teammate_id,
+            tools=tools,
+            stream=False,
+            name=name,
+            instructions=instructions,
+            user_id=user_id,
+            metadata=metadata,
+            memory=memory,
+            history=history,
+            permission_mode=permission_mode,
+        )
+        assert isinstance(run, Run)
+        return self.poll(run.id, interval=poll_interval, timeout=poll_timeout)
+
+    def reply_and_wait(
+        self,
+        run_id: int,
+        *,
+        message: str,
+        poll_interval: float = 2.0,
+        poll_timeout: float = 300.0,
+    ) -> Run:
+        """Send a follow-up and poll until it completes. Returns the finished Run."""
+        run = self.reply(run_id, message=message, stream=False)
+        assert isinstance(run, Run)
+        return self.poll(run.id, interval=poll_interval, timeout=poll_timeout)
+
+    def stream_text(
+        self,
+        *,
+        message: str,
+        teammate_id: int | None = None,
+        tools: list[str] | None = None,
+        name: str | None = None,
+        instructions: str | None = None,
+        user_id: str | None = None,
+        metadata: dict | None = None,
+        memory: bool = True,
+        history: bool = True,
+        permission_mode: str = "autonomous",
+    ):
+        """Create a streaming run and yield only text delta strings.
+
+        Usage:
+            for chunk in client.runs.stream_text(message="Summarize news"):
+                print(chunk, end="", flush=True)
+        """
+        from ..streaming import StreamEventType
+
+        stream = self.create(
+            message=message,
+            teammate_id=teammate_id,
+            tools=tools,
+            stream=True,
+            name=name,
+            instructions=instructions,
+            user_id=user_id,
+            metadata=metadata,
+            memory=memory,
+            history=history,
+            permission_mode=permission_mode,
+        )
+        assert isinstance(stream, RunStream)
+        with stream:
+            for event in stream:
+                if event.type == StreamEventType.TEXT_DELTA:
+                    yield event.raw.get("textDelta", "")
+
     def list(
         self,
         *,
