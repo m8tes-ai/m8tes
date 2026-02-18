@@ -175,21 +175,28 @@ class TestTeammatesCRUD:
 
     def test_tools_roundtrip(self, v2_client):
         """Create teammate with tools, verify persisted, update tools."""
-        t = v2_client.teammates.create(name="ToolsBot", tools=["gmail", "slack"])
+        available = [a.name for a in v2_client.apps.list().data]
+        if len(available) < 2:
+            pytest.skip(f"Need >=2 tools, got {len(available)}")
+        tool_a, tool_b = available[0], available[1]
+        t = v2_client.teammates.create(name="ToolsBot", tools=[tool_a, tool_b])
         try:
-            assert set(t.tools) == {"gmail", "slack"}
+            assert set(t.tools) == {tool_a, tool_b}
 
-            updated = v2_client.teammates.update(t.id, tools=["notion"])
-            assert updated.tools == ["notion"]
+            updated = v2_client.teammates.update(t.id, tools=[tool_b])
+            assert updated.tools == [tool_b]
 
             fetched = v2_client.teammates.get(t.id)
-            assert fetched.tools == ["notion"]
+            assert fetched.tools == [tool_b]
         finally:
             v2_client.teammates.delete(t.id)
 
     def test_tools_clear_to_empty(self, v2_client):
         """Update tools to empty list clears all tools."""
-        t = v2_client.teammates.create(name="ClearTools", tools=["gmail"])
+        available = [a.name for a in v2_client.apps.list().data]
+        if not available:
+            pytest.skip("No tools available")
+        t = v2_client.teammates.create(name="ClearTools", tools=[available[0]])
         try:
             updated = v2_client.teammates.update(t.id, tools=[])
             assert updated.tools == []
@@ -1787,7 +1794,10 @@ class TestEndUsersCRUD:
         """Create -> list -> get -> update -> delete -> verify gone."""
         uid = _uid()
         eu = v2_client.users.create(
-            user_id=uid, name="Alice", email="alice@example.com", company="Acme",
+            user_id=uid,
+            name="Alice",
+            email="alice@example.com",
+            company="Acme",
         )
         try:
             assert isinstance(eu, EndUser)
