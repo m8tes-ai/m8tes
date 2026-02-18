@@ -16,9 +16,11 @@ from m8tes._types import (
     AppConnection,
     PermissionRequest,
     Run,
+    RunFile,
     SyncPage,
     Task,
     Teammate,
+    TeammateWebhook,
     Trigger,
 )
 
@@ -116,6 +118,25 @@ class TestTeammates:
     def test_delete(self, http):
         responses.add(responses.DELETE, f"{BASE}/teammates/1", status=204)
         Teammates(http).delete(1)
+        assert responses.calls[0].request.method == "DELETE"
+
+    @responses.activate
+    def test_enable_webhook(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/teammates/1/webhook",
+            json={"enabled": True, "url": "https://api.m8tes.ai/api/v1/webhooks/mates/1/tok_abc"},
+            status=201,
+        )
+        result = Teammates(http).enable_webhook(1)
+        assert isinstance(result, TeammateWebhook)
+        assert result.enabled is True
+        assert "tok_abc" in result.url
+
+    @responses.activate
+    def test_disable_webhook(self, http):
+        responses.add(responses.DELETE, f"{BASE}/teammates/1/webhook", status=204)
+        Teammates(http).disable_webhook(1)
         assert responses.calls[0].request.method == "DELETE"
 
 
@@ -257,6 +278,35 @@ class TestRuns:
         Runs(http).approve(1, request_id="req_1", decision="deny", remember=True)
         body = json.loads(responses.calls[0].request.body)
         assert body == {"request_id": "req_1", "decision": "deny", "remember": True}
+
+    @responses.activate
+    def test_list_files(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/1/files",
+            json=[{"name": "report.csv", "size": 1024}, {"name": "chart.png", "size": 2048}],
+        )
+        files = Runs(http).list_files(1)
+        assert len(files) == 2
+        assert all(isinstance(f, RunFile) for f in files)
+        assert files[0].name == "report.csv"
+        assert files[1].size == 2048
+
+    @responses.activate
+    def test_list_files_empty(self, http):
+        responses.add(responses.GET, f"{BASE}/runs/1/files", json=[])
+        assert Runs(http).list_files(1) == []
+
+    @responses.activate
+    def test_download_file(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/1/files/report.csv/download",
+            body=b"col1,col2\na,b\n",
+            content_type="text/csv",
+        )
+        content = Runs(http).download_file(1, "report.csv")
+        assert content == b"col1,col2\na,b\n"
 
 
 # ── Tasks (advanced) ─────────────────────────────────────────────────

@@ -17,8 +17,10 @@ from m8tes._types import (
     PermissionPolicy,
     PermissionRequest,
     Run,
+    RunFile,
     Task,
     Teammate,
+    TeammateWebhook,
     Trigger,
     Webhook,
     WebhookDelivery,
@@ -43,6 +45,8 @@ WebhookResponse = _schemas.WebhookResponse
 WebhookDeliveryResponse = _schemas.WebhookDeliveryResponse
 PermissionRequestResponse = _schemas.PermissionRequestResponse
 PermissionPolicyResponse = _schemas.PermissionPolicyResponse
+RunFileResponse = _schemas.RunFileResponse
+TeammateWebhookResponse = _schemas.TeammateWebhookResponse
 
 
 def _pydantic_fields(model: type) -> set[str]:
@@ -65,6 +69,8 @@ SCHEMA_PAIRS = [
     (WebhookDeliveryResponse, WebhookDelivery, set()),
     (PermissionRequestResponse, PermissionRequest, set()),
     (PermissionPolicyResponse, PermissionPolicy, set()),
+    (RunFileResponse, RunFile, set()),
+    (TeammateWebhookResponse, TeammateWebhook, set()),
 ]
 
 

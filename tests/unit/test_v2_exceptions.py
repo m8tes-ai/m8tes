@@ -6,6 +6,7 @@ from m8tes._exceptions import (
     AuthenticationError,
     M8tesError,
     NotFoundError,
+    PermissionDeniedError,
     RateLimitError,
     ValidationError,
 )
@@ -39,8 +40,8 @@ class TestStatusMap:
     def test_401_maps_to_auth(self):
         assert STATUS_MAP[401] is AuthenticationError
 
-    def test_403_maps_to_auth(self):
-        assert STATUS_MAP[403] is AuthenticationError
+    def test_403_maps_to_permission_denied(self):
+        assert STATUS_MAP[403] is PermissionDeniedError
 
     def test_404_maps_to_not_found(self):
         assert STATUS_MAP[404] is NotFoundError
