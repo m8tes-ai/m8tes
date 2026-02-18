@@ -315,6 +315,33 @@ class TestRuns:
         assert body == {"request_id": "req_1", "decision": "deny", "remember": True}
 
     @responses.activate
+    def test_answer_question(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/1/answer",
+            json={"status": "ok", "resumed": True},
+        )
+        result = Runs(http).answer(1, answers={"What priority?": "High"})
+        assert result == {"status": "ok", "resumed": True}
+        body = json.loads(responses.calls[0].request.body)
+        assert body == {"answers": {"What priority?": "High"}}
+
+    @responses.activate
+    def test_create_with_ask_user_false(self, http):
+        responses.add(responses.POST, f"{BASE}/runs", json={"id": 1, "status": "running"})
+        Runs(http).create(message="Do X", stream=False, ask_user=False)
+        body = json.loads(responses.calls[0].request.body)
+        assert body["ask_user"] is False
+
+    @responses.activate
+    def test_create_ask_user_default_not_sent(self, http):
+        """ask_user=True (default) is NOT sent in the body to avoid noise."""
+        responses.add(responses.POST, f"{BASE}/runs", json={"id": 1, "status": "running"})
+        Runs(http).create(message="Do X", stream=False)
+        body = json.loads(responses.calls[0].request.body)
+        assert "ask_user" not in body
+
+    @responses.activate
     def test_list_files(self, http):
         responses.add(
             responses.GET,
@@ -528,6 +555,29 @@ class TestTasks:
         assert body["user_id"] == "u_1"
         assert body["metadata"] == {"k": "v"}
         assert body["permission_mode"] == "approval"
+
+    @responses.activate
+    def test_run_with_ask_user_false(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/tasks/10/runs",
+            json={"id": 1, "status": "running", "created_at": "2026-01-01T00:00:00Z"},
+        )
+        Tasks(http).run(10, stream=False, ask_user=False)
+        body = json.loads(responses.calls[0].request.body)
+        assert body["ask_user"] is False
+
+    @responses.activate
+    def test_run_ask_user_default_not_sent(self, http):
+        """ask_user=True (default) is NOT sent in the body."""
+        responses.add(
+            responses.POST,
+            f"{BASE}/tasks/10/runs",
+            json={"id": 1, "status": "running", "created_at": "2026-01-01T00:00:00Z"},
+        )
+        Tasks(http).run(10, stream=False)
+        body = json.loads(responses.calls[0].request.body)
+        assert "ask_user" not in body
 
     @responses.activate
     def test_delete(self, http):
