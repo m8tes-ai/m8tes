@@ -153,6 +153,27 @@ class TestTeammates:
         with pytest.raises(NotFoundError):
             Teammates(http).enable_webhook(999)
 
+    @responses.activate
+    def test_enable_email_inbox(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/teammates/1/email-inbox",
+            json={"enabled": True, "address": "abc123@notifications.m8tes.ai"},
+            status=201,
+        )
+        from m8tes._types import EmailInbox
+
+        result = Teammates(http).enable_email_inbox(1)
+        assert isinstance(result, EmailInbox)
+        assert result.enabled is True
+        assert result.address == "abc123@notifications.m8tes.ai"
+
+    @responses.activate
+    def test_disable_email_inbox(self, http):
+        responses.add(responses.DELETE, f"{BASE}/teammates/1/email-inbox", status=204)
+        Teammates(http).disable_email_inbox(1)
+        assert responses.calls[0].request.method == "DELETE"
+
 
 # ── Runs ─────────────────────────────────────────────────────────────
 
@@ -345,6 +366,56 @@ class TestRuns:
             Runs(http).download_file(1, "missing.csv")
 
 
+# ── Convenience helpers ──────────────────────────────────────────────
+
+
+class TestRunConvenienceHelpers:
+    @responses.activate
+    def test_create_and_wait(self, http):
+        """create_and_wait calls create(stream=False) then polls until completed."""
+        # Mock create (returns running)
+        responses.add(responses.POST, f"{BASE}/runs", json={"id": 1, "status": "running"})
+        # Mock poll (returns completed)
+        responses.add(
+            responses.GET, f"{BASE}/runs/1", json={"id": 1, "status": "completed", "output": "done"}
+        )
+        run = Runs(http).create_and_wait(message="Do X")
+        assert isinstance(run, Run)
+        assert run.status == "completed"
+        # Verify create was called with stream=False
+        body = json.loads(responses.calls[0].request.body)
+        assert body["stream"] is False
+
+    @responses.activate
+    def test_reply_and_wait(self, http):
+        """reply_and_wait calls reply(stream=False) then polls until completed."""
+        responses.add(responses.POST, f"{BASE}/runs/1/reply", json={"id": 2, "status": "running"})
+        responses.add(
+            responses.GET, f"{BASE}/runs/2", json={"id": 2, "status": "completed", "output": "ok"}
+        )
+        run = Runs(http).reply_and_wait(1, message="More")
+        assert isinstance(run, Run)
+        assert run.status == "completed"
+
+    @responses.activate
+    def test_stream_text(self, http):
+        """stream_text yields only text delta strings."""
+        sse = (
+            'data: {"type": "text-delta", "textDelta": "Hello"}\n\n'
+            'data: {"type": "tool-call-begin", "toolName": "gmail"}\n\n'
+            'data: {"type": "text-delta", "textDelta": " world"}\n\n'
+            'data: {"type": "finish", "finishReason": "end_turn"}\n\n'
+        )
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs",
+            body=sse,
+            content_type="text/event-stream",
+        )
+        chunks = list(Runs(http).stream_text(message="Do X"))
+        assert chunks == ["Hello", " world"]
+
+
 # ── Tasks (advanced) ─────────────────────────────────────────────────
 
 
@@ -412,6 +483,51 @@ class TestTasks:
         Tasks(http).update(1, instructions="X", expected_output="Y")
         body = json.loads(responses.calls[0].request.body)
         assert body == {"instructions": "X", "expected_output": "Y"}
+
+    @responses.activate
+    def test_run_non_streaming(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/tasks/10/runs",
+            json={
+                "id": 42,
+                "teammate_id": 1,
+                "status": "running",
+                "created_at": "2026-01-01T00:00:00Z",
+            },
+        )
+        run = Tasks(http).run(10, stream=False)
+        assert isinstance(run, Run)
+        assert run.id == 42
+        body = json.loads(responses.calls[0].request.body)
+        assert body["stream"] is False
+
+    @responses.activate
+    def test_run_streaming(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/tasks/10/runs",
+            body="data: {}\n\n",
+            content_type="text/event-stream",
+        )
+        result = Tasks(http).run(10, stream=True)
+        assert isinstance(result, RunStream)
+        result._response.close()
+
+    @responses.activate
+    def test_run_passes_optional_fields(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/tasks/5/runs",
+            json={"id": 1, "status": "running", "created_at": "2026-01-01T00:00:00Z"},
+        )
+        Tasks(http).run(
+            5, stream=False, user_id="u_1", metadata={"k": "v"}, permission_mode="approval"
+        )
+        body = json.loads(responses.calls[0].request.body)
+        assert body["user_id"] == "u_1"
+        assert body["metadata"] == {"k": "v"}
+        assert body["permission_mode"] == "approval"
 
     @responses.activate
     def test_delete(self, http):

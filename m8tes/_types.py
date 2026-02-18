@@ -44,6 +44,8 @@ class Teammate:
     status: str
     created_at: str
     updated_at: str | None = None
+    inbound_email_enabled: bool = False
+    email_address: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> Teammate:
@@ -57,6 +59,8 @@ class Teammate:
             user_id=data.get("user_id"),
             metadata=data.get("metadata"),
             allowed_senders=data.get("allowed_senders"),
+            inbound_email_enabled=data.get("inbound_email_enabled", False),
+            email_address=data.get("email_address"),
             status=data.get("status", "enabled"),
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at"),
@@ -176,6 +180,18 @@ class TeammateWebhook:
     @classmethod
     def from_dict(cls, data: dict) -> TeammateWebhook:
         return cls(enabled=data["enabled"], url=data.get("url"))
+
+
+@dataclass
+class EmailInbox:
+    """Teammate email inbox status (returned when enabling email inbox)."""
+
+    enabled: bool
+    address: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> EmailInbox:
+        return cls(enabled=data["enabled"], address=data.get("address"))
 
 
 @dataclass
