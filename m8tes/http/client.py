@@ -7,6 +7,8 @@ import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
+from m8tes import __version__
+
 from ..exceptions import (
     AuthenticationError,
     NetworkError,
@@ -82,7 +84,7 @@ class HTTPClient:
         # Set default headers
         headers = {
             "Content-Type": "application/json",
-            "User-Agent": "m8tes-python-sdk/0.1.0",
+            "User-Agent": f"m8tes-python-sdk/{__version__}",
         }
 
         if self.api_key:
@@ -135,7 +137,7 @@ class HTTPClient:
                     timeout=self.timeout,
                     headers={
                         "Content-Type": "application/json",
-                        "User-Agent": "m8tes-python-sdk/0.1.0",
+                        "User-Agent": f"m8tes-python-sdk/{__version__}",
                     },
                 )
             except requests.Timeout as e:

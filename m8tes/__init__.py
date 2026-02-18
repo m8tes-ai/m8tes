@@ -18,6 +18,7 @@ from ._exceptions import (
     RateLimitError,
     ValidationError,
 )
+from ._resources.webhooks import Webhooks
 from ._streaming import RunStream
 from ._types import (
     App,
@@ -100,4 +101,5 @@ __all__ = [
     "ValidationError",
     "Webhook",
     "WebhookDelivery",
+    "Webhooks",
 ]

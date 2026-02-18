@@ -171,6 +171,54 @@ class TestTeammatesCRUD:
         v2_client.teammates.delete(t.id)
         v2_client.teammates.delete(t.id)  # should not raise
 
+    def test_tools_roundtrip(self, v2_client):
+        """Create teammate with tools, verify persisted, update tools."""
+        t = v2_client.teammates.create(name="ToolsBot", tools=["gmail", "slack"])
+        try:
+            assert set(t.tools) == {"gmail", "slack"}
+
+            updated = v2_client.teammates.update(t.id, tools=["notion"])
+            assert updated.tools == ["notion"]
+
+            fetched = v2_client.teammates.get(t.id)
+            assert fetched.tools == ["notion"]
+        finally:
+            v2_client.teammates.delete(t.id)
+
+    def test_tools_clear_to_empty(self, v2_client):
+        """Update tools to empty list clears all tools."""
+        t = v2_client.teammates.create(name="ClearTools", tools=["gmail"])
+        try:
+            updated = v2_client.teammates.update(t.id, tools=[])
+            assert updated.tools == []
+        finally:
+            v2_client.teammates.delete(t.id)
+
+    def test_update_allowed_senders(self, v2_client):
+        """Update allowed_senders roundtrips correctly."""
+        t = v2_client.teammates.create(name="SenderBot")
+        try:
+            updated = v2_client.teammates.update(
+                t.id, allowed_senders=["@acme.com", "bob@example.com"]
+            )
+            assert set(updated.allowed_senders) == {"@acme.com", "bob@example.com"}
+
+            fetched = v2_client.teammates.get(t.id)
+            assert set(fetched.allowed_senders) == {"@acme.com", "bob@example.com"}
+        finally:
+            v2_client.teammates.delete(t.id)
+
+    def test_metadata_nested_values(self, v2_client):
+        """Nested dict metadata roundtrips correctly."""
+        meta = {"team": {"name": "ops", "id": 42}, "tags": ["prod", "v2"]}
+        t = v2_client.teammates.create(name="NestedMeta", metadata=meta)
+        try:
+            assert t.metadata == meta
+            fetched = v2_client.teammates.get(t.id)
+            assert fetched.metadata == meta
+        finally:
+            v2_client.teammates.delete(t.id)
+
 
 # ── Teammate Webhooks ────────────────────────────────────────────────
 
@@ -199,6 +247,31 @@ class TestTeammateWebhooks:
             wh2 = v2_client.teammates.enable_webhook(tm.id)
             assert wh1.enabled is True
             assert wh2.enabled is True
+
+            v2_client.teammates.disable_webhook(tm.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_enable_webhook_nonexistent_404(self, v2_client):
+        """Enable webhook on nonexistent teammate returns 404."""
+        with pytest.raises(NotFoundError):
+            v2_client.teammates.enable_webhook(999999)
+
+    def test_disable_webhook_nonexistent_404(self, v2_client):
+        """Disable webhook on nonexistent teammate returns 404."""
+        with pytest.raises(NotFoundError):
+            v2_client.teammates.disable_webhook(999999)
+
+    def test_webhook_url_changes_on_reenable(self, v2_client):
+        """Disable + re-enable webhook produces a new URL/token."""
+        tm = v2_client.teammates.create(name="WebhookReEnable")
+        try:
+            wh1 = v2_client.teammates.enable_webhook(tm.id)
+            url1 = wh1.url
+            v2_client.teammates.disable_webhook(tm.id)
+
+            wh2 = v2_client.teammates.enable_webhook(tm.id)
+            assert wh2.url != url1
 
             v2_client.teammates.disable_webhook(tm.id)
         finally:
@@ -363,6 +436,65 @@ class TestTasksCRUD:
         finally:
             v2_client.teammates.delete(tm.id)
 
+    def test_tools_roundtrip(self, v2_client):
+        """Create task with tools, verify persisted, update tools."""
+        tm = v2_client.teammates.create(name="TaskToolsHost")
+        try:
+            task = v2_client.tasks.create(
+                teammate_id=tm.id, instructions="With tools", tools=["gmail", "slack"]
+            )
+            try:
+                assert set(task.tools) == {"gmail", "slack"}
+
+                updated = v2_client.tasks.update(task.id, tools=["notion"])
+                assert updated.tools == ["notion"]
+
+                fetched = v2_client.tasks.get(task.id)
+                assert fetched.tools == ["notion"]
+            finally:
+                v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_delete_nonexistent_task_404(self, v2_client):
+        """DELETE on nonexistent task returns 404."""
+        with pytest.raises(NotFoundError):
+            v2_client.tasks.delete(999999)
+
+    def test_update_nonexistent_task_404(self, v2_client):
+        """PATCH on nonexistent task returns 404."""
+        with pytest.raises(NotFoundError):
+            v2_client.tasks.update(999999, name="Ghost")
+
+    def test_delete_already_archived_task_idempotent(self, v2_client):
+        """DELETE on already-archived task does not raise."""
+        tm = v2_client.teammates.create(name="TaskDoubleDelHost")
+        try:
+            task = v2_client.tasks.create(teammate_id=tm.id, instructions="Double delete")
+            v2_client.tasks.delete(task.id)
+            v2_client.tasks.delete(task.id)  # should not raise
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_list_without_teammate_id(self, v2_client):
+        """List tasks without teammate_id returns tasks across all teammates."""
+        tm1 = v2_client.teammates.create(name="ListAllHost1")
+        tm2 = v2_client.teammates.create(name="ListAllHost2")
+        try:
+            t1 = v2_client.tasks.create(teammate_id=tm1.id, instructions="Task on tm1")
+            t2 = v2_client.tasks.create(teammate_id=tm2.id, instructions="Task on tm2")
+            try:
+                page = v2_client.tasks.list()
+                ids = {t.id for t in page.data}
+                assert t1.id in ids
+                assert t2.id in ids
+            finally:
+                v2_client.tasks.delete(t1.id)
+                v2_client.tasks.delete(t2.id)
+        finally:
+            v2_client.teammates.delete(tm1.id)
+            v2_client.teammates.delete(tm2.id)
+
 
 # ── Task Triggers ────────────────────────────────────────────────────
 
@@ -478,6 +610,48 @@ class TestTaskTriggers:
         finally:
             v2_client.teammates.delete(tm.id)
 
+    def test_create_trigger_nonexistent_task_404(self, v2_client):
+        """Create trigger on nonexistent task returns 404."""
+        with pytest.raises(NotFoundError):
+            v2_client.tasks.triggers.create(999999, type="schedule", cron="0 9 * * *")
+
+    def test_create_trigger_invalid_type_rejected(self, v2_client):
+        """Invalid trigger type rejected with 422."""
+        tm = v2_client.teammates.create(name="BadTriggerTypeHost")
+        try:
+            task = v2_client.tasks.create(teammate_id=tm.id, instructions="Bad type")
+            try:
+                with pytest.raises(ValidationError):
+                    v2_client.tasks.triggers.create(task.id, type="invalid")
+            finally:
+                v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_all_trigger_types_same_task(self, v2_client):
+        """Schedule, webhook, and email triggers coexist on same task."""
+        tm = v2_client.teammates.create(name="AllTriggersHost")
+        try:
+            task = v2_client.tasks.create(teammate_id=tm.id, instructions="All triggers")
+            try:
+                t_sched = v2_client.tasks.triggers.create(
+                    task.id, type="schedule", cron="0 9 * * *"
+                )
+                t_wh = v2_client.tasks.triggers.create(task.id, type="webhook")
+                t_email = v2_client.tasks.triggers.create(task.id, type="email")
+
+                triggers = v2_client.tasks.triggers.list(task.id)
+                types = {tr.type for tr in triggers}
+                assert {"schedule", "webhook", "email"} == types
+
+                v2_client.tasks.triggers.delete(task.id, t_sched.id)
+                v2_client.tasks.triggers.delete(task.id, t_wh.id)
+                v2_client.tasks.triggers.delete(task.id, t_email.id)
+            finally:
+                v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
     def test_multiple_schedule_triggers(self, v2_client):
         """Multiple schedule triggers can coexist on same task."""
         tm = v2_client.teammates.create(name="MultiTriggerHost")
@@ -569,6 +743,41 @@ class TestMemoriesCRUD:
         finally:
             v2_client.memories.delete(mem.id, user_id=user_id)
 
+    def test_different_users_same_content_allowed(self, v2_client):
+        """Same content for different users is NOT a duplicate."""
+        uid_a, uid_b = _uid(), _uid()
+        mem_a = v2_client.memories.create(user_id=uid_a, content="Both like tea")
+        mem_b = v2_client.memories.create(user_id=uid_b, content="Both like tea")
+        try:
+            assert mem_a.id != mem_b.id
+        finally:
+            v2_client.memories.delete(mem_a.id, user_id=uid_a)
+            v2_client.memories.delete(mem_b.id, user_id=uid_b)
+
+    def test_exceeds_max_length_rejected(self, v2_client):
+        """301-char content raises ValidationError (max_length=300)."""
+        with pytest.raises(ValidationError):
+            v2_client.memories.create(user_id=_uid(), content="X" * 301)
+
+    def test_pagination_with_starting_after(self, v2_client):
+        """Memories support cursor pagination with starting_after."""
+        uid = _uid()
+        mems = []
+        try:
+            for i in range(3):
+                mems.append(v2_client.memories.create(user_id=uid, content=f"Paginated mem {i}"))
+
+            page1 = v2_client.memories.list(user_id=uid, limit=1)
+            assert len(page1.data) == 1
+            assert page1.has_more is True
+
+            page2 = v2_client.memories.list(user_id=uid, limit=1, starting_after=page1.data[0].id)
+            assert len(page2.data) == 1
+            assert page2.data[0].id != page1.data[0].id
+        finally:
+            for m in mems:
+                v2_client.memories.delete(m.id, user_id=uid)
+
     def test_duplicate_memory_conflict(self, v2_client):
         """Creating identical memory content raises ConflictError (409)."""
         user_id = _uid()
@@ -645,6 +854,27 @@ class TestPermissionsCRUD:
         finally:
             v2_client.permissions.delete(pa.id, user_id=uid_a)
             v2_client.permissions.delete(pb.id, user_id=uid_b)
+
+    def test_pagination_with_starting_after(self, v2_client):
+        """Permissions support cursor pagination with starting_after."""
+        uid = _uid()
+        perms = []
+        try:
+            for tool in ["gmail", "slack", "notion"]:
+                perms.append(v2_client.permissions.create(user_id=uid, tool=tool))
+
+            page1 = v2_client.permissions.list(user_id=uid, limit=1)
+            assert len(page1.data) == 1
+            assert page1.has_more is True
+
+            page2 = v2_client.permissions.list(
+                user_id=uid, limit=1, starting_after=page1.data[0].id
+            )
+            assert len(page2.data) == 1
+            assert page2.data[0].id != page1.data[0].id
+        finally:
+            for p in perms:
+                v2_client.permissions.delete(p.id, user_id=uid)
 
     def test_delete_then_recreate(self, v2_client):
         """After deleting a permission, can recreate same (user_id, tool) with new ID."""
@@ -802,6 +1032,34 @@ class TestWebhooksCRUD:
         finally:
             v2_client.webhooks.delete(wh.id)
 
+    def test_update_without_rotate_keeps_masked_secret(self, v2_client):
+        """Update URL without rotate_secret → secret stays masked."""
+        wh = v2_client.webhooks.create(url="https://example.com/no-rotate")
+        try:
+            updated = v2_client.webhooks.update(wh.id, url="https://example.com/new-url")
+            assert updated.secret is not None
+            assert updated.secret.endswith("...")
+        finally:
+            v2_client.webhooks.delete(wh.id)
+
+    def test_update_multiple_fields_simultaneously(self, v2_client):
+        """Update url, events, and active in one call."""
+        wh = v2_client.webhooks.create(
+            url="https://example.com/multi-update", events=["run.completed"]
+        )
+        try:
+            updated = v2_client.webhooks.update(
+                wh.id,
+                url="https://example.com/multi-updated",
+                events=["run.started", "run.failed"],
+                active=False,
+            )
+            assert updated.url == "https://example.com/multi-updated"
+            assert set(updated.events) == {"run.started", "run.failed"}
+            assert updated.active is False
+        finally:
+            v2_client.webhooks.delete(wh.id)
+
 
 # ── Webhook Validation ───────────────────────────────────────────────
 
@@ -822,6 +1080,48 @@ class TestWebhookValidation:
         """Webhook URLs pointing to localhost are rejected (SSRF protection)."""
         with pytest.raises(ValidationError):
             v2_client.webhooks.create(url="https://localhost/hook")
+
+    def test_private_network_url_rejected(self, v2_client):
+        """Private network URLs rejected (SSRF protection)."""
+        with pytest.raises(ValidationError):
+            v2_client.webhooks.create(url="https://192.168.1.1/hook")
+
+    def test_internal_domain_rejected(self, v2_client):
+        """*.internal and *.local domains rejected (SSRF protection)."""
+        with pytest.raises(ValidationError):
+            v2_client.webhooks.create(url="https://app.internal/hook")
+
+    def test_update_url_to_http_rejected(self, v2_client):
+        """PATCH webhook URL to HTTP rejected (422)."""
+        wh = v2_client.webhooks.create(url="https://example.com/update-val")
+        try:
+            with pytest.raises(ValidationError):
+                v2_client.webhooks.update(wh.id, url="http://example.com/hook")
+        finally:
+            v2_client.webhooks.delete(wh.id)
+
+    def test_update_events_invalid_rejected(self, v2_client):
+        """PATCH webhook events to invalid type rejected (422)."""
+        wh = v2_client.webhooks.create(url="https://example.com/update-ev-val")
+        try:
+            with pytest.raises(ValidationError):
+                v2_client.webhooks.update(wh.id, events=["invalid.event"])
+        finally:
+            v2_client.webhooks.delete(wh.id)
+
+    def test_update_url_to_localhost_rejected(self, v2_client):
+        """PATCH webhook URL to localhost rejected (SSRF)."""
+        wh = v2_client.webhooks.create(url="https://example.com/update-ssrf")
+        try:
+            with pytest.raises(ValidationError):
+                v2_client.webhooks.update(wh.id, url="https://localhost/hook")
+        finally:
+            v2_client.webhooks.delete(wh.id)
+
+    def test_list_deliveries_nonexistent_webhook_404(self, v2_client):
+        """List deliveries for nonexistent webhook returns 404."""
+        with pytest.raises(NotFoundError):
+            v2_client.webhooks.list_deliveries(999999)
 
 
 # ── Runs (list/get only — no execution) ─────────────────────────────
@@ -853,6 +1153,27 @@ class TestRunsReadOnly:
     def test_list_with_combined_filters(self, v2_client):
         """Multiple filters (status + user_id) work together without error."""
         page = v2_client.runs.list(status="completed", user_id="nonexistent-user")
+        assert isinstance(page, SyncPage)
+        assert len(page.data) == 0
+
+    def test_cancel_nonexistent_run(self, v2_client):
+        """Cancel nonexistent run returns 404."""
+        with pytest.raises(NotFoundError):
+            v2_client.runs.cancel(999999)
+
+    def test_permissions_nonexistent_run(self, v2_client):
+        """List permissions for nonexistent run returns 404."""
+        with pytest.raises(NotFoundError):
+            v2_client.runs.permissions(999999)
+
+    def test_list_files_nonexistent_run(self, v2_client):
+        """List files for nonexistent run returns 404."""
+        with pytest.raises(NotFoundError):
+            v2_client.runs.list_files(999999)
+
+    def test_list_with_teammate_filter(self, v2_client):
+        """Filter runs by teammate_id returns valid page."""
+        page = v2_client.runs.list(teammate_id=999999)
         assert isinstance(page, SyncPage)
         assert len(page.data) == 0
 
@@ -1283,6 +1604,25 @@ class TestInputValidation:
         with pytest.raises(ValidationError):
             v2_client.webhooks.create(url="https://localhost/hook")
 
+    def test_teammate_name_exceeds_max_length(self, v2_client):
+        """256-char name rejected (max_length=255)."""
+        with pytest.raises(ValidationError):
+            v2_client.teammates.create(name="A" * 256)
+
+    def test_memory_exceeds_max_length(self, v2_client):
+        """301-char content rejected (max_length=300)."""
+        with pytest.raises(ValidationError):
+            v2_client.memories.create(user_id=_uid(), content="A" * 301)
+
+    def test_task_empty_instructions_rejected(self, v2_client):
+        """Empty instructions rejected (min_length=1)."""
+        tm = v2_client.teammates.create(name="EmptyInstrHost")
+        try:
+            with pytest.raises(ValidationError):
+                v2_client.tasks.create(teammate_id=tm.id, instructions="")
+        finally:
+            v2_client.teammates.delete(tm.id)
+
 
 # ── Memory Dedup Edge Cases ─────────────────────────────────────────
 
@@ -1369,3 +1709,68 @@ class TestUnicode:
             assert mem.content == content
         finally:
             v2_client.memories.delete(mem.id, user_id=uid)
+
+
+# ── Webhook Signature Verification ──────────────────────────────────
+
+
+@pytest.mark.integration
+class TestWebhookSignatureVerification:
+    def test_valid_signature(self, v2_client):
+        """End-to-end: create webhook, construct signed payload, verify."""
+        import hashlib
+        import hmac
+
+        wh = v2_client.webhooks.create(url="https://example.com/sig-test")
+        try:
+            secret = wh.secret
+            assert secret is not None
+
+            body = '{"event":"run.completed","run_id":1}'
+            webhook_id = "msg_test123"
+            timestamp = "1234567890"
+            msg = f"{webhook_id}.{timestamp}.{body}"
+            sig = "v1=" + hmac.new(secret.encode(), msg.encode(), hashlib.sha256).hexdigest()
+            headers = {
+                "Webhook-Id": webhook_id,
+                "Webhook-Timestamp": timestamp,
+                "Webhook-Signature": sig,
+            }
+
+            from m8tes._resources.webhooks import Webhooks
+
+            assert Webhooks.verify_signature(body, headers, secret) is True
+        finally:
+            v2_client.webhooks.delete(wh.id)
+
+    def test_tampered_body_rejected(self, v2_client):
+        """Signature verification fails when body is tampered."""
+        import hashlib
+        import hmac
+
+        wh = v2_client.webhooks.create(url="https://example.com/sig-tamper")
+        try:
+            secret = wh.secret
+            body = '{"event":"run.completed"}'
+            webhook_id = "msg_test456"
+            timestamp = "1234567890"
+            msg = f"{webhook_id}.{timestamp}.{body}"
+            sig = "v1=" + hmac.new(secret.encode(), msg.encode(), hashlib.sha256).hexdigest()
+            headers = {
+                "Webhook-Id": webhook_id,
+                "Webhook-Timestamp": timestamp,
+                "Webhook-Signature": sig,
+            }
+
+            from m8tes._resources.webhooks import Webhooks
+
+            assert Webhooks.verify_signature('{"tampered":true}', headers, secret) is False
+        finally:
+            v2_client.webhooks.delete(wh.id)
+
+    def test_missing_headers_rejected(self):
+        """Missing required headers returns False."""
+        from m8tes._resources.webhooks import Webhooks
+
+        assert Webhooks.verify_signature("body", {}, "secret") is False
+        assert Webhooks.verify_signature("body", {"Webhook-Id": "x"}, "secret") is False

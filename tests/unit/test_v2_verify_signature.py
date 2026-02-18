@@ -2,6 +2,7 @@
 
 import hashlib
 import hmac
+import time
 
 from m8tes._resources.webhooks import Webhooks
 
@@ -116,5 +117,75 @@ class TestVerifySignature:
             "Webhook-Id": webhook_id,
             "Webhook-Timestamp": timestamp,
             "Webhook-Signature": sig,
+        }
+        assert Webhooks.verify_signature(body, headers, secret) is True
+
+    def test_tolerance_rejects_stale_timestamp(self):
+        """Payload with old timestamp rejected when tolerance set."""
+        body = '{"event":"test"}'
+        secret = "whsec_test_replay"
+        webhook_id = "msg_replay"
+        old_timestamp = str(int(time.time()) - 600)  # 10 min ago
+        msg = f"{webhook_id}.{old_timestamp}.{body}"
+        sig = "v1=" + hmac.new(secret.encode(), msg.encode(), hashlib.sha256).hexdigest()
+        headers = {
+            "Webhook-Id": webhook_id,
+            "Webhook-Timestamp": old_timestamp,
+            "Webhook-Signature": sig,
+        }
+        assert Webhooks.verify_signature(body, headers, secret, tolerance_seconds=300) is False
+
+    def test_tolerance_accepts_fresh_timestamp(self):
+        """Fresh timestamp passes when tolerance set."""
+        body = '{"event":"test"}'
+        secret = "whsec_test_fresh"
+        webhook_id = "msg_fresh"
+        timestamp = str(int(time.time()))
+        msg = f"{webhook_id}.{timestamp}.{body}"
+        sig = "v1=" + hmac.new(secret.encode(), msg.encode(), hashlib.sha256).hexdigest()
+        headers = {
+            "Webhook-Id": webhook_id,
+            "Webhook-Timestamp": timestamp,
+            "Webhook-Signature": sig,
+        }
+        assert Webhooks.verify_signature(body, headers, secret, tolerance_seconds=300) is True
+
+    def test_no_tolerance_accepts_old_timestamp(self):
+        """Without tolerance param, old timestamps accepted (backward compat)."""
+        body = '{"event":"test"}'
+        secret = "whsec_compat"
+        webhook_id = "msg_old"
+        old_timestamp = "1000000000"  # Year 2001
+        msg = f"{webhook_id}.{old_timestamp}.{body}"
+        sig = "v1=" + hmac.new(secret.encode(), msg.encode(), hashlib.sha256).hexdigest()
+        headers = {
+            "Webhook-Id": webhook_id,
+            "Webhook-Timestamp": old_timestamp,
+            "Webhook-Signature": sig,
+        }
+        assert Webhooks.verify_signature(body, headers, secret) is True
+
+    def test_tolerance_rejects_non_numeric_timestamp(self):
+        """Non-numeric timestamp rejected when tolerance set."""
+        headers = {
+            "Webhook-Id": "x",
+            "Webhook-Timestamp": "not-a-number",
+            "Webhook-Signature": "v1=abc",
+        }
+        assert Webhooks.verify_signature("body", headers, "secret", tolerance_seconds=300) is False
+
+    def test_case_insensitive_headers(self):
+        """Headers matched case-insensitively."""
+        body = '{"event":"test"}'
+        secret = "whsec_case"
+        webhook_id = "msg_case"
+        timestamp = str(int(time.time()))
+        msg = f"{webhook_id}.{timestamp}.{body}"
+        sig = "v1=" + hmac.new(secret.encode(), msg.encode(), hashlib.sha256).hexdigest()
+        # Use uppercase header names
+        headers = {
+            "WEBHOOK-ID": webhook_id,
+            "WEBHOOK-TIMESTAMP": timestamp,
+            "WEBHOOK-SIGNATURE": sig,
         }
         assert Webhooks.verify_signature(body, headers, secret) is True

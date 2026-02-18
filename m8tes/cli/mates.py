@@ -585,65 +585,6 @@ class MateCLI:
         except Exception as e:
             print(f"❌ Failed to get teammate: {e}")
 
-    def run_interactive(self, mate_id: str | None = None) -> None:
-        """
-        Interactive teammate execution.
-
-        Args:
-            mate_id: Optional teammate ID to run
-        """
-        if not mate_id:
-            mate_id = prompt("Teammate ID: ")
-
-        try:
-            print(f"⏳ Starting teammate {mate_id}...")
-            print()
-
-            agent = self.client.get_agent(mate_id)
-
-            # Run the teammate and stream results
-            for event in agent.run():
-                event_type = event.get("type", "unknown")
-
-                if event_type == "start":
-                    print("🚀 Teammate started")
-                elif event_type == "thought":
-                    print(f"💭 {event.get('content', '')}")
-                elif event_type == "action":
-                    tool = event.get("tool", "unknown")
-                    action = event.get("action", "unknown")
-                    print(f"⚡ Using {tool}: {action}")
-                elif event_type == "result":
-                    print(f"📊 {event.get('content', '')}")
-                elif event_type == "complete":
-                    print(f"✅ {event.get('summary', 'Teammate completed successfully')}")
-
-        except Exception as e:
-            print(f"❌ Failed to run teammate: {e}")
-
-    def status_interactive(self, mate_id: str | None = None) -> None:
-        """
-        Interactive teammate status display.
-
-        Args:
-            mate_id: Optional teammate ID to show status for
-        """
-        if not mate_id:
-            mate_id = prompt("Teammate ID: ")
-
-        try:
-            agent = self.client.get_agent(mate_id)
-
-            print("🤝 Teammate Status")
-            print()
-            print(f"  ID: {agent.id}")
-            print(f"  Name: {agent.name}")
-            print(f"  Tools: {', '.join(agent.tools)}")
-            print(f"  Instructions: {agent.instructions}")
-
-        except Exception as e:
-            print(f"❌ Failed to get teammate status: {e}")
-
     def task_interactive(
         self, message: str, mate_id: str, output_format: str = "verbose", debug: bool = False
     ) -> None:
