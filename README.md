@@ -1,9 +1,10 @@
 # m8tes Python SDK
 
+[![PyPI](https://img.shields.io/pypi/v/m8tes.svg)](https://pypi.org/project/m8tes/)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Python SDK for [m8tes.ai](https://m8tes.ai) — build autonomous AI agents.
+Python SDK for [m8tes.ai](https://m8tes.ai) — build autonomous AI teammates that run tasks, manage workflows, and integrate with your tools.
 
 ## Install
 
@@ -11,26 +12,26 @@ Python SDK for [m8tes.ai](https://m8tes.ai) — build autonomous AI agents.
 pip install m8tes
 ```
 
-## Quick Start
+## Quick start
 
 ```python
 from m8tes import M8tes
 
 client = M8tes()  # uses M8TES_API_KEY env var
 
-for event in client.runs.create(message="Summarize the latest AI news"):
+for event in client.runs.create(message="summarize the latest AI news"):
     print(event.type, event.raw)
 ```
 
-## SDK Usage
+## SDK usage
 
 ### Create a teammate
 
 ```python
 bot = client.teammates.create(
-    name="Support Bot",
+    name="support bot",
     tools=["gmail", "slack"],
-    instructions="Handle customer tickets",
+    instructions="handle customer tickets",
 )
 ```
 
@@ -39,7 +40,7 @@ bot = client.teammates.create(
 ```python
 for event in client.runs.create(
     teammate_id=bot.id,
-    message="Close resolved tickets",
+    message="close resolved tickets",
 ):
     print(event.type, event.raw)
 ```
@@ -49,7 +50,7 @@ for event in client.runs.create(
 ```python
 run = client.runs.create(
     teammate_id=bot.id,
-    message="Close resolved tickets",
+    message="close resolved tickets",
     stream=False,
 )
 print(run.output)
@@ -58,17 +59,16 @@ print(run.output)
 ### Reply to a run
 
 ```python
-for event in client.runs.reply(run_id=42, message="Also archive them"):
+for event in client.runs.reply(run_id=42, message="also archive them"):
     print(event.type, event.raw)
 ```
 
 ### Schedule recurring work
 
 ```python
-# Create a reusable task, then attach a trigger
 task = client.tasks.create(
     teammate_id=bot.id,
-    instructions="Generate weekly report",
+    instructions="generate weekly report",
 )
 client.tasks.triggers.create(task.id, type="schedule", cron="0 9 * * 1")
 ```
@@ -76,7 +76,7 @@ client.tasks.triggers.create(task.id, type="schedule", cron="0 9 * * 1")
 ### Manage per-user memory
 
 ```python
-client.memories.create(user_id="customer_123", content="Prefers email over Slack")
+client.memories.create(user_id="customer_123", content="prefers email over Slack")
 
 memories = client.memories.list(user_id="customer_123")
 for m in memories.data:
@@ -103,64 +103,73 @@ for app in apps.data:
     print(f"{app.display_name} ({app.category}) — connected: {app.connected}")
 ```
 
-## CLI Reference
+## Resources
 
-### Authentication
-
-```bash
-m8tes auth register              # Register new account
-m8tes auth login                 # Login to existing account
-m8tes auth status                # Check authentication status
-m8tes auth logout                # Logout and clear credentials
+```python
+client.teammates    # CRUD + webhook enable/disable
+client.runs         # create (streaming/non-streaming), list, get, cancel, reply
+client.tasks        # CRUD + triggers (schedule, webhook, email)
+client.apps         # list tools, manage OAuth connections
+client.memories     # pre-populate end-user memories
+client.permissions  # pre-approve tools for end-users
+client.webhooks     # webhook endpoint CRUD + delivery tracking
 ```
 
-### Teammate Management
+## Multi-tenancy
 
-```bash
-m8tes mate create               # Create new teammate (interactive)
-m8tes mate list                 # List all your teammates
-m8tes mate get ID               # Get teammate details
-m8tes mate update ID            # Update teammate configuration
-m8tes mate archive ID           # Archive teammate (with confirmation)
+Isolate data per end-user with `user_id`:
+
+```python
+bot = client.teammates.create(name="user bot", user_id="cust_123")
+client.memories.create(user_id="cust_123", content="prefers dark mode")
+client.permissions.create(user_id="cust_123", tool="gmail")
 ```
 
-### Execute Tasks & Chat
+## Error handling
 
-```bash
-m8tes mate task ID "message"    # Execute task with teammate
-m8tes mate chat ID              # Start interactive chat session
+```python
+from m8tes import M8tes, NotFoundError, RateLimitError, AuthenticationError
+
+try:
+    client.teammates.get(999)
+except NotFoundError:
+    print("teammate not found")
+except RateLimitError as e:
+    print(f"rate limited, retry after {e.retry_after}s")
+except AuthenticationError:
+    print("invalid API key")
 ```
 
-#### Streaming Output Modes
+## CLI
 
-Control how much detail you see with `--output`:
-
-- `verbose` _(default)_ — Rich incremental view with tool usage, thinking, and Markdown summary.
-- `compact` — Final text only.
-- `json` — Raw event envelopes (one JSON object per line) for scripting.
+The package also includes a CLI:
 
 ```bash
-m8tes mate task 27 "Summarize campaign metrics" --output compact
+m8tes auth login                    # authenticate
+m8tes mate task ID "message"        # run a task
+m8tes mate chat ID                  # interactive chat
+m8tes --dev mate list               # use local backend
 ```
 
-### Run Inspection
+### CLI commands
 
 ```bash
-m8tes run get RUN_ID             # Comprehensive run details
-m8tes run list                   # List all your runs
-m8tes run list-mate MATE_ID      # List runs for specific teammate
-m8tes run conversation RUN_ID    # View conversation messages
-m8tes run usage RUN_ID           # View token usage and costs
-m8tes run tools RUN_ID           # View tool executions
-m8tes run tools RUN_ID -v        # Verbose tool execution details
+# Auth
+m8tes auth register / login / status / logout
+
+# Teammates
+m8tes mate create / list / get ID / update ID / archive ID
+
+# Execution
+m8tes mate task ID "message"        # streaming task
+m8tes mate chat ID                  # interactive chat
+
+# Runs
+m8tes run get RUN_ID / list / list-mate MATE_ID
+m8tes run conversation RUN_ID / usage RUN_ID / tools RUN_ID
 ```
 
-### Development Mode
-
-```bash
-m8tes --dev mate list            # Use local backend (port 8000)
-m8tes --base-url URL mate list   # Custom backend URL
-```
+Streaming output modes: `--output verbose` (default), `compact`, or `json`.
 
 ## Configuration
 
@@ -169,31 +178,22 @@ m8tes --base-url URL mate list   # Custom backend URL
 | `M8TES_API_KEY` | API key for authentication | — |
 | `M8TES_BASE_URL` | API endpoint | `https://m8tes.ai` |
 
-The CLI also supports keychain-based credentials via `m8tes auth login`.
-
 ## Development
 
 ```bash
-make install       # Install dependencies via uv
-make check         # Format + lint + type-check + test with coverage
-make quick         # Fast loop: format + lint + unit tests
-make build         # Build distributable package
-```
-
-### Testing
-
-```bash
-make test          # All tests (excludes e2e/smoke by default)
-make test-unit     # Unit tests only
-make test-cov      # Tests with coverage report
-make test-e2e      # E2E tests (requires backend running)
+make install          # install dependencies via uv
+make check            # format + lint + type-check + tests
+make quick            # fast loop: format + lint + unit tests
+make test-integration # integration tests (requires backend at localhost:8000)
+make build            # build distributable package
 ```
 
 ## License
 
 MIT License — see [LICENSE](LICENSE) for details.
 
-## Support
+## Links
 
 - Documentation: [m8tes.ai/docs](https://m8tes.ai/docs)
+- PyPI: [pypi.org/project/m8tes](https://pypi.org/project/m8tes/)
 - Email: support@m8tes.ai

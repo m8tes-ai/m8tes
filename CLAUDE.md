@@ -1,6 +1,6 @@
-# SDK CLAUDE.md
+# CLAUDE.md
 
-Python SDK + CLI that let users create, inspect, and run mates against the FastAPI backend. It wraps authentication, SSE streaming, and typed payloads so every integration sees the same behaviour as the CLI.
+Python SDK + CLI for [m8tes.ai](https://m8tes.ai). Wraps authentication, SSE streaming, and typed payloads for building autonomous AI teammates.
 
 ## Responsibilities
 
@@ -12,7 +12,7 @@ Python SDK + CLI that let users create, inspect, and run mates against the FastA
 ## Structure
 
 ```
-sdk/py/
+m8tes-python/
 ├── m8tes/
 │   ├── _client.py        # V2 SDK entry point (M8tes class)
 │   ├── _http.py          # Thin requests wrapper (auth, base_url, errors)
@@ -130,33 +130,7 @@ make test-integration         # requires backend running at localhost:8000
 - CLI help (`m8tes --help`) reflects new commands/flags.
 - Changelog entry summarizing mate/API changes.
 
-## Documentation (Source of Truth)
-
-The developer-facing docs live in `vite-frontend/src/constants/docs/` as TypeScript string constants rendered on the docs site. These are the **source of truth** for SDK behavior, API contracts, and usage patterns.
-
-Key doc files (read these to understand the SDK surface):
-- `core-concepts.ts` — Teammates, Tasks, Runs, Tools overview
-- `quickstart.ts` — end-to-end getting-started guide
-- `teammates.ts`, `tasks.ts`, `runs.ts` — detailed resource guides
-- `streaming.ts` — SSE event streaming
-- `webhooks.ts`, `webhooks-guide.ts`, `webhook-triggers.ts` — webhook system
-- `users.ts` — multi-tenancy / end-user isolation
-- `permissions-guide.ts` — permission system
-- `files.ts` — file upload/download
-- `scheduling.ts`, `email-inbox.ts`, `memories.ts`, `skills.ts` — features
-
-Doc sidebar structure: `vite-frontend/src/components/docs/docs-sidebar.tsx`
-
-### Keeping Docs in Sync
-
-**When changing SDK behavior, API responses, or adding new features, update the corresponding doc files.** Docs must stay accurate — they're what developers read. Specifically:
-- New SDK methods/resources → update or create the relevant doc file + add to sidebar
-- Changed request/response shapes → update code examples in the doc
-- New concepts or features → add a doc file and wire it into the sidebar nav
-- Renamed fields or deprecated params → grep docs for old names and update
-- **Update `vite-frontend/public/llms.txt` and `vite-frontend/public/llms-full.txt`** — these are the LLM-friendly versions of the docs (following the [llms.txt standard](https://llmstxt.org/)). `llms.txt` is the concise overview with links; `llms-full.txt` is the complete documentation dump. Both must reflect current SDK surface and API contracts.
-
 ## References
 
-- Backend contract: `fastapi/CLAUDE.md`
-- Platform overview: `/CLAUDE.md` and `AGENT.md`
+- API documentation: [m8tes.ai/docs](https://m8tes.ai/docs)
+- Backend API: [github.com/m8tes](https://github.com/m8tes)
