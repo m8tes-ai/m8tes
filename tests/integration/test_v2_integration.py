@@ -157,6 +157,20 @@ class TestTeammatesCRUD:
         finally:
             v2_client.teammates.delete(t.id)
 
+    def test_get_archived_by_id(self, v2_client):
+        """After DELETE, GET by ID still returns the archived teammate."""
+        t = v2_client.teammates.create(name="ArchiveMe")
+        v2_client.teammates.delete(t.id)
+        fetched = v2_client.teammates.get(t.id)
+        assert fetched.status == "archived"
+        assert fetched.name == "ArchiveMe"
+
+    def test_delete_already_archived_is_idempotent(self, v2_client):
+        """DELETE on already-archived teammate does not raise."""
+        t = v2_client.teammates.create(name="DoubleDelete")
+        v2_client.teammates.delete(t.id)
+        v2_client.teammates.delete(t.id)  # should not raise
+
 
 # ── Teammate Webhooks ────────────────────────────────────────────────
 
@@ -337,6 +351,18 @@ class TestTasksCRUD:
         finally:
             v2_client.teammates.delete(tm.id)
 
+    def test_get_archived_task_by_id(self, v2_client):
+        """After DELETE, GET by ID still returns the task with status=archived."""
+        tm = v2_client.teammates.create(name="ArchiveTaskHost")
+        try:
+            task = v2_client.tasks.create(teammate_id=tm.id, instructions="Archive me")
+            v2_client.tasks.delete(task.id)
+            fetched = v2_client.tasks.get(task.id)
+            assert fetched.status == "archived"
+            assert fetched.instructions == "Archive me"
+        finally:
+            v2_client.teammates.delete(tm.id)
+
 
 # ── Task Triggers ────────────────────────────────────────────────────
 
@@ -434,6 +460,19 @@ class TestTaskTriggers:
 
                 triggers = v2_client.tasks.triggers.list(task.id)
                 assert len(triggers) >= 1
+            finally:
+                v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_schedule_without_cron_or_interval_rejected(self, v2_client):
+        """Schedule trigger without cron or interval_seconds raises ValidationError."""
+        tm = v2_client.teammates.create(name="NoScheduleHost")
+        try:
+            task = v2_client.tasks.create(teammate_id=tm.id, instructions="Empty schedule")
+            try:
+                with pytest.raises(ValidationError):
+                    v2_client.tasks.triggers.create(task.id, type="schedule")
             finally:
                 v2_client.tasks.delete(task.id)
         finally:
@@ -607,6 +646,19 @@ class TestPermissionsCRUD:
             v2_client.permissions.delete(pa.id, user_id=uid_a)
             v2_client.permissions.delete(pb.id, user_id=uid_b)
 
+    def test_delete_then_recreate(self, v2_client):
+        """After deleting a permission, can recreate same (user_id, tool) with new ID."""
+        uid = _uid()
+        p1 = v2_client.permissions.create(user_id=uid, tool="recreate_tool")
+        v2_client.permissions.delete(p1.id, user_id=uid)
+
+        p2 = v2_client.permissions.create(user_id=uid, tool="recreate_tool")
+        try:
+            assert p2.id != p1.id
+            assert p2.tool_name == "recreate_tool"
+        finally:
+            v2_client.permissions.delete(p2.id, user_id=uid)
+
 
 # ── Webhooks ─────────────────────────────────────────────────────────
 
@@ -712,6 +764,44 @@ class TestWebhooksCRUD:
             v2_client.webhooks.delete(wh1.id)
             v2_client.webhooks.delete(wh2.id)
 
+    def test_secret_full_on_create_masked_on_get(self, v2_client):
+        """Create returns full secret; GET returns masked (first 4 chars + '...')."""
+        wh = v2_client.webhooks.create(url="https://example.com/secret-test")
+        try:
+            assert wh.secret is not None
+            assert "..." not in wh.secret
+            assert len(wh.secret) >= 32  # full hex secret
+
+            fetched = v2_client.webhooks.get(wh.id)
+            assert fetched.secret is not None
+            assert fetched.secret.endswith("...")
+            assert len(fetched.secret) < len(wh.secret)
+        finally:
+            v2_client.webhooks.delete(wh.id)
+
+    def test_secrets_masked_on_list(self, v2_client):
+        """All webhooks in list have masked secrets."""
+        wh = v2_client.webhooks.create(url="https://example.com/list-mask")
+        try:
+            page = v2_client.webhooks.list()
+            for w in page.data:
+                if w.secret:
+                    assert w.secret.endswith("...")
+        finally:
+            v2_client.webhooks.delete(wh.id)
+
+    def test_rotate_secret_returns_full_new_secret(self, v2_client):
+        """rotate_secret=True returns full new secret, different from original."""
+        wh = v2_client.webhooks.create(url="https://example.com/rotate")
+        try:
+            original_secret = wh.secret
+            updated = v2_client.webhooks.update(wh.id, rotate_secret=True)
+            assert updated.secret is not None
+            assert "..." not in updated.secret
+            assert updated.secret != original_secret
+        finally:
+            v2_client.webhooks.delete(wh.id)
+
 
 # ── Webhook Validation ───────────────────────────────────────────────
 
@@ -727,6 +817,11 @@ class TestWebhookValidation:
         """Unknown event type is rejected (422)."""
         with pytest.raises(ValidationError):
             v2_client.webhooks.create(url="https://example.com/hook", events=["invalid.event"])
+
+    def test_localhost_url_rejected(self, v2_client):
+        """Webhook URLs pointing to localhost are rejected (SSRF protection)."""
+        with pytest.raises(ValidationError):
+            v2_client.webhooks.create(url="https://localhost/hook")
 
 
 # ── Runs (list/get only — no execution) ─────────────────────────────
@@ -754,6 +849,12 @@ class TestRunsReadOnly:
         page = v2_client.runs.list(limit=1)
         assert isinstance(page, SyncPage)
         assert len(page.data) <= 1
+
+    def test_list_with_combined_filters(self, v2_client):
+        """Multiple filters (status + user_id) work together without error."""
+        page = v2_client.runs.list(status="completed", user_id="nonexistent-user")
+        assert isinstance(page, SyncPage)
+        assert len(page.data) == 0
 
 
 # ── Pagination ───────────────────────────────────────────────────────
@@ -836,6 +937,22 @@ class TestPagination:
             for t in tasks:
                 v2_client.tasks.delete(t.id)
             v2_client.teammates.delete(tm.id)
+
+    def test_exact_count_means_no_more(self, v2_client):
+        """When limit equals item count, has_more is False."""
+        created = []
+        try:
+            for i in range(3):
+                wh = v2_client.webhooks.create(url=f"https://example.com/exact{i}")
+                created.append(wh)
+
+            page = v2_client.webhooks.list(limit=100)
+            assert page.has_more is False
+            for wh in created:
+                assert any(w.id == wh.id for w in page.data)
+        finally:
+            for wh in created:
+                v2_client.webhooks.delete(wh.id)
 
     def test_webhook_pagination(self, v2_client):
         """Pagination works for webhooks."""
@@ -1125,3 +1242,130 @@ class TestResponseTypes:
                 v2_client.tasks.delete(task.id)
         finally:
             v2_client.teammates.delete(tm.id)
+
+
+# ── Input Validation ────────────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestInputValidation:
+    def test_empty_teammate_name_rejected(self, v2_client):
+        """Empty name raises ValidationError (min_length=1)."""
+        with pytest.raises(ValidationError):
+            v2_client.teammates.create(name="")
+
+    def test_max_length_teammate_name(self, v2_client):
+        """255-char name succeeds (max_length=255)."""
+        long_name = "A" * 255
+        t = v2_client.teammates.create(name=long_name)
+        try:
+            assert t.name == long_name
+        finally:
+            v2_client.teammates.delete(t.id)
+
+    def test_empty_memory_content_rejected(self, v2_client):
+        """Empty content raises ValidationError (min_length=1)."""
+        with pytest.raises(ValidationError):
+            v2_client.memories.create(user_id=_uid(), content="")
+
+    def test_max_length_memory_content(self, v2_client):
+        """300-char content succeeds (max_length=300)."""
+        uid = _uid()
+        content = "A" * 300
+        mem = v2_client.memories.create(user_id=uid, content=content)
+        try:
+            assert mem.content == content
+        finally:
+            v2_client.memories.delete(mem.id, user_id=uid)
+
+    def test_webhook_localhost_rejected(self, v2_client):
+        """Webhook URLs pointing to localhost are rejected (SSRF protection)."""
+        with pytest.raises(ValidationError):
+            v2_client.webhooks.create(url="https://localhost/hook")
+
+
+# ── Memory Dedup Edge Cases ─────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestMemoryDedup:
+    def test_case_insensitive_dedup(self, v2_client):
+        """'Dark Mode' then 'dark mode' raises ConflictError (case-insensitive)."""
+        uid = _uid()
+        mem = v2_client.memories.create(user_id=uid, content="Dark Mode")
+        try:
+            with pytest.raises(ConflictError):
+                v2_client.memories.create(user_id=uid, content="dark mode")
+        finally:
+            v2_client.memories.delete(mem.id, user_id=uid)
+
+    def test_whitespace_normalization_dedup(self, v2_client):
+        """'likes  coffee' and 'likes coffee' are treated as duplicates."""
+        uid = _uid()
+        mem = v2_client.memories.create(user_id=uid, content="likes  coffee")
+        try:
+            with pytest.raises(ConflictError):
+                v2_client.memories.create(user_id=uid, content="likes coffee")
+        finally:
+            v2_client.memories.delete(mem.id, user_id=uid)
+
+
+# ── Error Attributes ────────────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestErrorAttributes:
+    def test_not_found_error_attributes(self, v2_client):
+        """NotFoundError has status_code=404, non-empty message, method and path."""
+        with pytest.raises(NotFoundError) as exc_info:
+            v2_client.teammates.get(999999)
+        e = exc_info.value
+        assert e.status_code == 404
+        assert isinstance(e.message, str) and len(e.message) > 0
+        assert e.method is not None
+        assert e.path is not None
+
+    def test_validation_error_attributes(self, v2_client):
+        """ValidationError has status_code=422 and non-empty message."""
+        with pytest.raises(ValidationError) as exc_info:
+            v2_client.webhooks.create(url="http://example.com/not-https")
+        e = exc_info.value
+        assert e.status_code == 422
+        assert isinstance(e.message, str) and len(e.message) > 0
+
+    def test_conflict_error_attributes(self, v2_client):
+        """ConflictError has status_code=409."""
+        uid = _uid()
+        mem = v2_client.memories.create(user_id=uid, content="Unique item for conflict")
+        try:
+            with pytest.raises(ConflictError) as exc_info:
+                v2_client.memories.create(user_id=uid, content="Unique item for conflict")
+            assert exc_info.value.status_code == 409
+        finally:
+            v2_client.memories.delete(mem.id, user_id=uid)
+
+
+# ── Unicode Support ─────────────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestUnicode:
+    def test_teammate_name_unicode(self, v2_client):
+        """Emoji and unicode in teammate name roundtrip correctly."""
+        t = v2_client.teammates.create(name="Bot 🤖")
+        try:
+            assert t.name == "Bot 🤖"
+            fetched = v2_client.teammates.get(t.id)
+            assert fetched.name == "Bot 🤖"
+        finally:
+            v2_client.teammates.delete(t.id)
+
+    def test_memory_unicode_content(self, v2_client):
+        """Accented characters and emoji in memory content roundtrip correctly."""
+        uid = _uid()
+        content = "Préfère le café ☕"
+        mem = v2_client.memories.create(user_id=uid, content=content)
+        try:
+            assert mem.content == content
+        finally:
+            v2_client.memories.delete(mem.id, user_id=uid)
