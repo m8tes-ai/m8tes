@@ -280,11 +280,6 @@ class TaskCommand(Command):
             help=("Output format: verbose (rich UI), compact (text only), json (raw events)"),
         )
         parser.add_argument(
-            "--no-stream",
-            action="store_true",
-            help="Disable streaming (wait for complete response)",
-        )
-        parser.add_argument(
             "--debug",
             action="store_true",
             help="Enable debug mode with detailed logging and event traces",

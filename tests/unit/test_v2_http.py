@@ -136,6 +136,19 @@ class TestErrorMapping:
             http.request("GET", "/x")
         assert "Server Error" in exc_info.value.message
 
+    @responses.activate
+    def test_string_error_body(self, http):
+        """API/proxy returning {"error": "string"} instead of {"error": {...}} must not crash."""
+        responses.add(
+            responses.POST,
+            "https://api.m8tes.ai/v2/runs",
+            json={"error": "something went wrong"},
+            status=400,
+        )
+        with pytest.raises(ValidationError) as exc_info:
+            http.request("POST", "/runs")
+        assert "something went wrong" in exc_info.value.message
+
 
 class TestRetryLogic:
     """Retry behaviour: 429/5xx retried up to 3 times, network errors retried."""
@@ -222,3 +235,105 @@ class TestRetryLogic:
                 http.request("GET", "/x")
             assert exc_info.value.status_code is None
             assert "refused" in exc_info.value.message
+
+
+class TestRetrySemantics:
+    """Only idempotent methods (GET, HEAD, PUT, DELETE, OPTIONS) should be retried on 429/5xx.
+    POST/PATCH are non-idempotent and must fail immediately to avoid duplicate side effects."""
+
+    def test_post_not_retried_on_500(self, http):
+        """POST 500 must not be retried — could duplicate a create."""
+        from unittest.mock import MagicMock
+
+        mock_resp = MagicMock()
+        mock_resp.ok = False
+        mock_resp.status_code = 500
+        mock_resp.json.return_value = {"detail": "down"}
+        mock_resp.text = "down"
+        mock_resp.headers = {}
+        http._session.request = MagicMock(return_value=mock_resp)
+        with pytest.raises(APIError):
+            http.request("POST", "/runs")
+        assert http._session.request.call_count == 1
+
+    def test_patch_not_retried_on_500(self, http):
+        """PATCH 500 must not be retried — could apply partial update twice."""
+        from unittest.mock import MagicMock
+
+        mock_resp = MagicMock()
+        mock_resp.ok = False
+        mock_resp.status_code = 500
+        mock_resp.json.return_value = {"detail": "down"}
+        mock_resp.text = "down"
+        mock_resp.headers = {}
+        http._session.request = MagicMock(return_value=mock_resp)
+        with pytest.raises(APIError):
+            http.request("PATCH", "/teammates/123")
+        assert http._session.request.call_count == 1
+
+    def test_post_not_retried_on_429(self, http):
+        """POST 429 must not be retried — retrying could create duplicates."""
+        from unittest.mock import MagicMock
+
+        mock_resp = MagicMock()
+        mock_resp.ok = False
+        mock_resp.status_code = 429
+        mock_resp.json.return_value = {"detail": "rate limited"}
+        mock_resp.text = "rate limited"
+        mock_resp.headers = {}
+        http._session.request = MagicMock(return_value=mock_resp)
+        with pytest.raises(RateLimitError):
+            http.request("POST", "/runs")
+        assert http._session.request.call_count == 1
+
+    def test_get_retried_on_500(self, http):
+        """GET is idempotent — 500 should be retried."""
+        from unittest.mock import MagicMock
+
+        fail_resp = MagicMock()
+        fail_resp.ok = False
+        fail_resp.status_code = 500
+        fail_resp.headers = {}
+
+        ok_resp = MagicMock()
+        ok_resp.ok = True
+        ok_resp.status_code = 200
+
+        http._session.request = MagicMock(side_effect=[fail_resp, ok_resp])
+        resp = http.request("GET", "/teammates")
+        assert resp.status_code == 200
+        assert http._session.request.call_count == 2
+
+    def test_delete_retried_on_429(self, http):
+        """DELETE is idempotent — 429 should be retried."""
+        from unittest.mock import MagicMock
+
+        fail_resp = MagicMock()
+        fail_resp.ok = False
+        fail_resp.status_code = 429
+        fail_resp.headers = {"Retry-After": "0"}
+
+        ok_resp = MagicMock()
+        ok_resp.ok = True
+        ok_resp.status_code = 200
+
+        http._session.request = MagicMock(side_effect=[fail_resp, ok_resp])
+        resp = http.request("DELETE", "/teammates/123")
+        assert resp.status_code == 200
+        assert http._session.request.call_count == 2
+
+
+class TestVersionConsistency:
+    """Ensure version strings stay in sync across the codebase."""
+
+    def test_no_hardcoded_version_in_legacy_client(self):
+        """Legacy http/client.py must use __version__, not a hardcoded string."""
+        import inspect
+
+        from m8tes import __version__
+        from m8tes.http.client import HTTPClient as LegacyHTTPClient
+
+        source = inspect.getsource(LegacyHTTPClient)
+        # Should reference __version__ dynamically, not contain a hardcoded "0.1.0"
+        assert "0.1.0" not in source
+        assert __version__ not in {"", None}

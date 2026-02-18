@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from .._types import SyncPage, Task, Trigger
+from ._utils import _build_params
 
 _list = list  # preserve builtin; shadowed by .list() method
 
@@ -83,15 +84,9 @@ class Tasks:
         limit: int = 20,
         starting_after: int | None = None,
     ) -> SyncPage[Task]:
-        params: dict = {}
-        if teammate_id is not None:
-            params["teammate_id"] = teammate_id
-        if user_id is not None:
-            params["user_id"] = user_id
-        if limit != 20:
-            params["limit"] = limit
-        if starting_after is not None:
-            params["starting_after"] = starting_after
+        params = _build_params(
+            teammate_id=teammate_id, user_id=user_id, limit=limit, starting_after=starting_after
+        )
         resp = self._http.request("GET", "/tasks", params=params)
         body = resp.json()
 
