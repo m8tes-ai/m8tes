@@ -9,7 +9,7 @@ Protocol: https://ai-sdk.dev/docs/ai-sdk-ui/stream-protocol
 
 from collections.abc import Generator
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 import json
 import logging
 from typing import Any
@@ -17,7 +17,7 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
-class StreamEventType(str, Enum):
+class StreamEventType(StrEnum):
     """AI SDK stream event types."""
 
     # Text events
