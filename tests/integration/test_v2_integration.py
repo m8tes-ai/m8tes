@@ -1200,6 +1200,97 @@ class TestWebhookValidation:
             v2_client.webhooks.list_deliveries(999999)
 
 
+# ── Webhook Isolation + Edges ────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestWebhookIsolationAndEdges:
+    """Webhook behavior parity checks not covered by basic CRUD tests."""
+
+    def test_default_events_match_v2_defaults(self, v2_client):
+        """Create without events uses V2 defaults exactly."""
+        wh = v2_client.webhooks.create(url="https://example.com/defaults-check")
+        try:
+            assert set(wh.events) == {"run.completed", "run.failed"}
+        finally:
+            v2_client.webhooks.delete(wh.id)
+
+    def test_create_with_empty_events_list(self, v2_client):
+        """Empty events list is accepted and roundtrips as empty."""
+        wh = v2_client.webhooks.create(url="https://example.com/empty-events", events=[])
+        try:
+            assert wh.events == []
+        finally:
+            v2_client.webhooks.delete(wh.id)
+
+    def test_get_other_users_webhook_hidden(self, v2_client, backend_url):
+        """GET another account's webhook returns NotFoundError (404)."""
+        other_client = _new_v2_client(backend_url, email_prefix="wh-get-cross")
+        wh = v2_client.webhooks.create(url="https://example.com/cross-get")
+        try:
+            with pytest.raises(NotFoundError):
+                other_client.webhooks.get(wh.id)
+        finally:
+            other_client.close()
+            v2_client.webhooks.delete(wh.id)
+
+    def test_update_other_users_webhook_hidden(self, v2_client, backend_url):
+        """PATCH another account's webhook returns NotFoundError (404)."""
+        other_client = _new_v2_client(backend_url, email_prefix="wh-update-cross")
+        wh = v2_client.webhooks.create(url="https://example.com/cross-update")
+        try:
+            with pytest.raises(NotFoundError):
+                other_client.webhooks.update(wh.id, url="https://example.com/forbidden")
+        finally:
+            other_client.close()
+            v2_client.webhooks.delete(wh.id)
+
+    def test_delete_other_users_webhook_hidden(self, v2_client, backend_url):
+        """DELETE another account's webhook returns NotFoundError (404)."""
+        other_client = _new_v2_client(backend_url, email_prefix="wh-delete-cross")
+        wh = v2_client.webhooks.create(url="https://example.com/cross-delete")
+        try:
+            with pytest.raises(NotFoundError):
+                other_client.webhooks.delete(wh.id)
+            # Owner can still fetch it after failed cross-account delete attempt.
+            owner_view = v2_client.webhooks.get(wh.id)
+            assert owner_view.id == wh.id
+        finally:
+            other_client.close()
+            v2_client.webhooks.delete(wh.id)
+
+    def test_list_only_returns_own_webhooks(self, v2_client, backend_url):
+        """Each account only sees its own webhooks in list()."""
+        other_client = _new_v2_client(backend_url, email_prefix="wh-list-cross")
+        wh_a = v2_client.webhooks.create(url="https://example.com/owner-a")
+        wh_b = other_client.webhooks.create(url="https://example.com/owner-b")
+        try:
+            page_a = v2_client.webhooks.list(limit=100)
+            ids_a = {w.id for w in page_a.data}
+            assert wh_a.id in ids_a
+            assert wh_b.id not in ids_a
+
+            page_b = other_client.webhooks.list(limit=100)
+            ids_b = {w.id for w in page_b.data}
+            assert wh_b.id in ids_b
+            assert wh_a.id not in ids_b
+        finally:
+            other_client.webhooks.delete(wh_b.id)
+            v2_client.webhooks.delete(wh_a.id)
+            other_client.close()
+
+    def test_list_deliveries_other_users_webhook_hidden(self, v2_client, backend_url):
+        """Listing deliveries for another account's webhook returns NotFoundError."""
+        other_client = _new_v2_client(backend_url, email_prefix="wh-deliveries-cross")
+        wh = v2_client.webhooks.create(url="https://example.com/cross-deliveries")
+        try:
+            with pytest.raises(NotFoundError):
+                other_client.webhooks.list_deliveries(wh.id)
+        finally:
+            other_client.close()
+            v2_client.webhooks.delete(wh.id)
+
+
 # ── Runs (list/get only — no execution) ─────────────────────────────
 
 
