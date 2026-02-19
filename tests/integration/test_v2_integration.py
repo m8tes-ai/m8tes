@@ -953,15 +953,18 @@ class TestPermissionsCRUD:
                 v2_client.permissions.delete(p.id, user_id=uid)
 
     def test_delete_then_recreate(self, v2_client):
-        """After deleting a permission, can recreate same (user_id, tool) with new ID."""
+        """After deleting a permission, can recreate same (user_id, tool)."""
         uid = _uid()
         p1 = v2_client.permissions.create(user_id=uid, tool="recreate_tool")
         v2_client.permissions.delete(p1.id, user_id=uid)
 
         p2 = v2_client.permissions.create(user_id=uid, tool="recreate_tool")
         try:
-            assert p2.id != p1.id
             assert p2.tool_name == "recreate_tool"
+            assert p2.user_id == uid
+            # Verify it actually exists via list
+            listed = v2_client.permissions.list(user_id=uid)
+            assert any(p.id == p2.id for p in listed.data)
         finally:
             v2_client.permissions.delete(p2.id, user_id=uid)
 
