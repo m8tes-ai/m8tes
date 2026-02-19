@@ -48,6 +48,24 @@ def _uid() -> str:
     return f"user-{uuid.uuid4().hex[:8]}"
 
 
+def _new_v2_client(backend_url: str, *, email_prefix: str) -> M8tes:
+    """Register a throwaway user and return an authenticated V2 client."""
+    import requests
+
+    email = f"{email_prefix}-{uuid.uuid4().hex[:8]}@test.m8tes.ai"
+    resp = requests.post(
+        f"{backend_url}/api/v1/auth/register",
+        json={
+            "email": email,
+            "password": "TestPassword123!",
+            "first_name": "SDKInteg",
+        },
+    )
+    assert resp.status_code == 201, f"Registration failed: {resp.text}"
+    token = resp.json()["api_key"]
+    return M8tes(api_key=token, base_url=f"{backend_url}/api/v2")
+
+
 # ── Teammates ────────────────────────────────────────────────────────
 
 
@@ -1202,6 +1220,24 @@ class TestRunsReadOnly:
         page = v2_client.runs.list(status="completed")
         assert isinstance(page, SyncPage)
 
+    @pytest.mark.parametrize(
+        "status",
+        [
+            "running",
+            "paused",
+            "awaiting_approval",
+            "completed",
+            "failed",
+            "cancelled",
+            "closed",
+            "archived",
+        ],
+    )
+    def test_list_with_all_valid_status_filters(self, v2_client, status):
+        """All documented run status filters are accepted by V2."""
+        page = v2_client.runs.list(status=status)
+        assert isinstance(page, SyncPage)
+
     def test_list_with_limit(self, v2_client):
         """List runs respects limit parameter."""
         page = v2_client.runs.list(limit=1)
@@ -1335,6 +1371,26 @@ class TestRunsHumanInTheLoop:
         finally:
             v2_client.teammates.delete(tm.id)
 
+    def test_task_run_approval_mode_without_hitl_rejected(self, v2_client):
+        """Task run with permission_mode=approval without HITL raises ValidationError."""
+        tm = v2_client.teammates.create(name="TaskApprovalNoHitl")
+        try:
+            task = v2_client.tasks.create(
+                teammate_id=tm.id,
+                instructions="Approval mode without hitl should fail",
+            )
+            try:
+                with pytest.raises(ValidationError):
+                    v2_client.tasks.run(
+                        task.id,
+                        stream=False,
+                        permission_mode="approval",
+                    )
+            finally:
+                v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
     def test_task_run_with_hitl_accepted(self, v2_client):
         """Task run with human_in_the_loop=True is accepted."""
         tm = v2_client.teammates.create(name="TaskHitlOk")
@@ -1355,15 +1411,84 @@ class TestRunsHumanInTheLoop:
         finally:
             v2_client.teammates.delete(tm.id)
 
+    def test_task_run_approval_mode_with_hitl_accepted(self, v2_client):
+        """Task run with permission_mode=approval + HITL is accepted."""
+        tm = v2_client.teammates.create(name="TaskHitlApprovalOk")
+        try:
+            task = v2_client.tasks.create(
+                teammate_id=tm.id,
+                instructions="HITL approval task ok",
+            )
+            try:
+                run = v2_client.tasks.run(
+                    task.id,
+                    stream=False,
+                    human_in_the_loop=True,
+                    permission_mode="approval",
+                )
+                assert isinstance(run, Run)
+            finally:
+                v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
     def test_answer_nonexistent_run(self, v2_client):
         """Answer on nonexistent run raises NotFoundError."""
         with pytest.raises(NotFoundError):
             v2_client.runs.answer(999999, answers={"Q": "A"})
 
+    def test_answer_cross_account_run_hidden(self, v2_client, backend_url):
+        """Answering another account's run returns NotFoundError (404)."""
+        other_client = _new_v2_client(backend_url, email_prefix="answer-cross")
+        tm = v2_client.teammates.create(name="AnswerCrossOwner")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=tm.id,
+                message="Cross-account answer",
+                stream=False,
+            )
+            with pytest.raises(NotFoundError):
+                other_client.runs.answer(run.id, answers={"Q": "A"})
+        finally:
+            other_client.close()
+            v2_client.teammates.delete(tm.id)
+
     def test_approve_nonexistent_run(self, v2_client):
         """Approve on nonexistent run raises NotFoundError."""
         with pytest.raises(NotFoundError):
             v2_client.runs.approve(999999, request_id="fake-uuid")
+
+    def test_permissions_cross_account_run_hidden(self, v2_client, backend_url):
+        """Listing permissions for another account's run returns NotFoundError."""
+        other_client = _new_v2_client(backend_url, email_prefix="perm-cross")
+        tm = v2_client.teammates.create(name="PermCrossOwner")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=tm.id,
+                message="Cross-account permission list",
+                stream=False,
+            )
+            with pytest.raises(NotFoundError):
+                other_client.runs.permissions(run.id)
+        finally:
+            other_client.close()
+            v2_client.teammates.delete(tm.id)
+
+    def test_approve_cross_account_run_hidden(self, v2_client, backend_url):
+        """Approving another account's run returns NotFoundError (404)."""
+        other_client = _new_v2_client(backend_url, email_prefix="approve-cross")
+        tm = v2_client.teammates.create(name="ApproveCrossOwner")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=tm.id,
+                message="Cross-account approve",
+                stream=False,
+            )
+            with pytest.raises(NotFoundError):
+                other_client.runs.approve(run.id, request_id="fake-uuid")
+        finally:
+            other_client.close()
+            v2_client.teammates.delete(tm.id)
 
     def test_answer_on_running_run(self, v2_client):
         """Answer on a run that's running (not waiting) returns ok status."""
@@ -1380,6 +1505,36 @@ class TestRunsHumanInTheLoop:
         finally:
             v2_client.teammates.delete(tm.id)
 
+    def test_answer_empty_dict_rejected(self, v2_client):
+        """Empty answers payload is rejected by V2 schema validation."""
+        tm = v2_client.teammates.create(name="AnswerEmptyDict")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=tm.id,
+                message="Answer empty dict test",
+                stream=False,
+            )
+            with pytest.raises(ValidationError):
+                v2_client.runs.answer(run.id, answers={})
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_answer_on_terminal_run_conflict(self, v2_client):
+        """Answer on a terminal run returns ConflictError (409)."""
+        tm = v2_client.teammates.create(name="AnswerTerminal")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=tm.id,
+                message="respond with ok",
+                stream=False,
+            )
+            terminal = v2_client.runs.poll(run.id, interval=1.0, timeout=120.0)
+            assert terminal.status in ("completed", "failed", "cancelled")
+            with pytest.raises(ConflictError):
+                v2_client.runs.answer(terminal.id, answers={"Q": "A"})
+        finally:
+            v2_client.teammates.delete(tm.id)
+
     def test_approve_invalid_request_on_real_run(self, v2_client):
         """Approve with fake request_id on a real run raises NotFoundError."""
         tm = v2_client.teammates.create(name="ApproveInvalid")
@@ -1391,6 +1546,20 @@ class TestRunsHumanInTheLoop:
             )
             with pytest.raises(NotFoundError):
                 v2_client.runs.approve(run.id, request_id="nonexistent-uuid")
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_approve_invalid_decision_rejected(self, v2_client):
+        """Invalid decision value is rejected by V2 schema validation."""
+        tm = v2_client.teammates.create(name="ApproveInvalidDecision")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=tm.id,
+                message="Approve invalid decision test",
+                stream=False,
+            )
+            with pytest.raises(ValidationError):
+                v2_client.runs.approve(run.id, request_id="req_fake", decision="maybe")
         finally:
             v2_client.teammates.delete(tm.id)
 
