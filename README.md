@@ -19,28 +19,16 @@ from m8tes import M8tes
 
 client = M8tes()  # uses M8TES_API_KEY env var
 
-# 1. create a reusable teammate
-ops = client.teammates.create(
+run = client.runs.create(
     name="support triage",
-    tools=["gmail", "linear", "slack"],
     instructions="triage inbound support emails. create Linear tickets "
                  "for bugs. escalate urgent issues to #support-escalations.",
+    tools=["gmail", "linear", "slack"],
+    message="process all unread support emails from today",
+    stream=False,
 )
-
-# 2. define a recurring task
-task = client.tasks.create(
-    teammate_id=ops.id,
-    instructions="process all unread support emails from today",
-)
-
-# 3. schedule it -- every weekday at 9am ET
-client.tasks.triggers.create(
-    task.id, type="schedule", cron="0 9 * * 1-5", timezone="America/New_York"
-)
-
-# 4. or run it right now
-for event in client.tasks.run(task.id):
-    print(event.type, event.raw)
+run = client.runs.poll(run.id)
+print(run.output)
 ```
 
 ## Why m8tes
