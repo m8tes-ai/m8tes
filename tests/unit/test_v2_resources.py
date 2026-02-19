@@ -429,9 +429,9 @@ class TestRunConvenienceHelpers:
     def test_stream_text(self, http):
         """stream_text yields only text delta strings."""
         sse = (
-            'data: {"type": "text-delta", "textDelta": "Hello"}\n\n'
+            'data: {"type": "text-delta", "delta": "Hello"}\n\n'
             'data: {"type": "tool-call-begin", "toolName": "gmail"}\n\n'
-            'data: {"type": "text-delta", "textDelta": " world"}\n\n'
+            'data: {"type": "text-delta", "delta": " world"}\n\n'
             'data: {"type": "finish", "finishReason": "end_turn"}\n\n'
         )
         responses.add(

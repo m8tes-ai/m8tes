@@ -37,6 +37,7 @@ jobs:
           path: applications
           sparse-checkout: |
             fastapi
+            agent-runtime
 
       - uses: astral-sh/setup-uv@v4
       - uses: actions/setup-python@v5

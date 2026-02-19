@@ -164,7 +164,7 @@ class Runs:
             for chunk in client.runs.stream_text(message="Summarize news"):
                 print(chunk, end="", flush=True)
         """
-        from ..streaming import StreamEventType
+        from ..streaming import TextDeltaEvent
 
         stream = self.create(
             message=message,
@@ -183,8 +183,8 @@ class Runs:
         assert isinstance(stream, RunStream)
         with stream:
             for event in stream:
-                if event.type == StreamEventType.TEXT_DELTA:
-                    yield event.raw.get("textDelta", "")
+                if isinstance(event, TextDeltaEvent):
+                    yield event.delta
 
     def list(
         self,
