@@ -494,19 +494,23 @@ class TestTasksCRUD:
 
     def test_tools_roundtrip(self, v2_client):
         """Create task with tools, verify persisted, update tools."""
+        available = [a.name for a in v2_client.apps.list().data]
+        if len(available) < 2:
+            pytest.skip(f"Need >=2 tools, got {len(available)}")
+        tool_a, tool_b = available[0], available[1]
         tm = v2_client.teammates.create(name="TaskToolsHost")
         try:
             task = v2_client.tasks.create(
-                teammate_id=tm.id, instructions="With tools", tools=["gmail", "slack"]
+                teammate_id=tm.id, instructions="With tools", tools=[tool_a, tool_b]
             )
             try:
-                assert set(task.tools) == {"gmail", "slack"}
+                assert set(task.tools) == {tool_a, tool_b}
 
-                updated = v2_client.tasks.update(task.id, tools=["notion"])
-                assert updated.tools == ["notion"]
+                updated = v2_client.tasks.update(task.id, tools=[tool_b])
+                assert updated.tools == [tool_b]
 
                 fetched = v2_client.tasks.get(task.id)
-                assert fetched.tools == ["notion"]
+                assert fetched.tools == [tool_b]
             finally:
                 v2_client.tasks.delete(task.id)
         finally:
