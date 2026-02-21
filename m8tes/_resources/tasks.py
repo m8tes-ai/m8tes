@@ -39,7 +39,9 @@ class TaskTriggers:
 
     def list(self, task_id: int) -> list[Trigger]:
         resp = self._http.request("GET", f"/tasks/{task_id}/triggers")
-        return [Trigger.from_dict(d) for d in resp.json()]
+        body = resp.json()
+        items = body["data"] if isinstance(body, dict) and "data" in body else body
+        return [Trigger.from_dict(d) for d in items]
 
     def delete(self, task_id: int, trigger_id: int) -> None:
         self._http.request("DELETE", f"/tasks/{task_id}/triggers/{trigger_id}")
