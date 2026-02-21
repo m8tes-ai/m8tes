@@ -180,15 +180,15 @@ class TestListForInstance:
 
     def test_list_for_instance_default_limit(self, run_service, mock_http_client, sample_run_data):
         """Test listing runs with default limit."""
-        mock_http_client.request.return_value = {"runs": [sample_run_data, sample_run_data]}
+        mock_http_client.request.return_value = [sample_run_data, sample_run_data]
 
         runs = run_service.list_for_instance(instance_id=123)
 
-        # Verify API call
+        # Verify API call - uses /api/v1/runs with instance_id query param
         mock_http_client.request.assert_called_once_with(
             "GET",
-            "/api/v1/instances/123/runs",
-            params={"limit": 50},
+            "/api/v1/runs",
+            params={"instance_id": 123, "limit": 50},
         )
 
         # Verify returned runs
@@ -196,22 +196,22 @@ class TestListForInstance:
 
     def test_list_for_instance_custom_limit(self, run_service, mock_http_client, sample_run_data):
         """Test listing runs with custom limit."""
-        mock_http_client.request.return_value = {"runs": [sample_run_data] * 10}
+        mock_http_client.request.return_value = [sample_run_data] * 10
 
         runs = run_service.list_for_instance(instance_id=123, limit=10)
 
         # Verify API call with custom limit
         mock_http_client.request.assert_called_once_with(
             "GET",
-            "/api/v1/instances/123/runs",
-            params={"limit": 10},
+            "/api/v1/runs",
+            params={"instance_id": 123, "limit": 10},
         )
 
         assert len(runs) == 10
 
     def test_list_for_instance_empty_result(self, run_service, mock_http_client):
         """Test listing runs when no runs exist."""
-        mock_http_client.request.return_value = {"runs": []}
+        mock_http_client.request.return_value = []
 
         runs = run_service.list_for_instance(instance_id=123)
 
@@ -222,7 +222,7 @@ class TestListForInstance:
         self, run_service, mock_http_client, sample_run_data
     ):
         """Test that list_for_instance returns Run instances."""
-        mock_http_client.request.return_value = {"runs": [sample_run_data] * 3}
+        mock_http_client.request.return_value = [sample_run_data] * 3
 
         runs = run_service.list_for_instance(instance_id=123)
 
@@ -231,12 +231,12 @@ class TestListForInstance:
         assert all(isinstance(run, Run) for run in runs)
 
     def test_list_for_instance_handles_missing_runs_key(self, run_service, mock_http_client):
-        """Test listing runs when response doesn't have 'runs' key."""
-        mock_http_client.request.return_value = {}
+        """Test listing runs when response is an empty list."""
+        mock_http_client.request.return_value = []
 
         runs = run_service.list_for_instance(instance_id=123)
 
-        # Should return empty list when key is missing
+        # Should return empty list
         assert runs == []
 
 
@@ -246,7 +246,7 @@ class TestListUserRuns:
 
     def test_list_user_runs_default_limit(self, run_service, mock_http_client, sample_run_data):
         """Test listing user runs with default limit."""
-        mock_http_client.request.return_value = {"runs": [sample_run_data] * 5}
+        mock_http_client.request.return_value = [sample_run_data] * 5
 
         runs = run_service.list_user_runs()
 
@@ -261,7 +261,7 @@ class TestListUserRuns:
 
     def test_list_user_runs_custom_limit(self, run_service, mock_http_client, sample_run_data):
         """Test listing user runs with custom limit."""
-        mock_http_client.request.return_value = {"runs": [sample_run_data] * 20}
+        mock_http_client.request.return_value = [sample_run_data] * 20
 
         runs = run_service.list_user_runs(limit=20)
 
@@ -275,7 +275,7 @@ class TestListUserRuns:
 
     def test_list_user_runs_empty(self, run_service, mock_http_client):
         """Test listing user runs when none exist."""
-        mock_http_client.request.return_value = {"runs": []}
+        mock_http_client.request.return_value = []
 
         runs = run_service.list_user_runs()
 
@@ -285,7 +285,7 @@ class TestListUserRuns:
         self, run_service, mock_http_client, sample_run_data
     ):
         """Test that list_user_runs returns Run instances."""
-        mock_http_client.request.return_value = {"runs": [sample_run_data] * 3}
+        mock_http_client.request.return_value = [sample_run_data] * 3
 
         runs = run_service.list_user_runs()
 
