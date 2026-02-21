@@ -254,7 +254,8 @@ class Runs:
         When switching to 'autonomous', all pending permission requests are auto-approved.
         """
         resp = self._http.request(
-            "PATCH", f"/runs/{run_id}/permission-mode",
+            "PATCH",
+            f"/runs/{run_id}/permission-mode",
             json={"permission_mode": permission_mode},
         )
         result: dict[str, Any] = resp.json()
