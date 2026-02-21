@@ -242,6 +242,24 @@ class Runs:
         resp = self._http.request("POST", f"/runs/{run_id}/cancel")
         return Run.from_dict(resp.json())
 
+    def update_permission_mode(
+        self,
+        run_id: int,
+        *,
+        permission_mode: str,
+    ) -> dict[str, Any]:
+        """Change permission mode mid-run.
+
+        Switches between 'autonomous', 'approval', and 'plan'.
+        When switching to 'autonomous', all pending permission requests are auto-approved.
+        """
+        resp = self._http.request(
+            "PATCH", f"/runs/{run_id}/permission-mode",
+            json={"permission_mode": permission_mode},
+        )
+        result: dict[str, Any] = resp.json()
+        return result
+
     def permissions(self, run_id: int) -> _list[PermissionRequest]:
         """List tool permission requests for a run."""
         resp = self._http.request("GET", f"/runs/{run_id}/permissions")
