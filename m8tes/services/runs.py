@@ -1,6 +1,6 @@
 """Run operations service for m8tes SDK."""
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from ..http.client import HTTPClient
 
@@ -84,21 +84,15 @@ class RunService:
         Returns:
             List of Run instances
         """
-        # Make API call with query parameters
-        params = {"limit": limit}
-        response_data = self.http.request(
-            "GET", f"/api/v1/instances/{instance_id}/runs", params=params
-        )
+        params = {"instance_id": instance_id, "limit": limit}
+        raw: Any = self.http.request("GET", "/api/v1/runs", params=params)
 
         # Import here to avoid circular imports
         from ..run import Run
 
-        # Create Run instances from response
-        runs = []
-        for run_data in response_data.get("runs", []):
-            runs.append(Run(run_service=self, data=run_data))
-
-        return runs
+        # API returns a plain list; guard against wrapped dicts for safety
+        run_list: list[Any] = raw if isinstance(raw, list) else raw.get("runs", [])
+        return [Run(run_service=self, data=d) for d in run_list]
 
     def list_user_runs(self, limit: int = 50) -> list["Run"]:
         """
@@ -110,19 +104,15 @@ class RunService:
         Returns:
             List of Run instances
         """
-        # Make API call with query parameters
         params = {"limit": limit}
-        response_data = self.http.request("GET", "/api/v1/runs", params=params)
+        raw: Any = self.http.request("GET", "/api/v1/runs", params=params)
 
         # Import here to avoid circular imports
         from ..run import Run
 
-        # Create Run instances from response
-        runs = []
-        for run_data in response_data.get("runs", []):
-            runs.append(Run(run_service=self, data=run_data))
-
-        return runs
+        # API returns a plain list; guard against wrapped dicts for safety
+        run_list: list[Any] = raw if isinstance(raw, list) else raw.get("runs", [])
+        return [Run(run_service=self, data=d) for d in run_list]
 
     def get_conversation(self, run_id: int) -> list:
         """
