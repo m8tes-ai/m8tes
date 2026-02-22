@@ -1531,6 +1531,24 @@ class TestRunsHumanInTheLoop:
         with pytest.raises(NotFoundError):
             v2_client.runs.answer(999999, answers={"Q": "A"})
 
+    def test_permissions_returns_list_of_permission_requests(self, v2_client):
+        """permissions() on a real run returns a typed list (empty on a fresh run)."""
+        tm = v2_client.teammates.create(name="PermListCheck")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=tm.id,
+                message="permission list test",
+                stream=False,
+            )
+            perms = v2_client.runs.permissions(run.id)
+            assert isinstance(perms, list)
+            for p in perms:
+                assert hasattr(p, "request_id")
+                assert hasattr(p, "tool_name")
+                assert hasattr(p, "status")
+        finally:
+            v2_client.teammates.delete(tm.id)
+
     def test_cross_account_run_hidden(self, v2_client, backend_url):
         """answer/approve/permissions on another account's run return NotFoundError (404).
 

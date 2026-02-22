@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .._types import App, AppConnection, SyncPage
+from .._types import App, AppConnectionInitiation, AppConnectionResult, SyncPage
 
 if TYPE_CHECKING:
     from .._http import HTTPClient
@@ -27,23 +27,23 @@ class Apps:
 
     def connect(
         self, app_name: str, redirect_uri: str, *, user_id: str | None = None
-    ) -> AppConnection:
-        """Initiate OAuth connection. Returns authorization_url for the user."""
+    ) -> AppConnectionInitiation:
+        """Initiate OAuth connection. Returns authorization_url to redirect the user."""
         payload: dict = {"redirect_uri": redirect_uri}
         if user_id:
             payload["user_id"] = user_id
         resp = self._http.request("POST", f"/apps/{app_name}/connect", json=payload)
-        return AppConnection.from_dict(resp.json())
+        return AppConnectionInitiation.from_dict(resp.json())
 
     def connect_complete(
         self, app_name: str, connection_id: str, *, user_id: str | None = None
-    ) -> AppConnection:
-        """Complete OAuth after user authorization."""
+    ) -> AppConnectionResult:
+        """Complete OAuth after user authorization. Returns status confirming connection."""
         payload: dict = {"connection_id": connection_id}
         if user_id:
             payload["user_id"] = user_id
         resp = self._http.request("POST", f"/apps/{app_name}/connect/complete", json=payload)
-        return AppConnection.from_dict(resp.json())
+        return AppConnectionResult.from_dict(resp.json())
 
     def disconnect(self, app_name: str, *, user_id: str | None = None) -> None:
         """Disconnect an app, optionally scoped to an end-user."""
