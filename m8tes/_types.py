@@ -131,7 +131,7 @@ class Task:
 
 @dataclass
 class Trigger:
-    """A trigger (schedule, webhook, or email) attached to a task."""
+    """A trigger (schedule, webhook, email, or app) attached to a task."""
 
     id: int
     type: str
@@ -142,6 +142,10 @@ class Trigger:
     next_run: str | None = None
     url: str | None = None
     address: str | None = None
+    # App trigger fields (Composio)
+    app: str | None = None
+    trigger_name: str | None = None
+    trigger_config: dict | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> Trigger:
@@ -155,6 +159,28 @@ class Trigger:
             next_run=data.get("next_run"),
             url=data.get("url"),
             address=data.get("address"),
+            app=data.get("app"),
+            trigger_name=data.get("trigger_name"),
+            trigger_config=data.get("trigger_config"),
+        )
+
+
+@dataclass
+class AppTriggerType:
+    """Available trigger type for an app (Composio discovery)."""
+
+    slug: str
+    name: str
+    description: str | None = None
+    config: dict = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> AppTriggerType:
+        return cls(
+            slug=data["slug"],
+            name=data["name"],
+            description=data.get("description"),
+            config=data.get("config", {}),
         )
 
 

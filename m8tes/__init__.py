@@ -23,6 +23,7 @@ from ._streaming import RunStream
 from ._types import (
     App,
     AppConnection,
+    AppTriggerType,
     Memory,
     PermissionPolicy,
     PermissionRequest,
@@ -65,6 +66,7 @@ __all__ = [
     "AgentError",
     "App",
     "AppConnection",
+    "AppTriggerType",
     "AuthenticationError",
     "ConflictError",
     "Deployment",

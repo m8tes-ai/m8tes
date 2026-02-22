@@ -28,12 +28,24 @@ class TaskTriggers:
         cron: str | None = None,
         interval_seconds: int | None = None,
         timezone: str = "UTC",
+        app: str | None = None,
+        trigger_name: str | None = None,
+        trigger_config: dict | None = None,
+        user_id: str | None = None,
     ) -> Trigger:
         body: dict = {"type": type, "timezone": timezone}
         if cron:
             body["cron"] = cron
         if interval_seconds:
             body["interval_seconds"] = interval_seconds
+        if app:
+            body["app"] = app
+        if trigger_name:
+            body["trigger_name"] = trigger_name
+        if trigger_config is not None:
+            body["trigger_config"] = trigger_config
+        if user_id:
+            body["user_id"] = user_id
         resp = self._http.request("POST", f"/tasks/{task_id}/triggers", json=body)
         return Trigger.from_dict(resp.json())
 
