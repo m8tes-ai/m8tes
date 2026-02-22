@@ -1,7 +1,7 @@
 # Makefile for m8tes Python SDK
 # Provides common development commands following backend patterns
 
-.PHONY: help install test lint format type-check check clean build publish dev
+.PHONY: help install test lint format type-check check clean build publish dev bump-patch bump-minor bump-major
 
 # Default target
 help:
@@ -35,8 +35,11 @@ help:
 	@echo "Build & Release:"
 	@echo "  clean              - Clean build artifacts"
 	@echo "  build              - Build package"
-	@echo "  publish            - Publish to PyPI (requires PYPI_TOKEN)"
+	@echo "  publish            - Publish to PyPI (via CI)"
 	@echo "  version            - Show current version"
+	@echo "  bump-patch         - Bump patch version (0.2.0 → 0.2.1)"
+	@echo "  bump-minor         - Bump minor version (0.2.0 → 0.3.0)"
+	@echo "  bump-major         - Bump major version (0.2.0 → 1.0.0)"
 
 # Development setup
 install:
@@ -110,11 +113,41 @@ clean:
 build: clean
 	uv run python -m build
 
-# Publishing — use GitHub Actions workflow (.github/workflows/publish-sdk.yml)
-# which handles PyPI upload via OIDC trusted publishing (no tokens needed).
+# Publishing — automated via CI on push to main.
 publish:
-	@echo "Publishing is handled by GitHub Actions (OIDC trusted publishing)."
-	@echo "Create a GitHub release to trigger the publish workflow."
+	@echo "Publish is automated via CI on push to main."
+	@echo "To release: make bump-patch (or bump-minor/bump-major), update CHANGELOG, commit, push."
+
+# Version bumping — updates pyproject.toml, __init__.py, and CHANGELOG.md in one step.
+define BUMP_SCRIPT
+import re, sys, datetime
+part = sys.argv[1]
+with open("pyproject.toml") as f: toml = f.read()
+m = re.search(r'version = "(\d+)\.(\d+)\.(\d+)"', toml)
+major, minor, patch = int(m.group(1)), int(m.group(2)), int(m.group(3))
+if part == "patch": patch += 1
+elif part == "minor": minor += 1; patch = 0
+elif part == "major": major += 1; minor = 0; patch = 0
+new = f"{major}.{minor}.{patch}"
+with open("pyproject.toml", "w") as f: f.write(toml.replace(m.group(0), f'version = "{new}"'))
+with open("m8tes/__init__.py") as f: init = f.read()
+with open("m8tes/__init__.py", "w") as f: f.write(re.sub(r'__version__ = "[^"]+"', f'__version__ = "{new}"', init))
+with open("CHANGELOG.md") as f: cl = f.read()
+today = datetime.date.today().isoformat()
+header = f"## [{new}] - {today}\n\n### Added\n\n### Changed\n\n### Fixed\n\n"
+with open("CHANGELOG.md", "w") as f: f.write(cl.replace("\n## [", f"\n{header}## [", 1))
+print(f"Bumped to {new}")
+endef
+export BUMP_SCRIPT
+
+bump-patch:
+	@python3 -c "$$BUMP_SCRIPT" patch
+
+bump-minor:
+	@python3 -c "$$BUMP_SCRIPT" minor
+
+bump-major:
+	@python3 -c "$$BUMP_SCRIPT" major
 
 # Verification commands
 verify-install:

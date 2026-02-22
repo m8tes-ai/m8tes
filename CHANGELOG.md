@@ -2,6 +2,14 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [1.0.0] - 2026-02-22
+
+### Added
+
+### Changed
+
+### Fixed
+
 ## [0.2.0] - 2026-02-18
 
 ### Added
