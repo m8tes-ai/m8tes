@@ -3,6 +3,7 @@
 from m8tes._types import (
     App,
     AppConnection,
+    AppTriggerType,
     Memory,
     PermissionPolicy,
     PermissionRequest,
@@ -91,10 +92,16 @@ class TestTaskFromDict:
                 "goals": "G",
                 "user_id": "u",
                 "status": "archived",
+                "app_trigger_count": 3,
             }
         )
         assert t.name == "T"
         assert t.tools == ["slack"]
+        assert t.app_trigger_count == 3
+
+    def test_app_trigger_count_defaults_to_zero(self):
+        t = Task.from_dict({"id": 1, "teammate_id": 2, "instructions": "Do"})
+        assert t.app_trigger_count == 0
 
 
 class TestTriggerFromDict:
@@ -111,6 +118,35 @@ class TestTriggerFromDict:
     def test_email(self):
         t = Trigger.from_dict({"id": 0, "type": "email", "address": "task@in.m8tes.ai"})
         assert t.address == "task@in.m8tes.ai"
+
+    def test_app_trigger(self):
+        t = Trigger.from_dict(
+            {"id": 5, "type": "app", "app": "github", "trigger_name": "GITHUB_COMMIT_EVENT"}
+        )
+        assert t.type == "app"
+        assert t.app == "github"
+        assert t.trigger_name == "GITHUB_COMMIT_EVENT"
+
+
+class TestAppTriggerTypeFromDict:
+    def test_full(self):
+        at = AppTriggerType.from_dict(
+            {
+                "slug": "GITHUB_COMMIT_EVENT",
+                "name": "Commit Event",
+                "description": "Fires on push",
+                "config": {"repo": "owner/repo"},
+            }
+        )
+        assert at.slug == "GITHUB_COMMIT_EVENT"
+        assert at.name == "Commit Event"
+        assert at.description == "Fires on push"
+        assert at.config == {"repo": "owner/repo"}
+
+    def test_minimal(self):
+        at = AppTriggerType.from_dict({"slug": "SLACK_NEW_MESSAGE", "name": "New Message"})
+        assert at.description is None
+        assert at.config == {}
 
 
 class TestAppFromDict:
