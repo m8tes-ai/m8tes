@@ -175,7 +175,7 @@ class TestWebhookFromDict:
         assert w.events == []
         assert w.secret is None
         assert w.active is True
-        assert w.delivery_status == "active"
+        assert w.updated_at is None
 
     def test_full(self):
         w = Webhook.from_dict(
@@ -185,12 +185,12 @@ class TestWebhookFromDict:
                 "events": ["run.completed"],
                 "secret": "s",
                 "active": False,
-                "delivery_status": "failing",
+                "updated_at": "2024-01-02T00:00:00Z",
                 "created_at": "2024-01-01",
             }
         )
         assert w.active is False
-        assert w.delivery_status == "failing"
+        assert w.updated_at == "2024-01-02T00:00:00Z"
 
 
 class TestWebhookDeliveryFromDict:
