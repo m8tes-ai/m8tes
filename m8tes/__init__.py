@@ -4,7 +4,7 @@ m8tes - Python SDK for m8tes.ai
 Developer SDK for building AI teammates.
 """
 
-__version__ = "0.2.0"
+__version__ = "1.0.0"
 
 # ── v2 Developer SDK (primary) ───────────────────────────────────────
 from ._client import M8tes
