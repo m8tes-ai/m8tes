@@ -2727,26 +2727,33 @@ class TestRunsSDKMethods:
     def test_stream_text_generator(self, v2_client):
         """stream_text() yields text chunks."""
         from m8tes._streaming import RunStream
-        from m8tes.streaming import TextDeltaEvent
+        from m8tes.streaming import MetadataEvent, TextDeltaEvent
 
         tm = v2_client.teammates.create(name="StreamTextHost")
         try:
-            # First: raw stream to diagnose what events actually arrive
             with v2_client.runs.create(
                 teammate_id=tm.id,
                 message="Say the word 'hello'",
                 stream=True,
-            ) as diag_stream:
-                assert isinstance(diag_stream, RunStream)
-                diag_events = list(diag_stream)
-                event_types = [e.type for e in diag_events]
-                text_delta_count = sum(1 for e in diag_events if isinstance(e, TextDeltaEvent))
-                assert len(diag_events) > 0, "Stream had zero events"
+            ) as stream:
+                assert isinstance(stream, RunStream)
+                events = list(stream)
+                assert len(events) > 0, "Stream had zero events"
+
+                # Skip if Claude API auth failed (e.g. CI running with a test key)
+                if any(
+                    isinstance(e, MetadataEvent)
+                    and e.payload.get("error") == "authentication_failed"
+                    for e in events
+                ):
+                    pytest.skip("Claude API authentication failed — skipping text assertion")
+
+                event_types = [e.type for e in events]
+                text_delta_count = sum(1 for e in events if isinstance(e, TextDeltaEvent))
                 assert text_delta_count > 0, (
-                    f"No TextDeltaEvent in stream. Got {len(diag_events)} events: {event_types}"
+                    f"No TextDeltaEvent in stream. Got {len(events)} events: {event_types}"
                 )
 
-            # Second: actual stream_text test
             chunks = list(
                 v2_client.runs.stream_text(
                     teammate_id=tm.id,
