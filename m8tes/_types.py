@@ -111,6 +111,7 @@ class Task:
     status: str
     created_at: str
     updated_at: str | None = None
+    app_trigger_count: int = 0
 
     @classmethod
     def from_dict(cls, data: dict) -> Task:
@@ -126,6 +127,7 @@ class Task:
             status=data.get("status", "enabled"),
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at"),
+            app_trigger_count=data.get("app_trigger_count", 0),
         )
 
 
