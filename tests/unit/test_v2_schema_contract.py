@@ -13,6 +13,7 @@ import pytest
 
 from m8tes._types import (
     App,
+    AppTriggerType,
     Memory,
     PermissionPolicy,
     PermissionRequest,
@@ -47,6 +48,7 @@ PermissionRequestResponse = _schemas.PermissionRequestResponse
 PermissionPolicyResponse = _schemas.PermissionPolicyResponse
 RunFileResponse = _schemas.RunFileResponse
 TeammateWebhookResponse = _schemas.TeammateWebhookResponse
+AppTriggerTypeSchemaResponse = _schemas.AppTriggerTypeResponse
 
 
 def _pydantic_fields(model: type) -> set[str]:
@@ -71,6 +73,7 @@ SCHEMA_PAIRS = [
     (PermissionPolicyResponse, PermissionPolicy, set()),
     (RunFileResponse, RunFile, set()),
     (TeammateWebhookResponse, TeammateWebhook, set()),
+    (AppTriggerTypeSchemaResponse, AppTriggerType, set()),
 ]
 
 
