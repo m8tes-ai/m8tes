@@ -2,7 +2,8 @@
 
 from m8tes._types import (
     App,
-    AppConnection,
+    AppConnectionInitiation,
+    AppConnectionResult,
     Memory,
     PermissionPolicy,
     PermissionRequest,
@@ -127,22 +128,20 @@ class TestAppFromDict:
         assert a.connected is True
 
 
-class TestAppConnectionFromDict:
-    def test_all_none(self):
-        c = AppConnection.from_dict({})
-        assert c.authorization_url is None
-        assert c.connection_id is None
-
+class TestAppConnectionInitiationFromDict:
     def test_full(self):
-        c = AppConnection.from_dict(
-            {
-                "authorization_url": "https://auth.com",
-                "connection_id": "c1",
-                "status": "connected",
-                "app": "gmail",
-            }
+        c = AppConnectionInitiation.from_dict(
+            {"authorization_url": "https://auth.com", "connection_id": "c1"}
         )
+        assert c.authorization_url == "https://auth.com"
+        assert c.connection_id == "c1"
+
+
+class TestAppConnectionResultFromDict:
+    def test_full(self):
+        c = AppConnectionResult.from_dict({"status": "connected", "app": "gmail"})
         assert c.status == "connected"
+        assert c.app == "gmail"
 
 
 class TestMemoryFromDict:
