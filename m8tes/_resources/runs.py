@@ -270,7 +270,12 @@ class Runs:
         """Submit an answer to an agent's AskUserQuestion.
 
         Use this when the run is paused waiting for user input (AskUserQuestion).
-        The answers dict maps question text to the selected option label.
+        The answers dict maps question text (q["question"]) to the selected option label.
+
+        Returns {"status": "ok", "resumed": bool}. When resumed is True, the run
+        has been queued to continue from the point it paused.
+
+        Raises ConflictError (409) if the run is terminal (completed, failed, cancelled).
         """
         resp = self._http.request("POST", f"/runs/{run_id}/answer", json={"answers": answers})
         result: dict[str, Any] = resp.json()
