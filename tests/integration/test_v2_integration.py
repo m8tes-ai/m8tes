@@ -2834,29 +2834,22 @@ class TestRunParameterCombos:
         finally:
             v2_client.teammates.delete(tm.id)
 
-    def test_approve_deny_decision(self, v2_client):
-        """Approve with decision='deny' on a real run (no pending request → 404)."""
-        tm = v2_client.teammates.create(name="DenyHost")
+    def test_approve_no_pending_request_returns_404(self, v2_client):
+        """approve() on a real run with no pending permission request → 404 regardless of decision.
+
+        Consolidates deny + remember=True into one run to reduce background task pressure in CI.
+        """
+        tm = v2_client.teammates.create(name="ApproveNoPendingHost")
         try:
             run = v2_client.runs.create(
                 teammate_id=tm.id,
-                message="Deny test",
+                message="approve edge case test",
                 stream=False,
             )
+            # Cancel immediately so the background task terminates and doesn't saturate CI
+            v2_client.runs.cancel(run.id)
             with pytest.raises(NotFoundError):
                 v2_client.runs.approve(run.id, request_id="fake-uuid", decision="deny")
-        finally:
-            v2_client.teammates.delete(tm.id)
-
-    def test_approve_with_remember(self, v2_client):
-        """Approve with remember=True on a real run (no pending request → 404)."""
-        tm = v2_client.teammates.create(name="RememberHost")
-        try:
-            run = v2_client.runs.create(
-                teammate_id=tm.id,
-                message="Remember test",
-                stream=False,
-            )
             with pytest.raises(NotFoundError):
                 v2_client.runs.approve(
                     run.id, request_id="fake-uuid", decision="allow", remember=True
