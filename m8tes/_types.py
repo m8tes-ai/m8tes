@@ -214,22 +214,37 @@ class App:
 
 
 @dataclass
-class AppConnection:
-    """Result of an OAuth connection initiation or completion."""
+class AppConnectionInitiation:
+    """Returned by apps.connect() — redirect the user to authorization_url to complete OAuth."""
 
-    authorization_url: str | None
-    connection_id: str | None
-    status: str | None
-    app: str | None
+    authorization_url: str
+    connection_id: str
 
     @classmethod
-    def from_dict(cls, data: dict) -> AppConnection:
+    def from_dict(cls, data: dict) -> AppConnectionInitiation:
         return cls(
-            authorization_url=data.get("authorization_url"),
-            connection_id=data.get("connection_id"),
-            status=data.get("status"),
-            app=data.get("app"),
+            authorization_url=data["authorization_url"],
+            connection_id=data["connection_id"],
         )
+
+
+@dataclass
+class AppConnectionResult:
+    """Returned by apps.connect_complete() — confirms the connection is active."""
+
+    status: str
+    app: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> AppConnectionResult:
+        return cls(
+            status=data["status"],
+            app=data["app"],
+        )
+
+
+# Legacy alias kept for backwards compatibility — use AppConnectionInitiation or AppConnectionResult
+AppConnection = AppConnectionInitiation
 
 
 @dataclass

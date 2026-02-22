@@ -16,7 +16,8 @@ from m8tes._resources.teammates import Teammates
 from m8tes._streaming import RunStream
 from m8tes._types import (
     App,
-    AppConnection,
+    AppConnectionInitiation,
+    AppConnectionResult,
     PermissionRequest,
     Run,
     RunFile,
@@ -652,7 +653,7 @@ class TestApps:
             status=200,
         )
         result = Apps(http).connect("gmail", "https://myapp.com/callback", user_id="cust_1")
-        assert isinstance(result, AppConnection)
+        assert isinstance(result, AppConnectionInitiation)
         assert result.authorization_url == "https://accounts.google.com/o/oauth2"
         assert result.connection_id == "conn_1"
         body = json.loads(responses.calls[0].request.body)
@@ -667,7 +668,7 @@ class TestApps:
             status=200,
         )
         result = Apps(http).connect_complete("gmail", "conn_1", user_id="cust_1")
-        assert isinstance(result, AppConnection)
+        assert isinstance(result, AppConnectionResult)
         assert result.status == "connected"
         assert result.app == "gmail"
         body = json.loads(responses.calls[0].request.body)
