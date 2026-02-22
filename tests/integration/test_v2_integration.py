@@ -1531,18 +1531,25 @@ class TestRunsHumanInTheLoop:
         with pytest.raises(NotFoundError):
             v2_client.runs.answer(999999, answers={"Q": "A"})
 
-    def test_answer_cross_account_run_hidden(self, v2_client, backend_url):
-        """Answering another account's run returns NotFoundError (404)."""
-        other_client = _new_v2_client(backend_url, email_prefix="answer-cross")
-        tm = v2_client.teammates.create(name="AnswerCrossOwner")
+    def test_cross_account_run_hidden(self, v2_client, backend_url):
+        """answer/approve/permissions on another account's run return NotFoundError (404).
+
+        Uses a single run to avoid consuming extra monthly quota for each operation.
+        """
+        other_client = _new_v2_client(backend_url, email_prefix="cross-acct")
+        tm = v2_client.teammates.create(name="CrossAccountOwner")
         try:
             run = v2_client.runs.create(
                 teammate_id=tm.id,
-                message="Cross-account answer",
+                message="Cross-account isolation check",
                 stream=False,
             )
             with pytest.raises(NotFoundError):
                 other_client.runs.answer(run.id, answers={"Q": "A"})
+            with pytest.raises(NotFoundError):
+                other_client.runs.permissions(run.id)
+            with pytest.raises(NotFoundError):
+                other_client.runs.approve(run.id, request_id="fake-uuid")
         finally:
             other_client.close()
             v2_client.teammates.delete(tm.id)
@@ -1551,38 +1558,6 @@ class TestRunsHumanInTheLoop:
         """Approve on nonexistent run raises NotFoundError."""
         with pytest.raises(NotFoundError):
             v2_client.runs.approve(999999, request_id="fake-uuid")
-
-    def test_permissions_cross_account_run_hidden(self, v2_client, backend_url):
-        """Listing permissions for another account's run returns NotFoundError."""
-        other_client = _new_v2_client(backend_url, email_prefix="perm-cross")
-        tm = v2_client.teammates.create(name="PermCrossOwner")
-        try:
-            run = v2_client.runs.create(
-                teammate_id=tm.id,
-                message="Cross-account permission list",
-                stream=False,
-            )
-            with pytest.raises(NotFoundError):
-                other_client.runs.permissions(run.id)
-        finally:
-            other_client.close()
-            v2_client.teammates.delete(tm.id)
-
-    def test_approve_cross_account_run_hidden(self, v2_client, backend_url):
-        """Approving another account's run returns NotFoundError (404)."""
-        other_client = _new_v2_client(backend_url, email_prefix="approve-cross")
-        tm = v2_client.teammates.create(name="ApproveCrossOwner")
-        try:
-            run = v2_client.runs.create(
-                teammate_id=tm.id,
-                message="Cross-account approve",
-                stream=False,
-            )
-            with pytest.raises(NotFoundError):
-                other_client.runs.approve(run.id, request_id="fake-uuid")
-        finally:
-            other_client.close()
-            v2_client.teammates.delete(tm.id)
 
     def test_answer_on_running_run(self, v2_client):
         """Answer on a run that's running (not waiting) returns ok status."""
