@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
+import builtins
 from typing import TYPE_CHECKING
 
-from .._types import App, AppConnection, SyncPage
+from .._types import App, AppConnection, AppTriggerType, SyncPage
 
 if TYPE_CHECKING:
     from .._http import HTTPClient
@@ -44,6 +45,13 @@ class Apps:
             payload["user_id"] = user_id
         resp = self._http.request("POST", f"/apps/{app_name}/connect/complete", json=payload)
         return AppConnection.from_dict(resp.json())
+
+    def list_triggers(self, app_name: str) -> builtins.list[AppTriggerType]:
+        """List available trigger types for an app (Composio discovery)."""
+        resp = self._http.request("GET", f"/apps/{app_name}/triggers")
+        body = resp.json()
+        items = body["data"] if isinstance(body, dict) and "data" in body else body
+        return [AppTriggerType.from_dict(d) for d in items]
 
     def disconnect(self, app_name: str, *, user_id: str | None = None) -> None:
         """Disconnect an app, optionally scoped to an end-user."""
