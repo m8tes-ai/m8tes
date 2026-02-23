@@ -26,10 +26,13 @@ from ._exceptions import (
 from ._resources.webhooks import Webhooks
 from ._streaming import RunStream
 from ._types import (
+    AccountSettings,
     App,
     AppConnection,
     AppConnectionInitiation,
     AppConnectionResult,
+    EmailInbox,
+    EndUser,
     Memory,
     PermissionPolicy,
     PermissionRequest,
@@ -68,6 +71,7 @@ from .streaming import (
 
 __all__ = [
     "APIError",
+    "AccountSettings",
     "Agent",
     "AgentError",
     "App",
@@ -79,6 +83,8 @@ __all__ = [
     "Deployment",
     "DeploymentError",
     "DoneEvent",
+    "EmailInbox",
+    "EndUser",
     "ErrorEvent",
     "IntegrationError",
     "M8tes",
