@@ -38,6 +38,7 @@ dev = [
     "twine>=4.0.0",
     "wheel>=0.40.0",
     "pip-audit>=2.0.0",
+    "pytest-timeout>=0.5",
 ]
 
 [project.scripts]
