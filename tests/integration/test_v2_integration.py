@@ -1578,7 +1578,7 @@ class TestRunsHumanInTheLoop:
             v2_client.runs.approve(999999, request_id="fake-uuid")
 
     def test_answer_on_running_run(self, v2_client):
-        """Answer on a run that's running (not waiting) returns ok status."""
+        """Answer on a run that's still running (not awaiting input) returns ConflictError."""
         tm = v2_client.teammates.create(name="AnswerRunning")
         try:
             run = v2_client.runs.create(
@@ -1586,9 +1586,8 @@ class TestRunsHumanInTheLoop:
                 message="Answer test",
                 stream=False,
             )
-            result = v2_client.runs.answer(run.id, answers={"Q": "A"})
-            assert isinstance(result, dict)
-            assert "status" in result
+            with pytest.raises(ConflictError):
+                v2_client.runs.answer(run.id, answers={"Q": "A"})
         finally:
             v2_client.teammates.delete(tm.id)
 
