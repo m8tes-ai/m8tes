@@ -2852,6 +2852,10 @@ class TestRunParameterCombos:
                 v2_client.runs.cancel(run.id)
             except ConflictError:
                 pass
+            # Wait for the background task to terminate before calling approve().
+            # Without this, the task (retrying the fake Anthropic key) holds a SQLite
+            # write lock, causing approve()'s DB queries to hang until SDK timeout fires.
+            v2_client.runs.poll(run.id, interval=1.0, timeout=15.0)
             with pytest.raises(NotFoundError):
                 v2_client.runs.approve(run.id, request_id="fake-uuid", decision="deny")
             with pytest.raises(NotFoundError):
