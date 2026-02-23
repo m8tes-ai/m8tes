@@ -102,8 +102,12 @@ class MateCLI:
             # Handle authentication errors with clear guidance
             if isinstance(e, AuthenticationError):
                 print()
-                print("❌ Not authenticated")
-                print("   Please login first: m8tes auth login")
+                print("❌ Authentication failed")
+                api_key = getattr(self.client.http, "api_key", None)
+                if api_key and api_key.startswith("m8_"):
+                    print("   Check that your API key is valid: m8tes --api-key m8_...")
+                else:
+                    print("   Please login first: m8tes auth login")
                 print()
                 return None
             # Handle 404/not found errors

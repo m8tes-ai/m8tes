@@ -32,10 +32,11 @@ class M8tes:
     def __init__(
         self,
         api_key: str | None = None,
-        base_url: str = "https://m8tes.ai/api/v2",
+        base_url: str | None = None,
         timeout: int = 300,
     ):
         api_key = api_key or os.environ.get("M8TES_API_KEY")
+        base_url = base_url or os.environ.get("M8TES_BASE_URL") or "https://m8tes.ai/api/v2"
         if not api_key:
             raise AuthenticationError(
                 "No API key provided. Pass api_key= or set M8TES_API_KEY env var."
