@@ -2846,8 +2846,12 @@ class TestRunParameterCombos:
                 message="approve edge case test",
                 stream=False,
             )
-            # Cancel immediately so the background task terminates and doesn't saturate CI
-            v2_client.runs.cancel(run.id)
+            # Cancel immediately so the background task terminates and doesn't saturate CI.
+            # Ignore ConflictError: in production the run may complete before we cancel.
+            try:  # noqa: SIM105
+                v2_client.runs.cancel(run.id)
+            except ConflictError:
+                pass
             with pytest.raises(NotFoundError):
                 v2_client.runs.approve(run.id, request_id="fake-uuid", decision="deny")
             with pytest.raises(NotFoundError):
