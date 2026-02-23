@@ -48,6 +48,6 @@ def v2_client(backend_url):
     assert resp.status_code == 201, f"Registration failed: {resp.text}"
     token = resp.json()["api_key"]
 
-    client = M8tes(api_key=token, base_url=f"{backend_url}/api/v2")
+    client = M8tes(api_key=token, base_url=f"{backend_url}/api/v2", timeout=30)
     yield client
     client.close()
