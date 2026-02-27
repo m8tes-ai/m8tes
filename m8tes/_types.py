@@ -80,6 +80,7 @@ class Run:
     metadata: dict | None
     created_at: str
     updated_at: str | None
+    permission_mode: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> Run:
@@ -93,6 +94,7 @@ class Run:
             metadata=data.get("metadata"),
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at"),
+            permission_mode=data.get("permission_mode"),
         )
 
 
@@ -308,6 +310,17 @@ class PermissionPolicy:
             tool_name=data["tool_name"],
             created_at=data.get("created_at", ""),
         )
+
+
+@dataclass
+class PermissionModeResponse:
+    """Current permission mode for a run."""
+
+    permission_mode: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> PermissionModeResponse:
+        return cls(permission_mode=data["permission_mode"])
 
 
 @dataclass
