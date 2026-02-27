@@ -6,7 +6,7 @@ from collections.abc import Generator
 from typing import TYPE_CHECKING, Any
 
 from .._streaming import RunStream
-from .._types import PermissionRequest, Run, RunFile, SyncPage
+from .._types import PermissionModeResponse, PermissionRequest, Run, RunFile, SyncPage
 from ._utils import _build_params
 
 _list = list  # preserve builtin; shadowed by .list() method
@@ -247,7 +247,7 @@ class Runs:
         run_id: int,
         *,
         permission_mode: str,
-    ) -> dict[str, Any]:
+    ) -> PermissionModeResponse:
         """Change permission mode mid-run.
 
         Switches between 'autonomous', 'approval', and 'plan'.
@@ -258,8 +258,7 @@ class Runs:
             f"/runs/{run_id}/permission-mode",
             json={"permission_mode": permission_mode},
         )
-        result: dict[str, Any] = resp.json()
-        return result
+        return PermissionModeResponse.from_dict(resp.json())
 
     def permissions(self, run_id: int) -> _list[PermissionRequest]:
         """List tool permission requests for a run."""
