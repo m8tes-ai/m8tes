@@ -3109,3 +3109,227 @@ class TestPermissionErrorPaths:
         page = v2_client.memories.list(user_id=uid)
         assert isinstance(page, SyncPage)
         assert len(page.data) == 0
+
+
+# ── Auth Endpoints ───────────────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestAuthEndpoints:
+    """Integration tests for the V2 auth endpoints: signup, token, verify, usage.
+
+    These use raw requests (not the SDK client) — the auth endpoints are used to
+    bootstrap accounts before the SDK client exists.
+    """
+
+    def test_signup_creates_account_and_returns_key(self, backend_url):
+        """POST /api/v2/signup returns 201 with api_key, email, and message."""
+        import requests
+
+        email = f"signup-{uuid.uuid4().hex[:8]}@test.m8tes.ai"
+        resp = requests.post(
+            f"{backend_url}/api/v2/signup",
+            json={"email": email, "password": "TestPassword123!", "first_name": "SDKTest"},
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["api_key"].startswith("m8_")
+        assert data["email"] == email
+        assert "message" in data
+
+    def test_signup_key_is_usable_immediately(self, backend_url):
+        """API key from signup works on authenticated V2 endpoints."""
+        import requests
+
+        email = f"signup-use-{uuid.uuid4().hex[:8]}@test.m8tes.ai"
+        api_key = requests.post(
+            f"{backend_url}/api/v2/signup",
+            json={"email": email, "password": "TestPassword123!", "first_name": "SDKTest"},
+        ).json()["api_key"]
+
+        resp = requests.get(
+            f"{backend_url}/api/v2/teammates",
+            headers={"Authorization": f"Bearer {api_key}"},
+        )
+        assert resp.status_code == 200
+
+    def test_signup_duplicate_email_returns_409(self, backend_url):
+        """Second signup with the same email returns 409 Conflict."""
+        import requests
+
+        email = f"dup-{uuid.uuid4().hex[:8]}@test.m8tes.ai"
+        payload = {"email": email, "password": "TestPassword123!", "first_name": "SDKTest"}
+        requests.post(f"{backend_url}/api/v2/signup", json=payload)
+        resp = requests.post(f"{backend_url}/api/v2/signup", json=payload)
+        assert resp.status_code == 409
+
+    def test_token_exchanges_credentials_for_key(self, backend_url):
+        """POST /api/v2/token with valid credentials returns a working API key."""
+        import requests
+
+        email = f"token-{uuid.uuid4().hex[:8]}@test.m8tes.ai"
+        password = "TestPassword123!"
+        # Create account first (via V1 register which is known-stable)
+        requests.post(
+            f"{backend_url}/api/v1/auth/register",
+            json={"email": email, "password": password, "first_name": "SDKTest"},
+        )
+        resp = requests.post(
+            f"{backend_url}/api/v2/token",
+            json={"email": email, "password": password},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["api_key"].startswith("m8_")
+        assert data["email"] == email
+
+        # New key works immediately
+        usage = requests.get(
+            f"{backend_url}/api/v2/usage",
+            headers={"Authorization": f"Bearer {data['api_key']}"},
+        )
+        assert usage.status_code == 200
+
+    def test_token_wrong_password_returns_401(self, backend_url):
+        """Wrong password returns 401 with generic error (no user enumeration)."""
+        import requests
+
+        resp = requests.post(
+            f"{backend_url}/api/v2/token",
+            json={"email": "nobody@test.m8tes.ai", "password": "wrong"},
+        )
+        assert resp.status_code == 401
+
+    def test_verify_resend_returns_200(self, backend_url):
+        """POST /api/v2/verify/resend with valid API key returns 200."""
+        import requests
+
+        email = f"verify-{uuid.uuid4().hex[:8]}@test.m8tes.ai"
+        api_key = requests.post(
+            f"{backend_url}/api/v1/auth/register",
+            json={"email": email, "password": "TestPassword123!", "first_name": "SDKTest"},
+        ).json()["api_key"]
+
+        resp = requests.post(
+            f"{backend_url}/api/v2/verify/resend",
+            headers={"Authorization": f"Bearer {api_key}"},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["message"] == "Verification email sent."
+
+    def test_verify_resend_without_auth_returns_401(self, backend_url):
+        """POST /api/v2/verify/resend without auth returns 401."""
+        import requests
+
+        resp = requests.post(f"{backend_url}/api/v2/verify/resend")
+        assert resp.status_code == 401
+
+    def test_usage_returns_plan_and_limits(self, backend_url):
+        """GET /api/v2/usage returns plan, run counts, costs, and period_end."""
+        import requests
+
+        email = f"usage-{uuid.uuid4().hex[:8]}@test.m8tes.ai"
+        api_key = requests.post(
+            f"{backend_url}/api/v1/auth/register",
+            json={"email": email, "password": "TestPassword123!", "first_name": "SDKTest"},
+        ).json()["api_key"]
+
+        resp = requests.get(
+            f"{backend_url}/api/v2/usage",
+            headers={"Authorization": f"Bearer {api_key}"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["plan"] == "free"
+        assert isinstance(data["runs_used"], int)
+        assert data["runs_limit"] == 5
+        assert "cost_used" in data
+        assert "cost_limit" in data
+        assert "period_end" in data
+        assert "subscription_status" in data
+
+    def test_usage_without_auth_returns_401(self, backend_url):
+        """GET /api/v2/usage without auth returns 401."""
+        import requests
+
+        resp = requests.get(f"{backend_url}/api/v2/usage")
+        assert resp.status_code == 401
+
+
+# ── Auth SDK ─────────────────────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestAuthSDK:
+    """Tests for SDK-level auth helpers: signup(), get_token(), client.auth.*"""
+
+    def test_signup_returns_signup_result(self, backend_url):
+        import m8tes
+
+        email = f"sdk-signup-{uuid.uuid4().hex[:8]}@test.m8tes.ai"
+        result = m8tes.signup(
+            email=email,
+            password="TestPassword123!",
+            first_name="SDK",
+            base_url=f"{backend_url}/api/v2",
+        )
+        assert isinstance(result, m8tes.SignupResult)
+        assert result.api_key.startswith("m8_")
+        assert result.email == email
+        assert result.message
+
+    def test_signup_conflict_on_duplicate(self, backend_url):
+        import m8tes
+
+        email = f"sdk-dup-{uuid.uuid4().hex[:8]}@test.m8tes.ai"
+        m8tes.signup(
+            email=email,
+            password="TestPassword123!",
+            first_name="Dup",
+            base_url=f"{backend_url}/api/v2",
+        )
+        with pytest.raises(ConflictError):
+            m8tes.signup(
+                email=email,
+                password="TestPassword123!",
+                first_name="Dup",
+                base_url=f"{backend_url}/api/v2",
+            )
+
+    def test_get_token_returns_token_result(self, backend_url):
+        import m8tes
+
+        email = f"sdk-tok-{uuid.uuid4().hex[:8]}@test.m8tes.ai"
+        password = "TestPassword123!"
+        m8tes.signup(
+            email=email, password=password, first_name="Tok", base_url=f"{backend_url}/api/v2"
+        )
+        result = m8tes.get_token(email=email, password=password, base_url=f"{backend_url}/api/v2")
+        assert isinstance(result, m8tes.TokenResult)
+        assert result.api_key.startswith("m8_")
+        assert result.email == email
+
+    def test_get_token_wrong_creds_raises_authentication_error(self, backend_url):
+        import m8tes
+
+        with pytest.raises(AuthenticationError):
+            m8tes.get_token(
+                email="nobody@test.m8tes.ai", password="wrong", base_url=f"{backend_url}/api/v2"
+            )
+
+    def test_get_usage_returns_usage(self, v2_client):
+        from m8tes._types import Usage
+
+        usage = v2_client.auth.get_usage()
+        assert isinstance(usage, Usage)
+        assert usage.plan in ("free", "pro", "max5", "max20")
+        assert usage.runs_used >= 0
+        assert usage.runs_limit > 0
+        assert usage.cost_used
+        assert usage.cost_limit
+        assert usage.period_end
+
+    def test_resend_verify_returns_message(self, v2_client):
+        msg = v2_client.auth.resend_verify()
+        assert isinstance(msg, str)
+        assert msg

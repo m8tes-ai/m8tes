@@ -417,3 +417,54 @@ class AccountSettings:
     @classmethod
     def from_dict(cls, data: dict) -> AccountSettings:
         return cls(company_research=data["company_research"])
+
+
+@dataclass
+class SignupResult:
+    """Returned by m8tes.signup() — new account with API key."""
+
+    api_key: str
+    email: str
+    message: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> SignupResult:
+        return cls(api_key=data["api_key"], email=data["email"], message=data["message"])
+
+
+@dataclass
+class TokenResult:
+    """Returned by m8tes.get_token() — newly generated API key."""
+
+    api_key: str
+    email: str
+    message: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> TokenResult:
+        return cls(api_key=data["api_key"], email=data["email"], message=data["message"])
+
+
+@dataclass
+class Usage:
+    """Billing usage and limits for the authenticated user."""
+
+    plan: str
+    runs_used: int
+    runs_limit: int
+    cost_used: str
+    cost_limit: str
+    period_end: str
+    subscription_status: str | None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Usage:
+        return cls(
+            plan=data["plan"],
+            runs_used=data["runs_used"],
+            runs_limit=data["runs_limit"],
+            cost_used=data["cost_used"],
+            cost_limit=data["cost_limit"],
+            period_end=data["period_end"],
+            subscription_status=data.get("subscription_status"),
+        )
