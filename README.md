@@ -4,7 +4,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-The agent infrastructure API for building autonomous AI teammates. Deploy teammates that connect to 70+ apps, run on schedules, have memory, and work autonomously.
+Deploy AI agents to production in minutes. Hosted runtime, 150+ integrations, schedules, webhooks, and human-in-the-loop — all out of the box.
 
 ## Install
 
@@ -14,11 +14,34 @@ pip install m8tes
 
 ## Quick start
 
+Create a teammate, deploy it on a schedule. Everything else is handled.
+
 ```python
 from m8tes import M8tes
 
 client = M8tes()  # uses M8TES_API_KEY env var
 
+# create a reusable teammate
+teammate = client.teammates.create(
+    name="revenue-report",
+    instructions="Pull last week's Stripe charges, compare to the prior week, "
+                 "post a summary to #finance on Slack.",
+    tools=["stripe", "slack"],
+)
+
+# schedule it — runs every Monday at 9am in a hosted sandbox, OAuth managed for you
+task = client.tasks.create(teammate_id=teammate.id)
+client.tasks.triggers.create(task.id, type="schedule", cron="0 9 * * 1")
+
+# or run it right now
+for event in client.runs.create(teammate_id=teammate.id, message="run now"):
+    if event.type == "text-delta":
+        print(event.delta, end="")
+```
+
+Or skip the setup and run a one-off:
+
+```python
 run = client.runs.create(
     name="support triage",
     instructions="triage inbound support emails. create Linear tickets "
@@ -31,15 +54,36 @@ run = client.runs.poll(run.id)
 print(run.output)
 ```
 
-## Why m8tes
+## What you get out of the box
 
-- **Hosted runtime** — sandboxed execution with real-time streaming. No servers to manage.
-- **70+ managed integrations** — Gmail, Slack, Notion, HubSpot, Stripe, Linear, Google Ads. OAuth handled for you.
-- **Triggers** — run teammates on demand, on a schedule, from a webhook, or by email.
-- **Human-in-the-loop** — teammates ask for approval before taking sensitive actions.
-- **Agent memory** — persistent context that builds over time. Per-user scoping for multi-tenant apps.
-- **File handling** — teammates generate reports, spreadsheets, and exports you can download through the API.
-- **Multi-tenant by default** — isolated memory, tools, and permissions per end-user.
+Everything you'd otherwise spend weeks building:
+
+- **Hosted sandboxed runtime** — every run executes in an isolated environment, no servers to manage
+- **150+ managed integrations** — Gmail, Slack, Notion, HubSpot, Stripe, Linear, Google Ads. OAuth handled for you.
+- **Scheduled runs, webhooks, and email triggers** — every agent gets its own @m8tes.ai inbox
+- **Persistent memory** — builds context across runs, scoped per end-user
+- **Permission modes** — autonomous, approval-required, or plan-then-execute
+- **Per-user isolation** — set `user_id` on any run, memory and tools are strictly scoped
+- **Real-time streaming** — SSE events for text output, tool calls, files, and completion
+- **File handling** — agents generate reports, spreadsheets, and exports you can download through the API
+
+[Free to start. No credit card required.](https://m8tes.ai/signup)
+
+## Use cases
+
+**Revenue reporting** — pull MRR from Stripe, update the tracking sheet, post weekly delta to Slack.
+
+**Support triage** — classify inbound tickets, draft replies, escalate blockers. Runs 24/7 on a schedule.
+
+**Ad spend monitoring** — check Google Ads weekly, pause low-converting campaigns, alert the team.
+
+**Customer-facing agents** — give each user their own agent with isolated memory, tools, and permissions.
+
+## Why not LangChain or CrewAI
+
+LangChain and CrewAI are frameworks for orchestrating LLM calls locally. You still need to build the execution environment, OAuth flows, scheduling, memory, and approval gates yourself.
+
+m8tes is the hosted infrastructure layer: sandboxed execution, managed OAuth for 150+ apps, scheduling, human-in-the-loop, and persistent memory built in. You write the logic. We run it.
 
 ## Runs
 
@@ -263,7 +307,6 @@ MIT License — see [LICENSE](LICENSE) for details.
 ## Links
 
 - Documentation: [m8tes.ai/docs](https://m8tes.ai/docs)
+- Developers: [m8tes.ai/developers](https://m8tes.ai/developers)
 - PyPI: [pypi.org/project/m8tes](https://pypi.org/project/m8tes/)
 - Email: support@m8tes.ai
-
-Free to start. No infrastructure to manage. [Start building](https://m8tes.ai/signup).
