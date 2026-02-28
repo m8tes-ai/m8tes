@@ -217,11 +217,13 @@ class App:
         """True for OAuth-based integrations (Gmail, Slack, etc.).
         False for API key integrations (Gemini, OpenAI, etc.).
 
-        Use to route to the right connect() method:
+        Use to route to the right helper:
             if app.needs_oauth:
-                conn = client.apps.connect(app.name, redirect_uri=callback_url, user_id=uid)
+                conn = client.apps.connect_oauth(
+                    app.name, redirect_uri=callback_url, user_id=uid
+                )
             else:
-                conn = client.apps.connect(app.name, api_key=user_key, user_id=uid)
+                conn = client.apps.connect_api_key(app.name, api_key=user_key, user_id=uid)
         """
         return self.auth_type == "composio"
 

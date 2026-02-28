@@ -181,6 +181,19 @@ client.runs.approve(run.id, request_id="req_123", decision="allow")
 client.runs.answer(run.id, answers={"Which channel?": "#general"})
 ```
 
+### Switch permission mode on an existing run
+
+```python
+run = client.runs.create(
+    teammate_id=bot.id,
+    message="prepare the weekly update",
+    stream=False,
+)
+
+run = client.runs.update_permission_mode(run.id, permission_mode="approval")
+print(run.permission_mode)  # "approval"
+```
+
 ## Triggers
 
 ```python
@@ -229,20 +242,48 @@ run = client.runs.create_and_wait(
 )
 ```
 
+## Apps & Connections
+
+Inspect the app catalog first, then use the explicit helper that matches the app's auth type.
+
+```python
+apps = client.apps.list(user_id="cust_123")
+for app in apps.data:
+    print(app.name, app.auth_type, app.connected)
+
+# OAuth app
+start = client.apps.connect_oauth(
+    "gmail",
+    redirect_uri="https://app.example.com/oauth/callback",
+    user_id="cust_123",
+)
+print(start.authorization_url)
+
+# after your redirect handler gets the callback
+client.apps.connect_complete("gmail", start.connection_id, user_id="cust_123")
+
+# API key app
+client.apps.connect_api_key("gemini", api_key="sk_live_...", user_id="cust_123")
+client.apps.disconnect("gemini", user_id="cust_123")
+```
+
+Prefer `connect_oauth()` or `connect_api_key()` when you already know the auth flow. `client.apps.connect()` is still available if you want one polymorphic entry point.
+
 ## Resources
 
 | Resource | Key methods | Description |
 |----------|------------|-------------|
 | `client.teammates` | `create` `list` `get` `update` `delete` `enable_webhook` `enable_email_inbox` | Agent personas with tools and instructions |
-| `client.runs` | `create` `poll` `create_and_wait` `reply` `reply_and_wait` `stream_text` `get` `list` `cancel` `approve` `answer` `list_files` `download_file` | Execute teammates and stream results |
+| `client.runs` | `create` `poll` `create_and_wait` `reply` `reply_and_wait` `stream_text` `get` `list` `cancel` `approve` `answer` `update_permission_mode` `list_files` `download_file` | Execute teammates and stream results |
 | `client.tasks` | `create` `list` `get` `update` `delete` `run` | Reusable task definitions |
 | `client.tasks.triggers` | `create` `list` `delete` | Schedule, webhook, and email triggers |
-| `client.apps` | `list` `connect` `connect_complete` `disconnect` | Tool catalog and OAuth connections |
+| `client.apps` | `list` `connect` `connect_oauth` `connect_api_key` `connect_complete` `disconnect` | Tool catalog and end-user app connections |
 | `client.memories` | `create` `list` `delete` | Per-user persistent memory |
 | `client.permissions` | `create` `list` `delete` | Pre-approve tools for end-users |
 | `client.users` | `create` `list` `get` `update` `delete` | End-user profile management |
 | `client.webhooks` | `create` `list` `get` `update` `delete` `list_deliveries` `verify_signature` | Webhook endpoints and delivery tracking |
 | `client.settings` | `get` `update` | Account configuration |
+| `client.auth` | `get_usage` `resend_verify` | Account usage and verification helpers |
 
 ## Pagination
 
@@ -317,11 +358,26 @@ client = M8tes(api_key="m8_...", timeout=300)  # custom timeout in seconds
 
 ```bash
 m8tes auth login                    # authenticate
+m8tes auth usage                    # account limits and current usage
+m8tes apps connect-api-key gemini KEY
+m8tes run set-permission-mode 42 approval
 m8tes mate task ID "message"        # run a task
 m8tes mate chat ID                  # interactive chat
 ```
 
 See [CLI documentation](https://m8tes.ai/docs/cli) for all commands and options.
+
+## Testing
+
+Use the fastest layer that matches the change you made.
+
+| Layer | Command | What it proves |
+|------|---------|----------------|
+| Unit | `make test-unit` | Request/response serialization, parsing, pagination, helper behavior |
+| SDK integration | `make test-v2-integration` | Real FastAPI backend parity for the public V2 SDK surface |
+| Backend V2 integration | `cd ../../fastapi && make test-v2-integration` | Route + DB behavior for V2 endpoints |
+| Full V2 check from repo root | `make check-v2` | Backend V2 integration plus SDK V2 integration |
+| E2E / smoke | `make test-e2e` / `make test-smoke` | Live runtime/provider confidence for expensive end-to-end flows |
 
 ## License
 

@@ -16,6 +16,7 @@ help:
 	@echo "Testing:"
 	@echo "  test               - Run all tests"
 	@echo "  test-unit          - Run unit tests only"
+	@echo "  test-v2-integration - Run the V2 SDK integration suite"
 	@echo "  test-e2e           - Run E2E tests (requires services)"
 	@echo "  test-smoke         - Run smoke tests with real APIs (costs money!)"
 	@echo "  test-cov           - Run tests with coverage"
@@ -65,6 +66,9 @@ test-unit:
 
 test-integration:
 	uv run pytest -m "integration and not runtime"
+
+test-v2-integration:
+	uv run pytest tests/integration/test_v2_integration.py -m "integration and not runtime"
 
 test-integration-full:
 	uv run pytest -m integration

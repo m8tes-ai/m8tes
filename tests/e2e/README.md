@@ -1,223 +1,79 @@
-# E2E Testing Guide
+# SDK E2E Tests
 
-End-to-end tests for the m8tes.ai SDK. These tests verify the complete stack:
+These tests are the expensive, live end-to-end lane for the Python SDK.
 
+Current stack:
+
+```text
+Python SDK -> FastAPI backend -> agent runtime -> model/tool providers
 ```
-Python SDK → Flask Backend → Cloudflare Worker → Agent Execution → Tools
-```
 
-## 🎯 Hybrid Testing Strategy
+Important scope note:
 
-**Default: Mocked External APIs**
-- ✅ Fast (30 seconds)
-- ✅ Free (no API costs)
-- ✅ Reliable (no external dependencies)
-- ✅ Tests full internal stack
+- `tests/integration/test_v2_integration.py` is the main V2 SDK parity suite.
+- `tests/e2e/` is mostly legacy `instances` / CLI coverage and full runtime journeys.
+- E2E here uses real runtime behavior and real provider calls. It is not the fast default test lane.
 
-**Optional: Real External APIs**
-- ⚠️ Slow (5-10 minutes)
-- 💰 Costs money (OpenAI, Google Ads)
-- ⚠️ Requires test accounts
-- ✅ Validates real integrations
+## Requirements
 
-## Prerequisites
+1. FastAPI backend running locally.
+2. Database and any required backend services available.
+3. Real provider/runtime credentials configured for the backend environment.
 
-### 1. Start Backend Server
+Start the backend from the repo root:
 
 ```bash
-cd ../../../backend
-docker compose up -d  # Start PostgreSQL + Redis
-flask run             # Start Flask server on port 5000
+cd /Users/elmar/Environments/agent/fastapi
+uv run uvicorn main:app --reload --port 8000
 ```
 
-Verify: `curl http://localhost:5000/health` should return `200 OK`
+The default backend URL is `http://localhost:8000`. Override it with `E2E_BACKEND_URL` if needed.
 
-### 2. Start Agent Worker
+## Commands
 
-```bash
-cd ../../../cloudflare/m8tes-agent
-npm run dev  # Start worker on port 8787
-```
-
-Verify: `curl http://localhost:8787/health` should return `200 OK`
-
-### 3. Install SDK Dev Dependencies
+Run from `sdk/py/`.
 
 ```bash
-cd ../../sdk/py
-pip install -e ".[dev]"
-```
-
-## Running E2E Tests
-
-### Default: Mocked External APIs
-
-```bash
-# Run all E2E tests (excludes smoke tests)
+# All E2E tests except smoke-marked ones
 make test-e2e
 
-# Or with pytest directly
-pytest tests/e2e/ -v -m "e2e and not smoke"
-```
-
-**What's tested:**
-- ✅ User registration & authentication
-- ✅ Agent instance creation
-- ✅ Task execution through worker
-- ✅ Chat mode conversations
-- ✅ Streaming events
-- ✅ Tool execution (with mocked responses)
-- ✅ Error handling
-
-**What's mocked:**
-- OpenAI API responses
-- Google Ads API responses
-- Meta Ads API responses
-
-### Smoke Tests: Real External APIs
-
-**⚠️ WARNING: This costs real money! Use sparingly.**
-
-```bash
-# Set up environment
-export E2E_USE_REAL_APIS=true
-export OPENAI_API_KEY=sk-your-real-key
-export GOOGLE_ADS_DEVELOPER_TOKEN=your-dev-token
-export GOOGLE_ADS_TEST_CUSTOMER_ID=123-456-7890
-
-# Run smoke tests
+# Smallest live-confidence subset
 make test-smoke
-
-# Or with pytest directly
-E2E_USE_REAL_APIS=true pytest tests/e2e/ -v -m smoke
 ```
 
-**Requirements:**
-- ✅ Valid OpenAI API key (will charge your account)
-- ✅ Google Ads test account (sandbox or test MCC)
-- ✅ Meta Ads test account (optional)
-
-**Expected costs:**
-- OpenAI: ~$0.10-0.50 per test run
-- Google Ads: Free (test account)
-- Meta Ads: Free (test account)
-
-## Configuration
-
-### Environment Variables
-
-**E2E Test Configuration:**
+Direct pytest equivalents:
 
 ```bash
-# Backend URL (default: http://localhost:5000)
-E2E_BACKEND_URL=http://localhost:5000
-
-# Worker URL (default: http://localhost:8787)
-E2E_WORKER_URL=http://localhost:8787
-
-# Use real APIs instead of mocks (default: false)
-E2E_USE_REAL_APIS=false
+uv run pytest tests/e2e/ -v -m "e2e and not smoke"
+uv run pytest tests/e2e/ -v -m smoke
 ```
 
-**Real API Credentials (for smoke tests):**
+## Cost / Reliability
 
-```bash
-# OpenAI
-OPENAI_API_KEY=sk-your-real-key
+- `@pytest.mark.e2e`
+  Uses the real runtime path and can fail because of provider credentials, external services, or sandbox/runtime issues.
+- `@pytest.mark.smoke`
+  Smallest live subset. Use before release or when validating infra/provider changes.
 
-# Google Ads
-GOOGLE_ADS_DEVELOPER_TOKEN=your-dev-token
-GOOGLE_ADS_TEST_CUSTOMER_ID=123-456-7890
-GOOGLE_ADS_CLIENT_ID=your-client-id
-GOOGLE_ADS_CLIENT_SECRET=your-client-secret
+The compatibility fixtures in `conftest.py` are no-op placeholders now; they no longer provide mocked OpenAI/Google Ads/Meta behavior.
 
-# Meta Ads (optional)
-META_APP_ID=your-app-id
-META_APP_SECRET=your-app-secret
-META_TEST_ACCESS_TOKEN=your-test-token
-```
+## Directory Layout
 
-### Configuration Files
-
-**`.env.test` (default - mocked APIs):**
-
-```bash
-# Copy this for local development
-E2E_USE_REAL_APIS=false
-E2E_BACKEND_URL=http://localhost:5000
-E2E_WORKER_URL=http://localhost:8787
-```
-
-**`.env.smoke` (real APIs):**
-
-```bash
-# Copy this and add real credentials
-E2E_USE_REAL_APIS=true
-OPENAI_API_KEY=sk-your-key-here
-GOOGLE_ADS_DEVELOPER_TOKEN=your-token-here
-# ... other credentials
-```
-
-## Test Structure
-
-```
+```text
 tests/e2e/
-├── conftest.py                    # E2E fixtures & configuration
+├── conftest.py
 ├── fixtures/
-│   ├── openai_responses.py        # Mocked OpenAI responses
-│   ├── google_ads_responses.py    # Mocked Google Ads responses
-│   └── meta_ads_responses.py      # Mocked Meta Ads responses
-├── test_complete_journey.py       # Full user journey tests
-├── test_agent_execution.py        # Agent execution tests
-├── test_cli.py                    # CLI E2E tests
-└── README.md                      # This file
+├── test_agent_execution.py
+├── test_cli.py
+├── test_complete_journey.py
+└── README.md
 ```
 
-## Available Fixtures
+## When To Add Tests Here
 
-### Service Fixtures
-
-- `backend_server` - Verifies backend is running
-- `agent_worker` - Verifies worker is running
-- `test_user` - Creates test user with credentials
-- `authenticated_sdk_client` - SDK client ready to use
-
-### Mocking Fixtures
-
-- `openai_mocker` - Mocks OpenAI API (or passthrough if `USE_REAL_APIS=true`)
-- `google_ads_mocker` - Mocks Google Ads API (or passthrough)
-- `meta_ads_mocker` - Mocks Meta Ads API (or passthrough)
-
-### Utility Fixtures
-
-- `skip_if_no_real_apis` - Skip test if not using real APIs
-- `wait_for_run_completion()` - Helper to wait for async runs
-- `capture_streaming_events()` - Helper to collect stream events
-
-## Writing E2E Tests
-
-### Basic Test Template
-
-```python
-import pytest
-
-@pytest.mark.e2e
-def test_my_feature(
-    authenticated_sdk_client,
-    backend_server,
-    agent_worker,
-    openai_mocker,
-    google_ads_mocker,
-):
-    """Test description."""
-    # Create instance
-    instance = authenticated_sdk_client.instances.create(
-        name="Test Agent",
-        tools=["run_gaql_query"],
-        instructions="Test instructions",
-    )
-
-    # Execute task
+- Add a test here only when the change must exercise the full runtime or CLI stack.
+- If you are changing the V2 SDK request/response contract, prefer unit tests plus `tests/integration/test_v2_integration.py`.
+- Keep smoke coverage narrow and deterministic enough to be useful before releases.
     run = instance.execute_task("Test message")
 
     # Verify results
