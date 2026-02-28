@@ -21,7 +21,9 @@ client.users.create(user_id="globex-inc", name="Globex Inc", email="ops@globex.c
 # ── 2. Seed each user's memory (context that persists across runs) ─────────────
 
 client.memories.create(user_id="acme-corp", content="uses Slack channel #acme-ops for alerts")
-client.memories.create(user_id="acme-corp", content="primary CRM is HubSpot, deal stage is 'Closed Won'")
+client.memories.create(
+    user_id="acme-corp", content="primary CRM is HubSpot, deal stage is 'Closed Won'"
+)
 
 client.memories.create(user_id="globex-inc", content="uses email for all notifications, not Slack")
 client.memories.create(user_id="globex-inc", content="operates in UTC, weekly reports due Friday")

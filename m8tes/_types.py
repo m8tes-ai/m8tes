@@ -204,6 +204,7 @@ class App:
     display_name: str
     category: str
     connected: bool
+    auth_type: str = ""  # "composio" | "api_key" | "api_key_proxy"
 
     @classmethod
     def from_dict(cls, data: dict) -> App:
@@ -212,6 +213,7 @@ class App:
             display_name=data.get("display_name", data["name"]),
             category=data.get("category", "general"),
             connected=data.get("connected", False),
+            auth_type=data.get("auth_type", ""),
         )
 
 
@@ -291,6 +293,23 @@ class PermissionRequest:
             created_at=data.get("created_at", ""),
             resolved_at=data.get("resolved_at"),
         )
+
+    @property
+    def is_plan_approval(self) -> bool:
+        """True if this is a plan mode approval pause (agent proposing a plan)."""
+        if self.tool_name != "AskUserQuestion" or not self.tool_input:
+            return False
+        return any(q.get("header") == "Plan Approval" for q in self.tool_input.get("questions", []))
+
+    @property
+    def plan_text(self) -> str | None:
+        """The proposed plan text. Only set for plan approval requests."""
+        if not self.is_plan_approval or not self.tool_input:
+            return None
+        for q in self.tool_input.get("questions", []):
+            if q.get("header") == "Plan Approval":
+                return q.get("question") or None
+        return None
 
 
 @dataclass

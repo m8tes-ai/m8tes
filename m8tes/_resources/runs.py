@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from typing import TYPE_CHECKING, Any
 
 from .._streaming import RunStream
@@ -74,7 +74,11 @@ class Runs:
         return Run.from_dict(resp.json())
 
     def poll(self, run_id: int, *, interval: float = 2.0, timeout: float = 300.0) -> Run:
-        """Poll until the run reaches a terminal status. Returns the completed Run."""
+        """Poll until the run reaches a terminal status. Returns the completed Run.
+
+        For runs with human_in_the_loop=True, use wait() instead — it handles
+        awaiting_approval pauses via callbacks so the run can continue.
+        """
         import time as _time
 
         from .._exceptions import APIError
@@ -95,6 +99,84 @@ class Runs:
                 raise TimeoutError(f"Run {run_id} did not complete within {timeout}s")
             _time.sleep(interval)
 
+    def wait(
+        self,
+        run_id: int,
+        *,
+        on_approval: Callable[[PermissionRequest], str] | None = None,
+        on_question: Callable[[PermissionRequest], dict[str, str]] | None = None,
+        interval: float = 2.0,
+        timeout: float = 300.0,
+    ) -> Run:
+        """Wait for a run to complete, handling human-in-the-loop pauses via callbacks.
+
+        Like poll(), but also handles awaiting_approval status:
+        - Tool approvals: calls on_approval(req) → "allow" or "deny"
+        - AskUserQuestion: calls on_question(req) → {question_text: answer} dict
+
+        Without callbacks, raises RuntimeError if the run pauses for input.
+
+        Usage:
+            run = client.runs.wait(
+                run.id,
+                on_question=lambda req: {"Which segment?": "enterprise"},
+                on_approval=lambda req: "allow",
+            )
+
+        For plan mode, check req.is_plan_approval and req.plan_text:
+            def handle_question(req):
+                if req.is_plan_approval:
+                    print(req.plan_text)
+                    return {"Plan Approval": "Approve"}
+                return {}  # shouldn't happen
+
+            run = client.runs.wait(run.id, on_question=handle_question)
+        """
+        import time as _time
+
+        from .._exceptions import APIError
+
+        _TERMINAL = {"completed", "failed", "cancelled"}
+        deadline = _time.monotonic() + timeout
+
+        while True:
+            try:
+                run = self.get(run_id)
+            except APIError:
+                if _time.monotonic() >= deadline:
+                    raise TimeoutError(f"Run {run_id} did not complete within {timeout}s") from None
+                _time.sleep(interval)
+                continue
+
+            if run.status in _TERMINAL:
+                return run
+
+            if run.status == "awaiting_approval":
+                pending = [r for r in self.permissions(run_id) if r.status == "pending"]
+                for req in pending:
+                    if req.tool_name == "AskUserQuestion":
+                        if on_question is None:
+                            raise RuntimeError(
+                                f"Run {run_id} is waiting for a question response "
+                                f"(tool: AskUserQuestion). Pass on_question= to handle it, "
+                                "or use runs.answer() manually."
+                            )
+                        answers = on_question(req)
+                        self.answer(run_id, answers=answers)
+                    else:
+                        if on_approval is None:
+                            raise RuntimeError(
+                                f"Run {run_id} is waiting for tool approval "
+                                f"({req.tool_name!r}). Pass on_approval= to handle it, "
+                                "or use runs.approve() manually."
+                            )
+                        decision = on_approval(req)
+                        self.approve(run_id, request_id=req.request_id, decision=decision)
+
+            if _time.monotonic() >= deadline:
+                raise TimeoutError(f"Run {run_id} did not complete within {timeout}s")
+            _time.sleep(interval)
+
     def create_and_wait(
         self,
         *,
@@ -109,10 +191,16 @@ class Runs:
         history: bool = True,
         human_in_the_loop: bool = False,
         permission_mode: str = "autonomous",
+        on_approval: Callable[[PermissionRequest], str] | None = None,
+        on_question: Callable[[PermissionRequest], dict[str, str]] | None = None,
         poll_interval: float = 2.0,
         poll_timeout: float = 300.0,
     ) -> Run:
-        """Create a run and poll until it completes. Returns the finished Run."""
+        """Create a run and wait until it completes. Returns the finished Run.
+
+        Pass on_approval= and on_question= to handle human-in-the-loop pauses inline.
+        Without callbacks, HITL runs will raise RuntimeError when they pause for input.
+        """
         run = self.create(
             message=message,
             teammate_id=teammate_id,
@@ -128,20 +216,34 @@ class Runs:
             permission_mode=permission_mode,
         )
         assert isinstance(run, Run)
-        return self.poll(run.id, interval=poll_interval, timeout=poll_timeout)
+        return self.wait(
+            run.id,
+            on_approval=on_approval,
+            on_question=on_question,
+            interval=poll_interval,
+            timeout=poll_timeout,
+        )
 
     def reply_and_wait(
         self,
         run_id: int,
         *,
         message: str,
+        on_approval: Callable[[PermissionRequest], str] | None = None,
+        on_question: Callable[[PermissionRequest], dict[str, str]] | None = None,
         poll_interval: float = 2.0,
         poll_timeout: float = 300.0,
     ) -> Run:
-        """Send a follow-up and poll until it completes. Returns the finished Run."""
+        """Send a follow-up and wait until it completes. Returns the finished Run."""
         run = self.reply(run_id, message=message, stream=False)
         assert isinstance(run, Run)
-        return self.poll(run.id, interval=poll_interval, timeout=poll_timeout)
+        return self.wait(
+            run.id,
+            on_approval=on_approval,
+            on_question=on_question,
+            interval=poll_interval,
+            timeout=poll_timeout,
+        )
 
     def stream_text(
         self,

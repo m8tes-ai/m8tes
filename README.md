@@ -4,7 +4,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Deploy AI agents to production in minutes. Hosted runtime, 150+ integrations, schedules, webhooks, and human-in-the-loop — all out of the box.
+Deploy AI agents to production in minutes. Hosted runtime, 150+ integrations, schedules, webhooks, and human-in-the-loop. All out of the box.
 
 ## Install
 
@@ -58,26 +58,26 @@ print(run.output)
 
 Everything you'd otherwise spend weeks building:
 
-- **Hosted sandboxed runtime** — every run executes in an isolated environment, no servers to manage
-- **150+ managed integrations** — Gmail, Slack, Notion, HubSpot, Stripe, Linear, Google Ads. OAuth handled for you.
-- **Scheduled runs, webhooks, and email triggers** — every agent gets its own @m8tes.ai inbox
-- **Persistent memory** — builds context across runs, scoped per end-user
-- **Permission modes** — autonomous, approval-required, or plan-then-execute
-- **Per-user isolation** — set `user_id` on any run, memory and tools are strictly scoped
-- **Real-time streaming** — SSE events for text output, tool calls, files, and completion
-- **File handling** — agents generate reports, spreadsheets, and exports you can download through the API
+- **Hosted sandboxed runtime.** Every run executes in an isolated environment. No servers to manage.
+- **150+ managed integrations.** Gmail, Slack, Notion, HubSpot, Stripe, Linear, Google Ads. OAuth handled for you.
+- **Scheduled runs, webhooks, and email triggers.** Every agent gets its own @m8tes.ai inbox.
+- **Persistent memory.** Builds context across runs, scoped per end-user.
+- **Permission modes.** Autonomous, approval-required, or plan-then-execute.
+- **Per-user isolation.** Set `user_id` on any run. Memory and tools are strictly scoped.
+- **Real-time streaming.** SSE events for text output, tool calls, files, and completion.
+- **File handling.** Agents generate reports and spreadsheets, downloadable through the API.
 
 [Free to start. No credit card required.](https://m8tes.ai/signup)
 
 ## Use cases
 
-**Revenue reporting** — pull MRR from Stripe, update the tracking sheet, post weekly delta to Slack.
+**Revenue reporting.** Pull MRR from Stripe, update the tracking sheet, post weekly delta to Slack.
 
-**Support triage** — classify inbound tickets, draft replies, escalate blockers. Runs 24/7 on a schedule.
+**Support triage.** Classify inbound tickets, draft replies, escalate blockers. Runs 24/7 on a schedule.
 
-**Ad spend monitoring** — check Google Ads weekly, pause low-converting campaigns, alert the team.
+**Ad spend monitoring.** Check Google Ads weekly, pause low-converting campaigns, alert the team.
 
-**Customer-facing agents** — give each user their own agent with isolated memory, tools, and permissions.
+**Customer-facing agents.** Give each user their own agent with isolated memory, tools, and permissions.
 
 ## Why not LangChain or CrewAI
 
@@ -179,7 +179,7 @@ for event in client.tasks.run(task.id):
 
 ## Multi-tenancy
 
-Give each user their own AI teammate with isolated memory, tools, and permissions.
+Give each user their own AI agent with isolated memory, tools, and permissions.
 
 ```python
 # create a user profile
