@@ -25,11 +25,41 @@ class Apps:
         body = resp.json()
         return SyncPage(data=[App.from_dict(d) for d in body["data"]], has_more=body["has_more"])
 
+    def is_connected(self, app_name: str, *, user_id: str | None = None) -> bool:
+        """True if the app is connected for this account or end-user."""
+        page = self.list(user_id=user_id)
+        return any(a.name == app_name and a.connected for a in page.data)
+
     def connect(
-        self, app_name: str, redirect_uri: str, *, user_id: str | None = None
-    ) -> AppConnectionInitiation:
-        """Initiate OAuth connection. Returns authorization_url to redirect the user."""
-        payload: dict = {"redirect_uri": redirect_uri}
+        self,
+        app_name: str,
+        redirect_uri: str | None = None,
+        *,
+        api_key: str | None = None,
+        user_id: str | None = None,
+    ) -> AppConnectionInitiation | AppConnectionResult:
+        """Connect an app via OAuth or API key.
+
+        OAuth apps (Gmail, Slack, etc.): pass redirect_uri= to start the flow.
+            Returns authorization_url — redirect your user there to authorize.
+            Call connect_complete() after the user is redirected back.
+
+        API key apps (Gemini, OpenAI, Stripe, etc.): pass api_key=.
+            Returns status confirming the connection immediately.
+        """
+        if api_key is not None:
+            payload: dict = {"api_key": api_key}
+            if user_id:
+                payload["user_id"] = user_id
+            resp = self._http.request("POST", f"/apps/{app_name}/connect/api-key", json=payload)
+            return AppConnectionResult.from_dict(resp.json())
+
+        if redirect_uri is None:
+            raise ValueError(
+                "Pass redirect_uri= for OAuth apps or api_key= for API key apps. "
+                "Check app.auth_type from apps.list() to know which to use."
+            )
+        payload = {"redirect_uri": redirect_uri}
         if user_id:
             payload["user_id"] = user_id
         resp = self._http.request("POST", f"/apps/{app_name}/connect", json=payload)

@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from .._streaming import RunStream
-from .._types import Run, SyncPage, Task, Trigger
+from .._types import PermissionRequest, Run, SyncPage, Task, Trigger
 from ._utils import _build_params
 
 _list = list  # preserve builtin; shadowed by .list() method
@@ -28,12 +29,15 @@ class TaskTriggers:
         cron: str | None = None,
         interval_seconds: int | None = None,
         timezone: str = "UTC",
+        allowed_senders: list[str] | None = None,
     ) -> Trigger:
         body: dict = {"type": type, "timezone": timezone}
         if cron:
             body["cron"] = cron
         if interval_seconds:
             body["interval_seconds"] = interval_seconds
+        if allowed_senders is not None:
+            body["allowed_senders"] = allowed_senders
         resp = self._http.request("POST", f"/tasks/{task_id}/triggers", json=body)
         return Trigger.from_dict(resp.json())
 
@@ -167,6 +171,46 @@ class Tasks:
 
         resp = self._http.request("POST", f"/tasks/{task_id}/runs", json=body)
         return Run.from_dict(resp.json())
+
+    def run_and_wait(
+        self,
+        task_id: int,
+        *,
+        user_id: str | None = None,
+        metadata: dict | None = None,
+        memory: bool = True,
+        history: bool = True,
+        human_in_the_loop: bool = False,
+        permission_mode: str = "autonomous",
+        on_approval: Callable[[PermissionRequest], str] | None = None,
+        on_question: Callable[[PermissionRequest], dict[str, str]] | None = None,
+        poll_interval: float = 2.0,
+        poll_timeout: float = 300.0,
+    ) -> Run:
+        """Execute a task and wait for completion. Returns the finished Run.
+
+        Pass on_approval= and on_question= to handle human-in-the-loop pauses inline.
+        """
+        run = self.run(
+            task_id,
+            stream=False,
+            user_id=user_id,
+            metadata=metadata,
+            memory=memory,
+            history=history,
+            human_in_the_loop=human_in_the_loop,
+            permission_mode=permission_mode,
+        )
+        assert isinstance(run, Run)
+        from .runs import Runs
+
+        return Runs(self._http).wait(
+            run.id,
+            on_approval=on_approval,
+            on_question=on_question,
+            interval=poll_interval,
+            timeout=poll_timeout,
+        )
 
     def delete(self, task_id: int) -> None:
         self._http.request("DELETE", f"/tasks/{task_id}")
