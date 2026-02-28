@@ -309,6 +309,20 @@ class TestTeammateWebhooks:
         finally:
             v2_client.teammates.delete(tm.id)
 
+    def test_create_with_webhook(self, v2_client):
+        """Create teammate with webhook=True — URL returned immediately, enabled on GET."""
+        tm = v2_client.teammates.create(name="wh-create-test", webhook=True)
+        try:
+            assert tm.webhook_enabled is True
+            assert tm.webhook_url is not None
+            assert "mates" in tm.webhook_url
+            # URL not available on subsequent GET (shown once)
+            fetched = v2_client.teammates.get(tm.id)
+            assert fetched.webhook_enabled is True
+            assert fetched.webhook_url is None
+        finally:
+            v2_client.teammates.delete(tm.id)
+
 
 # ── Teammate Email Inbox ─────────────────────────────────────────────
 
@@ -350,6 +364,16 @@ class TestTeammateEmailInbox:
         """Disable email inbox on nonexistent teammate returns 404."""
         with pytest.raises(NotFoundError):
             v2_client.teammates.disable_email_inbox(999999)
+
+    def test_create_with_email_inbox(self, v2_client):
+        """Create teammate with email_inbox=True — address returned immediately."""
+        tm = v2_client.teammates.create(name="inbox-create-test", email_inbox=True)
+        try:
+            assert tm.inbound_email_enabled is True
+            assert tm.email_address is not None
+            assert "@" in tm.email_address
+        finally:
+            v2_client.teammates.delete(tm.id)
 
 
 # ── Tasks ────────────────────────────────────────────────────────────
@@ -572,6 +596,41 @@ class TestTasksCRUD:
         finally:
             v2_client.teammates.delete(tm1.id)
             v2_client.teammates.delete(tm2.id)
+
+    def test_create_with_webhook(self, v2_client):
+        """tasks.create(webhook=True) returns webhook_url at creation time."""
+        tm = v2_client.teammates.create(name="WebhookTaskHost")
+        try:
+            task = v2_client.tasks.create(
+                teammate_id=tm.id,
+                instructions="webhook triggered task",
+                webhook=True,
+            )
+            try:
+                assert isinstance(task, Task)
+                assert task.webhook_url is not None
+                assert "webhooks/tasks" in task.webhook_url
+            finally:
+                v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_create_with_schedule(self, v2_client):
+        """tasks.create(schedule=...) creates cron trigger at creation time."""
+        tm = v2_client.teammates.create(name="ScheduleTaskHost")
+        try:
+            task = v2_client.tasks.create(
+                teammate_id=tm.id,
+                instructions="scheduled task",
+                schedule="0 9 * * 1",
+            )
+            try:
+                assert isinstance(task, Task)
+                assert task.id is not None
+            finally:
+                v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
 
 
 # ── Task Triggers ────────────────────────────────────────────────────

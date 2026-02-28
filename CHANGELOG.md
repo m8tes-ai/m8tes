@@ -2,6 +2,25 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [1.4.0] - 2026-02-28
+
+### Added
+- `tasks.create(schedule="0 9 * * 1-5")` — set a cron schedule at creation time (no separate `triggers.create()` call needed)
+- `tasks.create(schedule=..., schedule_timezone="America/New_York")` — timezone support for inline schedule
+- `tasks.create(webhook=True)` — enable webhook trigger at creation time; `Task.webhook_url` is returned once
+- `Task.webhook_url` — webhook URL shown once at creation when `webhook=True`
+- `teammates.create(name=None)` — `name` is now optional; auto-generates a random name if omitted
+
+## [1.3.0] - 2026-02-28
+
+### Added
+- `teammates.create(email_inbox=True)` — enable email inbox at creation time; `Teammate.email_address` is set immediately
+- `teammates.create(webhook=True)` — enable webhook trigger at creation time; `Teammate.webhook_url` is returned once
+- `Teammate.webhook_enabled` — indicates if webhook is active when fetching a teammate via `teammates.get()` or `teammates.list()`
+- `RunStream.run_id` — run ID extracted from the metadata event; available after the first event arrives
+- `RunStream.iter_text()` — yields only text chunks from the stream; no event type filtering needed. Use when you need both live output and `stream.run_id` / `stream.text` after iteration
+- `App.needs_oauth` — boolean property on `App`; `True` for OAuth integrations (Gmail, Slack, etc.), `False` for API key integrations (Gemini, OpenAI, etc.). Use to pick the right `apps.connect()` branch
+
 ## [1.2.0] - 2026-02-28
 
 ### Added
@@ -31,8 +50,8 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 - `X-RateLimit-Remaining` and `X-RateLimit-Reset` headers on run creation responses
 
 ### Fixed
-- Billing limit errors on v2 routes now return clean  envelope
-  instead of legacy v1 format with root-level `detail`/`status_code` fields
+- Billing limit errors on v2 routes now return the standard error envelope
+  instead of the legacy v1 format with root-level `detail`/`status_code` fields
 
 ## [1.0.1] - 2026-02-23
 

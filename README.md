@@ -14,44 +14,40 @@ pip install m8tes
 
 ## Quick start
 
-Create a teammate, deploy it on a schedule. Everything else is handled.
+Create a teammate, schedule it, give it an email inbox. Run it live in one script.
 
 ```python
 from m8tes import M8tes
 
 client = M8tes()  # uses M8TES_API_KEY env var
 
-# create a reusable teammate
+# create a teammate with an email inbox
 teammate = client.teammates.create(
-    name="revenue-report",
-    instructions="Pull last week's Stripe charges, compare to the prior week, "
-                 "post a summary to #finance on Slack.",
-    tools=["stripe", "slack"],
+    name="ops assistant",
+    tools=["stripe", "linear", "slack"],
+    instructions="pull last week's metrics, write a short summary, post to #ops on Slack",
+    email_inbox=True,
+)
+print(f"inbox: {teammate.email_address}")  # forward anything here to trigger a run
+
+# schedule it: every Monday at 9am ET
+task = client.tasks.create(
+    teammate_id=teammate.id,
+    instructions="run the weekly ops summary",
+    schedule="0 9 * * 1",
+    schedule_timezone="America/New_York",
 )
 
-# schedule it — runs every Monday at 9am in a hosted sandbox, OAuth managed for you
-task = client.tasks.create(teammate_id=teammate.id)
-client.tasks.triggers.create(task.id, type="schedule", cron="0 9 * * 1")
+# run it now: autonomous, streams live output
+with client.runs.create(
+    teammate_id=teammate.id,
+    message="run the ops summary now",
+    permission_mode="autonomous",
+) as stream:
+    for chunk in stream.iter_text():
+        print(chunk, end="", flush=True)
 
-# or run it right now
-for event in client.runs.create(teammate_id=teammate.id, message="run now"):
-    if event.type == "text-delta":
-        print(event.delta, end="")
-```
-
-Or skip the setup and run a one-off:
-
-```python
-run = client.runs.create(
-    name="support triage",
-    instructions="triage inbound support emails. create Linear tickets "
-                 "for bugs. escalate urgent issues to #support-escalations.",
-    tools=["gmail", "linear", "slack"],
-    message="process all unread support emails from today",
-    stream=False,
-)
-run = client.runs.poll(run.id)
-print(run.output)
+print(stream.run_id)
 ```
 
 ## What you get out of the box
@@ -138,6 +134,15 @@ for chunk in client.runs.stream_text(message="summarize inbox"):
     print(chunk, end="")
 ```
 
+Need the run ID or accumulated text after? Use `iter_text()` instead:
+
+```python
+with client.runs.create(message="summarize inbox") as stream:
+    for chunk in stream.iter_text():
+        print(chunk, end="", flush=True)
+print(stream.run_id, stream.text)
+```
+
 ## Human-in-the-loop
 
 Pass callbacks to `wait()` — approval pauses are handled inline:
@@ -179,16 +184,16 @@ client.runs.answer(run.id, answers={"Which channel?": "#general"})
 ## Triggers
 
 ```python
-# schedule -- every weekday at 9am
-client.tasks.triggers.create(task.id, type="schedule", cron="0 9 * * 1-5")
+# schedule -- every weekday at 9am (shortcut on tasks.create, no separate call needed)
+task = client.tasks.create(teammate_id=..., instructions="...", schedule="0 9 * * 1-5")
 
 # webhook -- POST to a URL to trigger runs
-trigger = client.tasks.triggers.create(task.id, type="webhook")
-print(trigger.url)  # POST here to trigger
+task = client.tasks.create(teammate_id=..., instructions="...", webhook=True)
+print(task.webhook_url)  # POST here to trigger (shown once)
 
-# email -- forward emails to trigger runs
-trigger = client.tasks.triggers.create(task.id, type="email")
-print(trigger.address)  # forward emails here
+# email -- give the teammate an inbox at creation time
+mate = client.teammates.create(name="inbox bot", email_inbox=True)
+print(mate.email_address)  # forward emails here
 
 # on demand -- run a saved task directly
 for event in client.tasks.run(task.id):

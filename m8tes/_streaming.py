@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Generator, Iterator
 from typing import TYPE_CHECKING
 
 from .streaming import AISDKStreamParser, StreamAccumulator, StreamEvent
@@ -55,3 +55,26 @@ class RunStream:
     def output(self) -> str:
         """Alias for text."""
         return self.text
+
+    @property
+    def run_id(self) -> int | None:
+        """Run ID extracted from the metadata event.
+
+        Available after the first metadata event arrives.
+        """
+        return self._accumulator.run_id
+
+    def iter_text(self) -> Generator[str, None, None]:
+        """Yield only text chunks — no event filtering needed.
+
+        Usage:
+            with client.runs.create(message="...") as stream:
+                for chunk in stream.iter_text():
+                    print(chunk, end="", flush=True)
+            print(stream.run_id, stream.text)
+        """
+        from .streaming import TextDeltaEvent
+
+        for event in self:
+            if isinstance(event, TextDeltaEvent):
+                yield event.delta
