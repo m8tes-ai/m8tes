@@ -28,11 +28,11 @@ def normalize_v2_base_url(base_url: str | None) -> str | None:
 
 def get_v2_api_key(args: Any, client: Any = None) -> str | None:
     """Resolve an API key from CLI args, the current client, or saved credentials."""
-    api_key = getattr(args, "api_key", None)
+    api_key: str | None = getattr(args, "api_key", None)
     if api_key:
         return api_key
 
-    client_key = getattr(client, "api_key", None)
+    client_key: str | None = getattr(client, "api_key", None)
     if client_key:
         return client_key
 
