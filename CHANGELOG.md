@@ -2,6 +2,11 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [1.4.1] - 2026-02-28
+
+### Added
+- `Task.webhook_enabled` — indicates if webhook trigger is active on `tasks.get()` and `tasks.list()`
+
 ## [1.4.0] - 2026-02-28
 
 ### Added

@@ -451,8 +451,9 @@ class TestRunsWaitMultiplePending:
         run = Runs(http).wait(
             1,
             on_approval=lambda req: approved.append(req.tool_name) or "allow",  # type: ignore[func-returns-value]
-            on_question=lambda req: answered.append(req.tool_name)
-            or {"Which segment?": "enterprise"},  # type: ignore[func-returns-value]
+            on_question=lambda req: (
+                answered.append(req.tool_name) or {"Which segment?": "enterprise"}
+            ),  # type: ignore[func-returns-value]
             interval=0.01,
         )
         assert run.status == "completed"
