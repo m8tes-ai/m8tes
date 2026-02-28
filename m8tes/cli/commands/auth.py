@@ -7,8 +7,10 @@ Provides user registration, login, logout, and status commands.
 from argparse import ArgumentParser, Namespace
 from typing import TYPE_CHECKING, ClassVar, Optional
 
+from ..._exceptions import M8tesError as SDKM8tesError
 from ...exceptions import AuthenticationError, NetworkError, ValidationError
 from ..base import Command, CommandGroup
+from ..v2 import v2_client_from_args
 
 if TYPE_CHECKING:
     from ...client import M8tes
@@ -28,6 +30,8 @@ class AuthCommandGroup(CommandGroup):
         self.add_subcommand(RegisterCommand())
         self.add_subcommand(LoginCommand())
         self.add_subcommand(StatusCommand())
+        self.add_subcommand(UsageCommand())
+        self.add_subcommand(ResendVerifyCommand())
         self.add_subcommand(LogoutCommand())
 
 
@@ -153,4 +157,59 @@ class LogoutCommand(Command):
             return 0
         except Exception as e:
             print(f"❌ Logout failed: {e}")
+            return 1
+
+
+class UsageCommand(Command):
+    """Authenticated usage summary command."""
+
+    name = "usage"
+    aliases: ClassVar[list[str]] = ["u"]
+    description = "Show account usage and limits"
+    requires_auth = False
+
+    def add_arguments(self, parser: ArgumentParser) -> None:
+        """Add usage-specific arguments."""
+        pass
+
+    def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
+        """Show current account usage from the v2 API."""
+        try:
+            with v2_client_from_args(args, client) as v2_client:
+                usage = v2_client.auth.get_usage()
+
+            print("\n📈 Account Usage")
+            print("=" * 30)
+            print(f"Plan: {usage.plan}")
+            print(f"Runs: {usage.runs_used} / {usage.runs_limit}")
+            print(f"Cost: ${usage.cost_used:.2f} / ${usage.cost_limit:.2f}")
+            print(f"Period ends: {usage.period_end}")
+            return 0
+        except SDKM8tesError as e:
+            print(f"❌ Failed to load usage: {e}")
+            return 1
+
+
+class ResendVerifyCommand(Command):
+    """Authenticated verification resend command."""
+
+    name = "resend-verify"
+    aliases: ClassVar[list[str]] = ["verify"]
+    description = "Resend the account verification email"
+    requires_auth = False
+
+    def add_arguments(self, parser: ArgumentParser) -> None:
+        """Add resend-verify-specific arguments."""
+        pass
+
+    def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
+        """Resend the account verification email using the v2 API."""
+        try:
+            with v2_client_from_args(args, client) as v2_client:
+                message = v2_client.auth.resend_verify()
+
+            print(f"✅ {message}")
+            return 0
+        except SDKM8tesError as e:
+            print(f"❌ Failed to resend verification email: {e}")
             return 1

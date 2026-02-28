@@ -30,6 +30,34 @@ class Apps:
         page = self.list(user_id=user_id)
         return any(a.name == app_name and a.connected for a in page.data)
 
+    def connect_oauth(
+        self,
+        app_name: str,
+        redirect_uri: str,
+        *,
+        user_id: str | None = None,
+    ) -> AppConnectionInitiation:
+        """Start an OAuth connection flow for an app."""
+        payload: dict = {"redirect_uri": redirect_uri}
+        if user_id:
+            payload["user_id"] = user_id
+        resp = self._http.request("POST", f"/apps/{app_name}/connect", json=payload)
+        return AppConnectionInitiation.from_dict(resp.json())
+
+    def connect_api_key(
+        self,
+        app_name: str,
+        api_key: str,
+        *,
+        user_id: str | None = None,
+    ) -> AppConnectionResult:
+        """Connect an API key-based app immediately."""
+        payload: dict = {"api_key": api_key}
+        if user_id:
+            payload["user_id"] = user_id
+        resp = self._http.request("POST", f"/apps/{app_name}/connect/api-key", json=payload)
+        return AppConnectionResult.from_dict(resp.json())
+
     def connect(
         self,
         app_name: str,
@@ -48,22 +76,14 @@ class Apps:
             Returns status confirming the connection immediately.
         """
         if api_key is not None:
-            payload: dict = {"api_key": api_key}
-            if user_id:
-                payload["user_id"] = user_id
-            resp = self._http.request("POST", f"/apps/{app_name}/connect/api-key", json=payload)
-            return AppConnectionResult.from_dict(resp.json())
+            return self.connect_api_key(app_name, api_key, user_id=user_id)
 
         if redirect_uri is None:
             raise ValueError(
                 "Pass redirect_uri= for OAuth apps or api_key= for API key apps. "
                 "Check app.auth_type from apps.list() to know which to use."
             )
-        payload = {"redirect_uri": redirect_uri}
-        if user_id:
-            payload["user_id"] = user_id
-        resp = self._http.request("POST", f"/apps/{app_name}/connect", json=payload)
-        return AppConnectionInitiation.from_dict(resp.json())
+        return self.connect_oauth(app_name, redirect_uri, user_id=user_id)
 
     def connect_complete(
         self, app_name: str, connection_id: str, *, user_id: str | None = None

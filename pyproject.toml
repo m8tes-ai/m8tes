@@ -39,6 +39,7 @@ dev = [
     "wheel>=0.40.0",
     "pip-audit>=2.0.0",
     "pytest-timeout>=0.5",
+    "apscheduler>=3.0.0",  # needed by test_v2_schema_contract to import backend schemas.py
 ]
 
 [project.scripts]
