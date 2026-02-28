@@ -15,6 +15,7 @@ Requirements:
 Run: pytest tests/integration/test_v2_integration.py -v -m integration
 """
 
+import contextlib
 import uuid
 
 import pytest
@@ -2881,10 +2882,8 @@ class TestRunsSDKMethods:
             result = v2_client.runs.update_permission_mode(run.id, permission_mode="approval")
             assert result.permission_mode == "approval"
         finally:
-            try:
+            with contextlib.suppress(ConflictError, UnboundLocalError):
                 v2_client.runs.cancel(run.id)
-            except (ConflictError, UnboundLocalError):
-                pass
             v2_client.teammates.delete(tm.id)
 
 
