@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from .._streaming import RunStream
 from .._types import PermissionRequest, Run, SyncPage, Task, Trigger
@@ -201,11 +201,10 @@ class Tasks:
             human_in_the_loop=human_in_the_loop,
             permission_mode=permission_mode,
         )
-        assert isinstance(run, Run)
         from .runs import Runs
 
         return Runs(self._http).wait(
-            run.id,
+            cast(Run, run).id,
             on_approval=on_approval,
             on_question=on_question,
             interval=poll_interval,

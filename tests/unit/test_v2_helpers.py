@@ -363,3 +363,95 @@ class TestTasksRunAndWait:
             poll_interval=0.01,
         )
         assert run.status == "completed"
+
+
+# ── runs.reply_and_wait() ─────────────────────────────────────────────────────
+
+
+class TestReplyAndWait:
+    @responses.activate
+    def test_basic(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/1/reply",
+            json={"id": 2, "status": "running"},
+            status=200,
+        )
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/2",
+            json={"id": 2, "status": "completed", "output": "Done"},
+        )
+        run = Runs(http).reply_and_wait(1, message="follow up", poll_interval=0.01)
+        assert isinstance(run, Run)
+        assert run.status == "completed"
+
+    @responses.activate
+    def test_with_hitl(self, http):
+        """reply → awaiting_approval → approve → completed."""
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/1/reply",
+            json={"id": 2, "status": "running"},
+            status=200,
+        )
+        responses.add(
+            responses.GET, f"{BASE}/runs/2", json={"id": 2, "status": "awaiting_approval"}
+        )
+        responses.add(responses.GET, f"{BASE}/runs/2/permissions", json=[PERMISSION_TOOL])
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/2/approve",
+            json={**PERMISSION_TOOL, "status": "approved"},
+        )
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/2",
+            json={"id": 2, "status": "completed", "output": "Done"},
+        )
+
+        approved = []
+        run = Runs(http).reply_and_wait(
+            1,
+            message="follow up",
+            on_approval=lambda req: approved.append(req.tool_name) or "allow",  # type: ignore[func-returns-value]
+            poll_interval=0.01,
+        )
+        assert run.status == "completed"
+        assert approved == ["gmail"]
+
+
+# ── runs.wait() with multiple pending permissions ─────────────────────────────
+
+
+class TestRunsWaitMultiplePending:
+    @responses.activate
+    def test_handles_tool_and_question_in_same_pause(self, http):
+        """awaiting_approval with both a tool request and a question — both resolved."""
+        responses.add(responses.GET, f"{BASE}/runs/1", json=RUN_APPROVAL)
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/1/permissions",
+            json=[PERMISSION_TOOL, PERMISSION_QUESTION],
+        )
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/1/approve",
+            json={**PERMISSION_TOOL, "status": "approved"},
+        )
+        responses.add(responses.POST, f"{BASE}/runs/1/answer", json={"status": "ok"})
+        responses.add(responses.GET, f"{BASE}/runs/1", json=RUN_DONE)
+
+        approved = []
+        answered = []
+
+        run = Runs(http).wait(
+            1,
+            on_approval=lambda req: approved.append(req.tool_name) or "allow",  # type: ignore[func-returns-value]
+            on_question=lambda req: answered.append(req.tool_name)
+            or {"Which segment?": "enterprise"},  # type: ignore[func-returns-value]
+            interval=0.01,
+        )
+        assert run.status == "completed"
+        assert approved == ["gmail"]
+        assert answered == ["AskUserQuestion"]

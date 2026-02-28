@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Generator
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from .._streaming import RunStream
 from .._types import PermissionModeResponse, PermissionRequest, Run, RunFile, SyncPage
@@ -215,9 +215,8 @@ class Runs:
             human_in_the_loop=human_in_the_loop,
             permission_mode=permission_mode,
         )
-        assert isinstance(run, Run)
         return self.wait(
-            run.id,
+            cast(Run, run).id,
             on_approval=on_approval,
             on_question=on_question,
             interval=poll_interval,
@@ -236,9 +235,8 @@ class Runs:
     ) -> Run:
         """Send a follow-up and wait until it completes. Returns the finished Run."""
         run = self.reply(run_id, message=message, stream=False)
-        assert isinstance(run, Run)
         return self.wait(
-            run.id,
+            cast(Run, run).id,
             on_approval=on_approval,
             on_question=on_question,
             interval=poll_interval,
@@ -282,9 +280,9 @@ class Runs:
             human_in_the_loop=human_in_the_loop,
             permission_mode=permission_mode,
         )
-        assert isinstance(stream, RunStream)
-        with stream:
-            for event in stream:
+        run_stream = cast(RunStream, stream)
+        with run_stream:
+            for event in run_stream:
                 if isinstance(event, TextDeltaEvent):
                     yield event.delta
 
