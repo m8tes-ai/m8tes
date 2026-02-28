@@ -611,6 +611,7 @@ class TestTasksCRUD:
                 assert isinstance(task, Task)
                 assert task.webhook_url is not None
                 assert "webhooks/tasks" in task.webhook_url
+                assert task.webhook_enabled is True
             finally:
                 v2_client.tasks.delete(task.id)
         finally:
