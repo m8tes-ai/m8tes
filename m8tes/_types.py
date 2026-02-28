@@ -118,6 +118,7 @@ class Task:
     created_at: str
     updated_at: str | None = None
     webhook_url: str | None = None
+    webhook_enabled: bool = False
 
     @classmethod
     def from_dict(cls, data: dict) -> Task:
@@ -134,6 +135,7 @@ class Task:
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at"),
             webhook_url=data.get("webhook_url"),
+            webhook_enabled=data.get("webhook_enabled", False),
         )
 
 
