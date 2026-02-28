@@ -2170,6 +2170,39 @@ class TestAppsReadOnly:
         assert isinstance(page, SyncPage)
 
 
+@pytest.mark.integration
+class TestAppsWritable:
+    def test_connect_api_key_and_disconnect(self, v2_client):
+        """API key apps can be connected and disconnected through explicit SDK helpers."""
+        page = v2_client.apps.list()
+        app = next(
+            (item for item in page.data if item.auth_type in ("api_key", "api_key_proxy")),
+            None,
+        )
+        if app is None:
+            pytest.skip("No api_key app available in the backend catalog")
+
+        user_id = _uid()
+        result = v2_client.apps.connect_api_key(app.name, "test-api-key", user_id=user_id)
+        assert result.status == "connected"
+        assert result.app == app.name
+
+        connected_page = v2_client.apps.list(user_id=user_id)
+        connected = next((item for item in connected_page.data if item.name == app.name), None)
+        assert connected is not None
+        assert connected.connected is True
+
+        v2_client.apps.disconnect(app.name, user_id=user_id)
+
+        disconnected_page = v2_client.apps.list(user_id=user_id)
+        disconnected = next(
+            (item for item in disconnected_page.data if item.name == app.name),
+            None,
+        )
+        assert disconnected is not None
+        assert disconnected.connected is False
+
+
 # ── Context Manager ──────────────────────────────────────────────────
 
 
@@ -2348,10 +2381,14 @@ class TestResponseTypes:
 
 @pytest.mark.integration
 class TestInputValidation:
-    def test_empty_teammate_name_rejected(self, v2_client):
-        """Empty name raises ValidationError (min_length=1)."""
-        with pytest.raises(ValidationError):
-            v2_client.teammates.create(name="")
+    def test_empty_teammate_name_auto_generates(self, v2_client):
+        """Empty teammate name falls back to the backend-generated default name."""
+        teammate = v2_client.teammates.create(name="")
+        try:
+            assert teammate.name
+            assert teammate.name.strip()
+        finally:
+            v2_client.teammates.delete(teammate.id)
 
     def test_max_length_teammate_name(self, v2_client):
         """255-char name succeeds (max_length=255)."""
@@ -2830,6 +2867,24 @@ class TestRunsSDKMethods:
             full_text = "".join(chunks)
             assert len(full_text) > 0, f"stream_text chunks were all empty: {chunks!r}"
         finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_update_permission_mode(self, v2_client):
+        """update_permission_mode() switches a run into approval mode."""
+        tm = v2_client.teammates.create(name="ModeSwitchHost")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=tm.id,
+                message="Switch modes",
+                stream=False,
+            )
+            result = v2_client.runs.update_permission_mode(run.id, permission_mode="approval")
+            assert result.permission_mode == "approval"
+        finally:
+            try:
+                v2_client.runs.cancel(run.id)
+            except (ConflictError, UnboundLocalError):
+                pass
             v2_client.teammates.delete(tm.id)
 
 

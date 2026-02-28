@@ -268,6 +268,19 @@ class TestRuns:
         assert r.status == "cancelled"
 
     @responses.activate
+    def test_update_permission_mode(self, http):
+        responses.add(
+            responses.PATCH,
+            f"{BASE}/runs/1/permission-mode",
+            json={"permission_mode": "approval"},
+            status=200,
+        )
+        result = Runs(http).update_permission_mode(1, permission_mode="approval")
+        assert result.permission_mode == "approval"
+        body = json.loads(responses.calls[0].request.body)
+        assert body == {"permission_mode": "approval"}
+
+    @responses.activate
     def test_permissions(self, http):
         responses.add(
             responses.GET,
@@ -658,6 +671,37 @@ class TestApps:
         assert result.connection_id == "conn_1"
         body = json.loads(responses.calls[0].request.body)
         assert body == {"redirect_uri": "https://myapp.com/callback", "user_id": "cust_1"}
+
+    @responses.activate
+    def test_connect_oauth(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/apps/gmail/connect",
+            json={
+                "authorization_url": "https://accounts.google.com/o/oauth2",
+                "connection_id": "conn_oauth",
+            },
+            status=200,
+        )
+        result = Apps(http).connect_oauth("gmail", "https://myapp.com/callback", user_id="cust_1")
+        assert isinstance(result, AppConnectionInitiation)
+        assert result.connection_id == "conn_oauth"
+        body = json.loads(responses.calls[0].request.body)
+        assert body == {"redirect_uri": "https://myapp.com/callback", "user_id": "cust_1"}
+
+    @responses.activate
+    def test_connect_api_key(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/apps/gemini/connect/api-key",
+            json={"status": "connected", "app": "gemini"},
+            status=200,
+        )
+        result = Apps(http).connect_api_key("gemini", "sk_test_123", user_id="cust_1")
+        assert isinstance(result, AppConnectionResult)
+        assert result.status == "connected"
+        body = json.loads(responses.calls[0].request.body)
+        assert body == {"api_key": "sk_test_123", "user_id": "cust_1"}
 
     @responses.activate
     def test_connect_complete(self, http):

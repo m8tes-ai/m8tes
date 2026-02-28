@@ -10,6 +10,11 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 - `tasks.create(webhook=True)` — enable webhook trigger at creation time; `Task.webhook_url` is returned once
 - `Task.webhook_url` — webhook URL shown once at creation when `webhook=True`
 - `teammates.create(name=None)` — `name` is now optional; auto-generates a random name if omitted
+- `client.apps.connect_oauth()` — explicit helper for OAuth app connections
+- `client.apps.connect_api_key()` — explicit helper for API key app connections
+
+### Changed
+- README and test docs now document `client.runs.update_permission_mode()`, explicit app-connection helpers, and the layered V2 test workflow
 
 ## [1.3.0] - 2026-02-28
 
