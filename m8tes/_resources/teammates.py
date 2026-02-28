@@ -22,7 +22,7 @@ class Teammates:
     def create(
         self,
         *,
-        name: str,
+        name: str | None = None,
         tools: list[str] | None = None,
         instructions: str | None = None,
         role: str | None = None,
@@ -30,8 +30,12 @@ class Teammates:
         user_id: str | None = None,
         metadata: dict | None = None,
         allowed_senders: list[str] | None = None,
+        email_inbox: bool = False,
+        webhook: bool = False,
     ) -> Teammate:
-        body: dict = {"name": name}
+        body: dict = {}
+        if name is not None:
+            body["name"] = name
         if tools is not None:
             body["tools"] = tools
         if instructions is not None:
@@ -46,6 +50,10 @@ class Teammates:
             body["metadata"] = metadata
         if allowed_senders is not None:
             body["allowed_senders"] = allowed_senders
+        if email_inbox:
+            body["email_inbox"] = True
+        if webhook:
+            body["webhook"] = True
         resp = self._http.request("POST", "/teammates", json=body)
         return Teammate.from_dict(resp.json())
 

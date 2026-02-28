@@ -46,6 +46,8 @@ class Teammate:
     updated_at: str | None = None
     inbound_email_enabled: bool = False
     email_address: str | None = None
+    webhook_enabled: bool = False
+    webhook_url: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> Teammate:
@@ -61,6 +63,8 @@ class Teammate:
             allowed_senders=data.get("allowed_senders"),
             inbound_email_enabled=data.get("inbound_email_enabled", False),
             email_address=data.get("email_address"),
+            webhook_enabled=data.get("webhook_enabled", False),
+            webhook_url=data.get("webhook_url"),
             status=data.get("status", "enabled"),
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at"),
@@ -113,6 +117,7 @@ class Task:
     status: str
     created_at: str
     updated_at: str | None = None
+    webhook_url: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> Task:
@@ -128,6 +133,7 @@ class Task:
             status=data.get("status", "enabled"),
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at"),
+            webhook_url=data.get("webhook_url"),
         )
 
 
@@ -205,6 +211,19 @@ class App:
     category: str
     connected: bool
     auth_type: str = ""  # "composio" | "api_key" | "api_key_proxy"
+
+    @property
+    def needs_oauth(self) -> bool:
+        """True for OAuth-based integrations (Gmail, Slack, etc.).
+        False for API key integrations (Gemini, OpenAI, etc.).
+
+        Use to route to the right connect() method:
+            if app.needs_oauth:
+                conn = client.apps.connect(app.name, redirect_uri=callback_url, user_id=uid)
+            else:
+                conn = client.apps.connect(app.name, api_key=user_key, user_id=uid)
+        """
+        return self.auth_type == "composio"
 
     @classmethod
     def from_dict(cls, data: dict) -> App:

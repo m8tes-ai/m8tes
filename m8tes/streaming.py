@@ -777,6 +777,7 @@ class StreamAccumulator:
         self.metadata_events: list[dict[str, Any]] = []
         self.latest_usage: dict[str, Any] | None = None
         self.todo_updates: list[dict[str, Any]] = []
+        self.run_id: int | None = None
 
     def process(self, event: StreamEvent) -> None:
         """Process a stream event and accumulate data."""
@@ -886,9 +887,12 @@ class StreamAccumulator:
 
         elif isinstance(event, MetadataEvent):
             self.metadata_events.append(event.payload)
-            usage = event.payload.get("usage") if isinstance(event.payload, dict) else None
-            if isinstance(usage, dict):
-                self.latest_usage = usage
+            if isinstance(event.payload, dict):
+                if "run_id" in event.payload:
+                    self.run_id = int(event.payload["run_id"])
+                usage = event.payload.get("usage")
+                if isinstance(usage, dict):
+                    self.latest_usage = usage
 
     def get_text(self) -> str:
         """Get accumulated text."""

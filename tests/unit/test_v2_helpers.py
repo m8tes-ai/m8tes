@@ -1,6 +1,8 @@
 """Tests for new DX helper functions: runs.wait(), apps.is_connected(),
-apps.connect() api_key support, tasks.run_and_wait(), PermissionRequest properties."""
+apps.connect() api_key support, tasks.run_and_wait(), PermissionRequest properties,
+RunStream helpers (run_id, iter_text), and App.needs_oauth."""
 
+import io
 import json
 
 import pytest
@@ -10,7 +12,8 @@ from m8tes._http import HTTPClient
 from m8tes._resources.apps import Apps
 from m8tes._resources.runs import Runs
 from m8tes._resources.tasks import Tasks
-from m8tes._types import AppConnectionResult, PermissionRequest, Run
+from m8tes._streaming import RunStream
+from m8tes._types import App, AppConnectionResult, PermissionRequest, Run
 
 BASE = "https://api.test/v2"
 
@@ -455,3 +458,79 @@ class TestRunsWaitMultiplePending:
         assert run.status == "completed"
         assert approved == ["gmail"]
         assert answered == ["AskUserQuestion"]
+
+
+# ── RunStream helpers (run_id, iter_text) ─────────────────────────────────────
+
+
+def _make_sse(*payloads: dict) -> io.BytesIO:
+    """Build a fake SSE byte stream from a list of event dicts."""
+    lines = b""
+    for p in payloads:
+        lines += f"data: {json.dumps(p)}\n\n".encode()
+    return io.BytesIO(lines)
+
+
+class _FakeResponse:
+    """Minimal requests.Response stub for RunStream."""
+
+    def __init__(self, payloads: list[dict]):
+        self._buf = _make_sse(*payloads)
+
+    def iter_lines(self, decode_unicode: bool = True):
+        yield from self._buf.read().decode().splitlines()
+        yield ""  # trailing blank line to flush last frame
+
+    def close(self) -> None:
+        pass
+
+
+class TestRunStreamHelpers:
+    def test_iter_text_yields_only_text_chunks(self):
+        events = [
+            {"type": "text-delta", "delta": "hello "},
+            {"type": "tool-call-start", "toolName": "gmail", "toolCallId": "tc1"},
+            {"type": "text-delta", "delta": "world"},
+            {"type": "done"},
+        ]
+        stream = RunStream(_FakeResponse(events))  # type: ignore[arg-type]
+        chunks = list(stream.iter_text())
+        assert chunks == ["hello ", "world"]
+
+    def test_run_id_property_set_from_metadata(self):
+        events = [
+            {"type": "metadata", "payload": {"run_id": 42}},
+            {"type": "done"},
+        ]
+        stream = RunStream(_FakeResponse(events))  # type: ignore[arg-type]
+        list(stream)  # consume
+        assert stream.run_id == 42
+
+    def test_run_id_none_before_metadata(self):
+        stream = RunStream(_FakeResponse([]))  # type: ignore[arg-type]
+        assert stream.run_id is None
+
+
+# ── App.needs_oauth ───────────────────────────────────────────────────────────
+
+
+class TestAppNeedsOAuth:
+    def test_composio_app_needs_oauth(self):
+        app = App(
+            name="gmail",
+            display_name="Gmail",
+            category="email",
+            connected=False,
+            auth_type="composio",
+        )
+        assert app.needs_oauth is True
+
+    def test_api_key_app_no_oauth(self):
+        app = App(
+            name="gemini",
+            display_name="Gemini",
+            category="ai",
+            connected=False,
+            auth_type="api_key",
+        )
+        assert app.needs_oauth is False

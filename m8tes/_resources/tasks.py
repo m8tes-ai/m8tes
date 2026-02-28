@@ -68,6 +68,9 @@ class Tasks:
         expected_output: str | None = None,
         goals: str | None = None,
         user_id: str | None = None,
+        webhook: bool = False,
+        schedule: str | None = None,
+        schedule_timezone: str = "UTC",
     ) -> Task:
         body: dict = {"teammate_id": teammate_id, "instructions": instructions}
         if name is not None:
@@ -80,6 +83,11 @@ class Tasks:
             body["goals"] = goals
         if user_id is not None:
             body["user_id"] = user_id
+        if webhook:
+            body["webhook"] = True
+        if schedule is not None:
+            body["schedule"] = schedule
+            body["schedule_timezone"] = schedule_timezone
         resp = self._http.request("POST", "/tasks", json=body)
         return Task.from_dict(resp.json())
 
