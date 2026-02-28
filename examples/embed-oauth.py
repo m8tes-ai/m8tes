@@ -56,7 +56,7 @@ def start_gmail_connect(user_id: str, callback_url: str) -> str:
     # Must store connection_id before redirect — it's required to finalize OAuth
     SESSION["connection_id"] = conn.connection_id
     SESSION["user_id"] = user_id
-    return conn.redirect_url  # redirect user here
+    return conn.authorization_url  # redirect user here
 
 
 # ── Step 2: (user goes to redirect_url and authorizes in browser) ─────────────
@@ -67,15 +67,17 @@ def start_gmail_connect(user_id: str, callback_url: str) -> str:
 
 
 def oauth_callback(code: str, state: str) -> None:
-    """Called when the user returns from the OAuth provider."""
+    """Called when the user returns from the OAuth provider.
+
+    code and state come from the redirect query params.
+    The backend validates them internally — just pass connection_id to complete.
+    """
     connection_id = SESSION.get("connection_id", "")
     user_id = SESSION.get("user_id", "")
 
     client.apps.connect_complete(
         "gmail",
         connection_id=connection_id,
-        code=code,
-        state=state,
         user_id=user_id,
     )
     print(f"Gmail connected for user {user_id}")

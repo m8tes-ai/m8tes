@@ -2,6 +2,19 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [1.2.0] - 2026-02-28
+
+### Added
+- `client.runs.wait(run_id, *, on_approval, on_question)` — wait for a run to complete with human-in-the-loop callback support. Handles `awaiting_approval` pauses inline; raises `RuntimeError` if the run pauses without a callback.
+- `client.runs.create_and_wait()` now accepts `on_approval=` and `on_question=` callbacks
+- `client.runs.reply_and_wait()` now accepts `on_approval=` and `on_question=` callbacks
+- `client.tasks.run_and_wait(task_id, *, on_approval, on_question)` — run a task and wait, with HITL callback support
+- `client.apps.is_connected(app_name, *, user_id=None) -> bool` — one-line check for integration connection status
+- `client.apps.connect()` now accepts `api_key=` parameter for API key integrations (Gemini, OpenAI, etc.)
+- `PermissionRequest.is_plan_approval` — `True` when the request is a plan mode approval pause
+- `PermissionRequest.plan_text` — the proposed plan text, extracted from the approval request
+- New examples: `examples/plan-mode.py`, `examples/file-report.py`, `examples/embed-oauth.py`
+
 ## [1.1.0] - 2026-02-27
 
 ### Added

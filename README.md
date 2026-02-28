@@ -140,6 +140,8 @@ for chunk in client.runs.stream_text(message="summarize inbox"):
 
 ## Human-in-the-loop
 
+Pass callbacks to `wait()` — approval pauses are handled inline:
+
 ```python
 run = client.runs.create(
     message="draft and send the weekly report",
@@ -147,14 +149,30 @@ run = client.runs.create(
     permission_mode="approval",  # or "plan", "autonomous"
     stream=False,
 )
+run = client.runs.wait(
+    run.id,
+    on_approval=lambda req: "allow",
+    on_question=lambda req: {"Which channel?": "#general"},
+)
+print(run.output)
+```
 
-# check pending permission requests
+Or create and wait in a single call:
+
+```python
+run = client.runs.create_and_wait(
+    message="draft and send the weekly report",
+    human_in_the_loop=True,
+    permission_mode="approval",
+    on_approval=lambda req: "allow",
+)
+```
+
+### Low-level control
+
+```python
 pending = client.runs.permissions(run.id)
-
-# approve a tool use
 client.runs.approve(run.id, request_id="req_123", decision="allow")
-
-# answer an agent question
 client.runs.answer(run.id, answers={"Which channel?": "#general"})
 ```
 
