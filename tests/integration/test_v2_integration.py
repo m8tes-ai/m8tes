@@ -16,6 +16,7 @@ Run: pytest tests/integration/test_v2_integration.py -v -m integration
 """
 
 import contextlib
+import os
 import uuid
 
 import pytest
@@ -47,6 +48,42 @@ from m8tes._types import (
 def _uid() -> str:
     """Generate a unique user_id to avoid collision across test runs."""
     return f"user-{uuid.uuid4().hex[:8]}"
+
+
+def _strict_test_catalog() -> bool:
+    """True when integration tests should fail instead of skip on missing seeded apps."""
+    return os.getenv("E2E_REQUIRE_TEST_CATALOG") == "1"
+
+
+def _require_available_apps(v2_client: M8tes, count: int) -> list[str]:
+    """Return app names or fail/skip depending on whether a deterministic catalog is required."""
+    available = [a.name for a in v2_client.apps.list().data]
+    if len(available) >= count:
+        return available
+
+    message = f"Need >={count} tools, got {len(available)}"
+    if _strict_test_catalog():
+        raise AssertionError(message)
+    pytest.skip(message)
+
+
+def _require_api_key_app(v2_client: M8tes):
+    """Return an API-key app or fail/skip depending on deterministic catalog requirements."""
+    app = next(
+        (
+            item
+            for item in v2_client.apps.list().data
+            if item.auth_type in ("api_key", "api_key_proxy")
+        ),
+        None,
+    )
+    if app is not None:
+        return app
+
+    message = "No api_key app available in the backend catalog"
+    if _strict_test_catalog():
+        raise AssertionError(message)
+    pytest.skip(message)
 
 
 def _new_v2_client(backend_url: str, *, email_prefix: str) -> M8tes:
@@ -199,9 +236,7 @@ class TestTeammatesCRUD:
 
     def test_tools_roundtrip(self, v2_client):
         """Create teammate with tools, verify persisted, update tools."""
-        available = [a.name for a in v2_client.apps.list().data]
-        if len(available) < 2:
-            pytest.skip(f"Need >=2 tools, got {len(available)}")
+        available = _require_available_apps(v2_client, 2)
         tool_a, tool_b = available[0], available[1]
         t = v2_client.teammates.create(name="ToolsBot", tools=[tool_a, tool_b])
         try:
@@ -217,9 +252,7 @@ class TestTeammatesCRUD:
 
     def test_tools_clear_to_empty(self, v2_client):
         """Update tools to empty list clears all tools."""
-        available = [a.name for a in v2_client.apps.list().data]
-        if not available:
-            pytest.skip("No tools available")
+        available = _require_available_apps(v2_client, 1)
         t = v2_client.teammates.create(name="ClearTools", tools=[available[0]])
         try:
             updated = v2_client.teammates.update(t.id, tools=[])
@@ -537,9 +570,7 @@ class TestTasksCRUD:
 
     def test_tools_roundtrip(self, v2_client):
         """Create task with tools, verify persisted, update tools."""
-        available = [a.name for a in v2_client.apps.list().data]
-        if len(available) < 2:
-            pytest.skip(f"Need >=2 tools, got {len(available)}")
+        available = _require_available_apps(v2_client, 2)
         tool_a, tool_b = available[0], available[1]
         tm = v2_client.teammates.create(name="TaskToolsHost")
         try:
@@ -2176,13 +2207,7 @@ class TestAppsReadOnly:
 class TestAppsWritable:
     def test_connect_api_key_and_disconnect(self, v2_client):
         """API key apps can be connected and disconnected through explicit SDK helpers."""
-        page = v2_client.apps.list()
-        app = next(
-            (item for item in page.data if item.auth_type in ("api_key", "api_key_proxy")),
-            None,
-        )
-        if app is None:
-            pytest.skip("No api_key app available in the backend catalog")
+        app = _require_api_key_app(v2_client)
 
         user_id = _uid()
         result = v2_client.apps.connect_api_key(app.name, "test-api-key", user_id=user_id)
