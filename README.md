@@ -4,7 +4,9 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Python SDK and CLI for creating agents, running tasks, streaming output, and managing connected apps through the m8tes API.
+**Build agents. Skip the infrastructure.**
+
+Hosted runtime, 150+ integrations, scheduling, memory, and email inbox. Ship autonomous agents to production in minutes.
 
 ## Install
 
@@ -13,8 +15,6 @@ pip install m8tes
 ```
 
 ## Quick start
-
-This example creates a teammate, adds a schedule and email inbox, then starts a run.
 
 ```python
 from m8tes import M8tes
@@ -38,7 +38,7 @@ task = client.tasks.create(
     schedule_timezone="America/New_York",
 )
 
-# run it now: autonomous, streams live output
+# run it now — streams live output
 with client.runs.create(
     teammate_id=teammate.id,
     message="run the ops summary now",
@@ -50,34 +50,60 @@ with client.runs.create(
 print(stream.run_id)
 ```
 
-## Included
+→ Full docs and examples at [m8tes.ai/docs](https://m8tes.ai/docs)
 
-The SDK gives you access to:
+## What you skip
 
-- **Hosted sandboxed runtime.** Every run executes in an isolated environment.
-- **150+ managed integrations.** Gmail, Slack, Notion, HubSpot, Stripe, Linear, Google Ads. OAuth handled for you.
-- **Scheduled runs, webhooks, and email triggers.** Every agent gets its own @m8tes.ai inbox.
-- **Persistent memory.** Builds context across runs, scoped per end-user.
-- **Permission modes.** Autonomous, approval-required, or plan-then-execute.
-- **Per-user isolation.** Set `user_id` on any run. Memory and tools are strictly scoped.
-- **Real-time streaming.** SSE events for text output, tool calls, files, and completion.
-- **File handling.** Agents generate reports and spreadsheets, downloadable through the API.
+| Build it yourself | With m8tes |
+|---|---|
+| Sandboxed execution environment | ✅ Hosted runtime, zero infra |
+| OAuth for every app you connect | ✅ 150+ integrations with managed OAuth |
+| Scheduling, webhook, and email triggers | ✅ Built in — set once, runs forever |
+| Human-in-the-loop approval flows | ✅ Three modes: autonomous, approval, plan |
+| Memory that persists across executions | ✅ Per-user memory out of the box |
+| Real-time streaming to your UI | ✅ SSE events, works today |
+| File output and delivery | ✅ Generated files downloadable via API |
+| Webhook infrastructure for agent events | ✅ Outbound webhooks built in |
+| Per-user data isolation | ✅ Set `user_id`, we handle the rest |
+| An email inbox for your agent | ✅ Every agent gets its own @m8tes.ai inbox |
+
+## What's included
+
+- **Hosted agent runtime** — agents run in isolated sandboxes. You ship the workflow, not the infra.
+- **150+ managed integrations** — Gmail, Slack, Notion, HubSpot, Stripe, Linear, Google Ads. OAuth and token refresh handled.
+- **Human-in-the-loop** — require approval before sensitive actions. Keep the speed without giving up control.
+- **Scheduled runs, webhooks, and email triggers** — set the cadence once. Daily, weekly, or hourly runs happen automatically.
+- **Persistent memory** — agents remember past conversations and build on them. Per-user scoping for multi-tenant apps.
+- **Permission modes** — autonomous, approval-required, or plan-then-execute. Start locked down, loosen as you gain confidence.
+- **Per-user isolation** — set `user_id` on any run. Memory, history, and tools are strictly scoped.
+- **Real-time streaming** — SSE events for text output, tool calls, files, and completion.
+- **File handling** — agents generate reports and spreadsheets, downloadable through the API.
 
 ## Use cases
 
-**Revenue reporting.** Pull MRR from Stripe, update the tracking sheet, post weekly delta to Slack.
+**Revenue reporting.** Pull MRR from Stripe, update the tracking sheet, post weekly delta to Slack. No more manual Monday reporting.
 
 **Support triage.** Classify inbound tickets, draft replies, escalate blockers. Runs 24/7 on a schedule.
 
 **Ad spend monitoring.** Check Google Ads weekly, pause low-converting campaigns, alert the team.
 
-**Customer-facing agents.** Give each user their own agent with isolated memory, tools, and permissions.
+**Customer-facing agents.** Give each user their own agent with isolated memory, tools, and permissions. Multi-tenant without custom plumbing.
 
-## Compared with LangChain or CrewAI
+## vs. LangChain, CrewAI, and other SDKs
 
-LangChain and CrewAI are orchestration frameworks. They help you coordinate model calls and tool use, but you still assemble execution, OAuth, scheduling, memory, and approval flows yourself.
+LangChain, CrewAI, and the OpenAI Agents SDK are orchestration frameworks. They help you coordinate model calls and tool use — but execution, OAuth, scheduling, memory, and approval flows are all yours to build and host.
 
-m8tes provides those pieces as a hosted runtime and API. The Python SDK is the client layer on top.
+| | LangChain / CrewAI / OpenAI SDK | m8tes |
+|---|---|---|
+| Agent execution | Local — you host it | Hosted sandbox |
+| Tool integrations | Build and maintain | 150+ with managed OAuth |
+| Scheduling & triggers | Write your own | Built in |
+| Memory | DIY persistence layer | Per-user memory out of the box |
+| Human-in-the-loop | Build approval flows | Three modes built in |
+| Real-time streaming | Roll your own | SSE out of the box |
+| Infrastructure | Your problem | Our problem |
+
+m8tes is not a framework. It's the hosted runtime layer. The Python SDK is the client on top.
 
 ## Runs
 
@@ -182,12 +208,6 @@ client.runs.answer(run.id, answers={"Which channel?": "#general"})
 ### Switch permission mode on an existing run
 
 ```python
-run = client.runs.create(
-    teammate_id=bot.id,
-    message="prepare the weekly update",
-    stream=False,
-)
-
 run = client.runs.update_permission_mode(run.id, permission_mode="approval")
 print(run.permission_mode)  # "approval"
 ```
@@ -195,18 +215,18 @@ print(run.permission_mode)  # "approval"
 ## Triggers
 
 ```python
-# schedule -- every weekday at 9am (shortcut on tasks.create, no separate call needed)
+# schedule — every weekday at 9am (shortcut on tasks.create, no separate call needed)
 task = client.tasks.create(teammate_id=..., instructions="...", schedule="0 9 * * 1-5")
 
-# webhook -- POST to a URL to trigger runs
+# webhook — POST to a URL to trigger runs
 task = client.tasks.create(teammate_id=..., instructions="...", webhook=True)
 print(task.webhook_url)  # POST here to trigger (shown once)
 
-# email -- give the teammate an inbox at creation time
+# email — give the teammate an inbox at creation time
 mate = client.teammates.create(name="inbox bot", email_inbox=True)
 print(mate.email_address)  # forward emails here
 
-# on demand -- run a saved task directly
+# on demand — run a saved task directly
 for event in client.tasks.run(task.id):
     print(event.type, event.raw)
 ```
@@ -232,7 +252,7 @@ client.memories.create(user_id="cust_123", content="prefers email over slack")
 # pre-approve tools
 client.permissions.create(user_id="cust_123", tool="gmail")
 
-# run on their behalf -- memory, permissions, history all scoped
+# run on their behalf — memory, permissions, history all scoped
 run = client.runs.create_and_wait(
     teammate_id=bot.id,
     message="check inbox for urgent items",
@@ -240,9 +260,9 @@ run = client.runs.create_and_wait(
 )
 ```
 
-## Apps & Connections
+## Apps & connections
 
-Inspect the app catalog first, then use the explicit helper that matches the app's auth type.
+Inspect the app catalog first, then use the helper that matches the app's auth type.
 
 ```python
 apps = client.apps.list(user_id="cust_123")
@@ -264,8 +284,6 @@ client.apps.connect_complete("gmail", start.connection_id, user_id="cust_123")
 client.apps.connect_api_key("gemini", api_key="sk_live_...", user_id="cust_123")
 client.apps.disconnect("gemini", user_id="cust_123")
 ```
-
-Prefer `connect_oauth()` or `connect_api_key()` when you already know the auth flow. `client.apps.connect()` is still available if you want one polymorphic entry point.
 
 ## Resources
 
@@ -304,7 +322,7 @@ hook = client.webhooks.create(
     url="https://example.com/hook",
     events=["run.completed", "run.failed"],
 )
-secret = hook.secret  # save this -- only shown once
+secret = hook.secret  # save this — only shown once
 
 # verify incoming webhooks (e.g. in Flask/FastAPI)
 from m8tes import Webhooks
@@ -365,14 +383,15 @@ m8tes mate chat ID                  # interactive chat
 
 See [CLI documentation](https://m8tes.ai/docs/cli) for all commands and options.
 
+## Links
+
+- [Documentation](https://m8tes.ai/docs)
+- [Developer hub](https://m8tes.ai/developers)
+- [Examples](./examples/)
+- [Changelog](./CHANGELOG.md)
+- [PyPI](https://pypi.org/project/m8tes/)
+- support@m8tes.ai
 
 ## License
 
-MIT License — see [LICENSE](LICENSE) for details.
-
-## Links
-
-- Documentation: [m8tes.ai/docs](https://m8tes.ai/docs)
-- Deveopers: [m8tes.ai/developers](https://m8tes.ai/developers)
-- PyPI: [pypi.org/project/m8tes](https://pypi.org/project/m8tes/)
-- Email: support@m8tes.ai
+MIT — see [LICENSE](LICENSE) for details.
