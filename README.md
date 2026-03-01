@@ -4,7 +4,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-Deploy AI agents to production in minutes. Hosted runtime, 150+ integrations, schedules, webhooks, and human-in-the-loop. All out of the box.
+Python SDK and CLI for creating agents, running tasks, streaming output, and managing connected apps through the m8tes API.
 
 ## Install
 
@@ -14,7 +14,7 @@ pip install m8tes
 
 ## Quick start
 
-Create a teammate, schedule it, give it an email inbox. Run it live in one script.
+This example creates a teammate, adds a schedule and email inbox, then starts a run.
 
 ```python
 from m8tes import M8tes
@@ -50,11 +50,11 @@ with client.runs.create(
 print(stream.run_id)
 ```
 
-## What you get out of the box
+## Included
 
-Everything you'd otherwise spend weeks building:
+The SDK gives you access to:
 
-- **Hosted sandboxed runtime.** Every run executes in an isolated environment. No servers to manage.
+- **Hosted sandboxed runtime.** Every run executes in an isolated environment.
 - **150+ managed integrations.** Gmail, Slack, Notion, HubSpot, Stripe, Linear, Google Ads. OAuth handled for you.
 - **Scheduled runs, webhooks, and email triggers.** Every agent gets its own @m8tes.ai inbox.
 - **Persistent memory.** Builds context across runs, scoped per end-user.
@@ -62,8 +62,6 @@ Everything you'd otherwise spend weeks building:
 - **Per-user isolation.** Set `user_id` on any run. Memory and tools are strictly scoped.
 - **Real-time streaming.** SSE events for text output, tool calls, files, and completion.
 - **File handling.** Agents generate reports and spreadsheets, downloadable through the API.
-
-[Free to start. No credit card required.](https://m8tes.ai/signup)
 
 ## Use cases
 
@@ -75,11 +73,11 @@ Everything you'd otherwise spend weeks building:
 
 **Customer-facing agents.** Give each user their own agent with isolated memory, tools, and permissions.
 
-## Why not LangChain or CrewAI
+## Compared with LangChain or CrewAI
 
-LangChain and CrewAI are frameworks for orchestrating LLM calls locally. You still need to build the execution environment, OAuth flows, scheduling, memory, and approval gates yourself.
+LangChain and CrewAI are orchestration frameworks. They help you coordinate model calls and tool use, but you still assemble execution, OAuth, scheduling, memory, and approval flows yourself.
 
-m8tes is the hosted infrastructure layer: sandboxed execution, managed OAuth for 150+ apps, scheduling, human-in-the-loop, and persistent memory built in. You write the logic. We run it.
+m8tes provides those pieces as a hosted runtime and API. The Python SDK is the client layer on top.
 
 ## Runs
 
@@ -367,18 +365,6 @@ m8tes mate chat ID                  # interactive chat
 
 See [CLI documentation](https://m8tes.ai/docs/cli) for all commands and options.
 
-## Testing
-
-Use the fastest layer that matches the change you made.
-
-| Layer | Command | What it proves |
-|------|---------|----------------|
-| Unit | `make test-unit` | Request/response serialization, parsing, pagination, helper behavior |
-| SDK integration | `make test-v2-integration` | Real FastAPI backend parity for the public V2 SDK surface |
-| Backend V2 integration | `cd ../../fastapi && make test-v2-integration` | Route + DB behavior for V2 endpoints |
-| Full V2 check from repo root | `make check-v2` | Backend V2 integration plus SDK V2 integration |
-| Full deterministic repo gate | `make check` | Backend, runtime, SDK, frontend, and V2 integration in one command |
-| E2E / smoke | `make test-e2e` / `make test-smoke` | Live runtime/provider confidence for expensive end-to-end flows |
 
 ## License
 
@@ -387,6 +373,6 @@ MIT License — see [LICENSE](LICENSE) for details.
 ## Links
 
 - Documentation: [m8tes.ai/docs](https://m8tes.ai/docs)
-- Developers: [m8tes.ai/developers](https://m8tes.ai/developers)
+- Deveopers: [m8tes.ai/developers](https://m8tes.ai/developers)
 - PyPI: [pypi.org/project/m8tes](https://pypi.org/project/m8tes/)
 - Email: support@m8tes.ai
