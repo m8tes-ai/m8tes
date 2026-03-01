@@ -1,6 +1,6 @@
 # SDK E2E Tests
 
-These tests are the expensive, live end-to-end lane for the Python SDK.
+These tests are the expensive live end-to-end lane for the Python SDK.
 
 Current stack:
 
@@ -55,7 +55,7 @@ uv run pytest tests/e2e/ -v -m smoke
 - `@pytest.mark.smoke`
   Smallest live subset. Use before release or when validating infra/provider changes.
 
-The compatibility fixtures in `conftest.py` are no-op placeholders now; they no longer provide mocked OpenAI/Google Ads/Meta behavior.
+The compatibility fixtures in `conftest.py` are no-op placeholders now. They no longer provide mocked OpenAI, Google Ads, or Meta behavior.
 
 ## Directory Layout
 
@@ -74,172 +74,78 @@ tests/e2e/
 - Add a test here only when the change must exercise the full runtime or CLI stack.
 - If you are changing the V2 SDK request/response contract, prefer unit tests plus `tests/integration/test_v2_integration.py`.
 - Keep smoke coverage narrow and deterministic enough to be useful before releases.
-    run = instance.execute_task("Test message")
-
-    # Verify results
-    assert run.id is not None
-
-    # Clean up
-    instance.delete()
-```
-
-### Smoke Test Template
-
-```python
-@pytest.mark.smoke
-@pytest.mark.e2e
-def test_real_api_integration(
-    authenticated_sdk_client,
-    backend_server,
-    agent_worker,
-    skip_if_no_real_apis,  # Auto-skip if not using real APIs
-):
-    """SMOKE TEST: Uses real OpenAI API."""
-    # Test with real API
-    instance = authenticated_sdk_client.instances.create(
-        name="Real API Test",
-        tools=["run_gaql_query"],
-        instructions="Use real AI",
-    )
-
-    run = instance.execute_task("Real query")
-
-    # Verify real responses
-    usage = run.get_usage()
-    assert usage["total_tokens"] > 0
-
-    # Clean up
-    instance.delete()
-```
 
 ## Troubleshooting
 
 ### Backend not available
 
 ```
-pytest.skip: Backend server not available at http://localhost:5000
+pytest.skip: Backend not available at http://localhost:8000
 ```
 
 **Solution:** Start the backend server:
 ```bash
-cd ../../../backend && flask run
+cd /Users/elmar/Environments/agent/fastapi
+uv run uvicorn main:app --reload --port 8000
 ```
 
-### Worker not available
+### Runtime-backed E2E fails
 
-```
-pytest.skip: Agent worker not available at http://localhost:8787
-```
-
-**Solution:** Start the worker:
-```bash
-cd ../../../cloudflare/m8tes-agent && npm run dev
-```
+If an E2E test depends on the full runtime path, make sure the backend environment can reach the agent runtime and any required provider credentials.
 
 ### Database connection errors
 
 **Solution:** Ensure PostgreSQL is running:
 ```bash
-cd ../../../backend && docker compose up -d
+cd /Users/elmar/Environments/agent/fastapi
+docker compose up -d
 ```
 
 ### Import errors for fixtures
 
 **Solution:** Ensure fixtures are properly defined in `fixtures/__init__.py` or imported in `conftest.py`
 
-### Real API credentials not working
+### Provider credentials not working
 
 **Solution:** Verify environment variables are set:
 ```bash
-echo $OPENAI_API_KEY
-echo $GOOGLE_ADS_DEVELOPER_TOKEN
+echo $ANTHROPIC_API_KEY
+echo $COMPOSIO_API_KEY
 ```
 
-## CI/CD Integration
+## CI / Workflow Reality
 
-### Automated Testing Strategy
+The current repo workflows are:
 
-**Pull Requests:**
-- ✅ Unit tests run on all PRs (all Python versions)
-- ✅ Linting, formatting, type checking
-- ✅ Code coverage must be ≥ 80%
-- ❌ E2E tests NOT run (to avoid service startup overhead)
+- `.github/workflows/sdk-ci.yml`
+  Runs SDK unit checks plus the deterministic V2 backend and SDK integration lane.
+- `.github/workflows/deploy.yml`
+  Handles deploy flow.
+- `.github/workflows/preview-deploy.yml`
+  Handles preview environments.
+- `.github/workflows/sync-sdk.yml`
+  Handles SDK sync automation.
 
-**Main Branch:**
-- ✅ All PR checks
-- ✅ Integration tests (with backend)
-- ✅ E2E tests with mocked external APIs
-- ✅ Build and package distribution
+Important note:
 
-**Scheduled (Nightly):**
-- ✅ Smoke tests with REAL external APIs
-- 💰 Costs ~$0.10-0.50 per run
-- 📧 Creates GitHub issue if tests fail
+- Ordinary PR CI is deterministic and zero-token.
+- This `tests/e2e/` directory is not part of the default PR gate.
+- There is no dedicated nightly smoke workflow in the repo today.
 
-**Pre-Release (Tags):**
-- ✅ All main branch checks
-- ✅ Smoke tests with real APIs
-- ✅ Full integration verification
+## Local CI Simulation
 
-### GitHub Actions Workflows
-
-The SDK includes three CI/CD workflows:
-
-**1. `.github/workflows/ci.yml` - Main CI Pipeline**
-- Runs on: Every PR + push to main
-- Jobs: test (unit), security, integration, e2e, build, publish
-- E2E job only runs on main branch
-
-**2. `.github/workflows/smoke-tests.yml` - Real API Tests**
-- Runs on: Nightly schedule (2 AM UTC), manual trigger, release tags
-- Uses real OpenAI and Google Ads APIs
-- Creates issues on failure
-- Tracks API costs
-
-**3. Monorepo CI** (optional, at root level)
-- Detects changed components
-- Runs component-specific tests
-- Coordinates cross-component E2E tests
-
-### Required Secrets
-
-Configure these in GitHub repository settings:
-
-**For Integration Tests:**
-- `TEST_API_KEY` - Test user API key
-- `TEST_BASE_URL` - Test backend URL
-
-**For Smoke Tests:**
-- `OPENAI_API_KEY` - Real OpenAI API key
-- `GOOGLE_ADS_DEVELOPER_TOKEN` - Google Ads dev token
-- `GOOGLE_ADS_CLIENT_ID` - OAuth client ID
-- `GOOGLE_ADS_CLIENT_SECRET` - OAuth client secret
-- `GOOGLE_ADS_REFRESH_TOKEN` - OAuth refresh token
-- `GOOGLE_ADS_TEST_CUSTOMER_ID` - Test customer ID
-
-### Local CI Simulation
-
-Run exactly what CI runs locally:
+Run the deterministic gate locally:
 
 ```bash
-# Unit tests (what runs on PRs)
-make ci-test
-
-# E2E tests (what runs on main)
-# First, start services
-make ci-e2e
-
-# Smoke tests (what runs nightly)
-make test-smoke
+cd /Users/elmar/Environments/agent
+make check
 ```
 
-### CI Badge
+Run only the expensive live lane from `sdk/py/`:
 
-Add this to README.md:
-
-```markdown
-![CI Status](https://github.com/your-org/your-repo/workflows/CI%2FCD%20Pipeline/badge.svg)
-![Smoke Tests](https://github.com/your-org/your-repo/workflows/Smoke%20Tests/badge.svg)
+```bash
+make test-e2e
+make test-smoke
 ```
 
 ## Best Practices
@@ -253,14 +159,13 @@ Add this to README.md:
 
 ## Cost Management
 
-**Mocked E2E tests:** $0 (free)
-**Smoke tests:** ~$0.10-0.50 per run
+**Deterministic CI:** $0
+**E2E / smoke:** depends on provider and runtime usage
 
 **To minimize costs:**
-- Run smoke tests only before releases
+- Run smoke tests only when you explicitly need live runtime confidence
 - Use test accounts with spending limits
-- Run mocked tests in CI/CD
-- Schedule smoke tests (nightly, not per-commit)
+- Keep PR CI deterministic and zero-token
 
 ## Questions?
 

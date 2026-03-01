@@ -48,7 +48,7 @@ SESSION: dict[str, str] = {}  # stand-in for your session store
 
 def start_gmail_connect(user_id: str, callback_url: str) -> str:
     """Returns the URL to redirect the user to for Gmail authorization."""
-    conn = client.apps.connect(
+    conn = client.apps.connect_oauth(
         "gmail",
         redirect_uri=callback_url,
         user_id=user_id,
@@ -89,7 +89,7 @@ def oauth_callback(code: str, state: str) -> None:
 
 def connect_openai(user_id: str, api_key: str) -> None:
     """Store an API key integration for an end-user."""
-    client.apps.connect("openai", api_key=api_key, user_id=user_id)
+    client.apps.connect_api_key("openai", api_key=api_key, user_id=user_id)
     print(f"OpenAI connected for user {user_id}")
 
 

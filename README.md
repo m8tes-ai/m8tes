@@ -377,6 +377,7 @@ Use the fastest layer that matches the change you made.
 | SDK integration | `make test-v2-integration` | Real FastAPI backend parity for the public V2 SDK surface |
 | Backend V2 integration | `cd ../../fastapi && make test-v2-integration` | Route + DB behavior for V2 endpoints |
 | Full V2 check from repo root | `make check-v2` | Backend V2 integration plus SDK V2 integration |
+| Full deterministic repo gate | `make check` | Backend, runtime, SDK, frontend, and V2 integration in one command |
 | E2E / smoke | `make test-e2e` / `make test-smoke` | Live runtime/provider confidence for expensive end-to-end flows |
 
 ## License
