@@ -187,7 +187,7 @@ def test_cli_dev_flag(backend_server):
 
     Verifies that the --dev flag overrides the default production URL.
     """
-    # The --dev flag should use http://localhost:5000
+    # The --dev flag should use the local FastAPI backend URL.
     # We can verify this by checking that commands succeed against local backend
 
     result = subprocess.run(
