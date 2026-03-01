@@ -289,11 +289,11 @@ client.apps.disconnect("gemini", user_id="cust_123")
 
 | Resource | Key methods | Description |
 |----------|------------|-------------|
-| `client.teammates` | `create` `list` `get` `update` `delete` `enable_webhook` `enable_email_inbox` | Agent personas with tools and instructions |
-| `client.runs` | `create` `poll` `create_and_wait` `reply` `reply_and_wait` `stream_text` `get` `list` `cancel` `approve` `answer` `update_permission_mode` `list_files` `download_file` | Execute teammates and stream results |
-| `client.tasks` | `create` `list` `get` `update` `delete` `run` | Reusable task definitions |
+| `client.teammates` | `create` `list` `get` `update` `delete` `enable_webhook` `disable_webhook` `enable_email_inbox` `disable_email_inbox` | Agent personas with tools and instructions |
+| `client.runs` | `create` `poll` `wait` `create_and_wait` `reply` `reply_and_wait` `stream_text` `get` `list` `cancel` `permissions` `approve` `answer` `update_permission_mode` `list_files` `download_file` | Execute teammates and stream results |
+| `client.tasks` | `create` `list` `get` `update` `delete` `run` `run_and_wait` | Reusable task definitions |
 | `client.tasks.triggers` | `create` `list` `delete` | Schedule, webhook, and email triggers |
-| `client.apps` | `list` `connect` `connect_oauth` `connect_api_key` `connect_complete` `disconnect` | Tool catalog and end-user app connections |
+| `client.apps` | `list` `is_connected` `connect` `connect_oauth` `connect_api_key` `connect_complete` `disconnect` | Tool catalog and end-user app connections |
 | `client.memories` | `create` `list` `delete` | Per-user persistent memory |
 | `client.permissions` | `create` `list` `delete` | Pre-approve tools for end-users |
 | `client.users` | `create` `list` `get` `update` `delete` | End-user profile management |
