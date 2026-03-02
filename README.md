@@ -21,33 +21,15 @@ from m8tes import M8tes
 
 client = M8tes()  # uses M8TES_API_KEY env var
 
-# create a teammate and enable its email inbox
-teammate = client.teammates.create(
-    name="ops assistant",
-    tools=["stripe", "linear", "slack"],
-    instructions="pull last week's metrics, write a short summary, post to #ops on Slack",
+result = client.runs.create_and_wait(
+    message="pull last week's Stripe MRR and post to #revenue on Slack",
+    tools=["stripe", "slack"],
+    instructions="you are a finance ops assistant",
+    permission_mode="autonomous",
     email_inbox=True,
 )
-print(f"inbox: {teammate.email_address}")  # forward anything here to trigger a run
-
-# schedule it: every Monday at 9am ET
-task = client.tasks.create(
-    teammate_id=teammate.id,
-    instructions="run the weekly ops summary",
-    schedule="0 9 * * 1",
-    schedule_timezone="America/New_York",
-)
-
-# run it now — streams live output
-with client.runs.create(
-    teammate_id=teammate.id,
-    message="run the ops summary now",
-    permission_mode="autonomous",
-) as stream:
-    for chunk in stream.iter_text():
-        print(chunk, end="", flush=True)
-
-print(stream.run_id)
+print(result.output)
+print(f"inbox: {result.email_address}")  # forward emails here to trigger future runs
 ```
 
 → Full docs and examples at [m8tes.ai/docs](https://m8tes.ai/docs)
