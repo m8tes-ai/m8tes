@@ -2,6 +2,13 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [1.5.0] - 2026-03-02
+
+### Added
+- `runs.create(email_inbox=True)` — enable email inbox on the auto-created teammate in one call
+- `runs.create_and_wait(email_inbox=True)` — same; the returned `Run` has `email_address` set
+- `Run.email_address` — email address for triggering future runs (set when `email_inbox=True` on creation)
+
 ## [1.4.2] - 2026-03-02
 
 ### Added

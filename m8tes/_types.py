@@ -85,6 +85,7 @@ class Run:
     created_at: str
     updated_at: str | None
     permission_mode: str | None = None
+    email_address: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> Run:
@@ -99,6 +100,7 @@ class Run:
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at"),
             permission_mode=data.get("permission_mode"),
+            email_address=data.get("email_address"),
         )
 
 
