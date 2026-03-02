@@ -6,7 +6,7 @@
 
 **Build agents. Skip the infrastructure.**
 
-Hosted runtime, 150+ integrations, scheduling, memory, and email inbox. Ship autonomous agents to production in minutes.
+Hosted runtime, 150+ integrations, scheduling, memory, and optional email inboxes. Ship autonomous agents to production in minutes.
 
 ## Install
 
@@ -21,7 +21,7 @@ from m8tes import M8tes
 
 client = M8tes()  # uses M8TES_API_KEY env var
 
-# create a teammate with an email inbox
+# create a teammate and enable its email inbox
 teammate = client.teammates.create(
     name="ops assistant",
     tools=["stripe", "linear", "slack"],
@@ -52,6 +52,14 @@ print(stream.run_id)
 
 → Full docs and examples at [m8tes.ai/docs](https://m8tes.ai/docs)
 
+## Auth & usage
+
+Rotate your API key with `POST /api/v2/token`. That endpoint returns a new API key and invalidates the previous one.
+
+Check current plan, run usage, and cost limits with `client.auth.get_usage()` or `m8tes auth usage`.
+
+Need email-triggered runs? Opt in with `email_inbox=True` on `client.teammates.create(...)` or call `client.teammates.enable_email_inbox(teammate_id)` later.
+
 ## What you skip
 
 | Build it yourself | With m8tes |
@@ -65,7 +73,7 @@ print(stream.run_id)
 | File output and delivery | ✅ Generated files downloadable via API |
 | Webhook infrastructure for agent events | ✅ Outbound webhooks built in |
 | Per-user data isolation | ✅ Set `user_id`, we handle the rest |
-| An email inbox for your agent | ✅ Every agent gets its own @m8tes.ai inbox |
+| An email inbox for your agent | ✅ Enable an @m8tes.ai inbox per teammate |
 
 ## What's included
 
