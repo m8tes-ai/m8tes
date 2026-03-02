@@ -222,6 +222,13 @@ class TestRuns:
         assert body["stream"] is False
 
     @responses.activate
+    def test_create_can_disable_task_setup_tools(self, http):
+        responses.add(responses.POST, f"{BASE}/runs", json={"id": 1, "status": "running"})
+        Runs(http).create(message="Do X", stream=False, task_setup_tools=False)
+        body = json.loads(responses.calls[0].request.body)
+        assert body["task_setup_tools"] is False
+
+    @responses.activate
     def test_list(self, http):
         responses.add(
             responses.GET,
@@ -258,6 +265,13 @@ class TestRuns:
         responses.add(responses.POST, f"{BASE}/runs/1/reply", json={"id": 1})
         result = Runs(http).reply(1, message="More", stream=False)
         assert isinstance(result, Run)
+
+    @responses.activate
+    def test_reply_can_override_task_setup_tools(self, http):
+        responses.add(responses.POST, f"{BASE}/runs/1/reply", json={"id": 1})
+        Runs(http).reply(1, message="More", stream=False, task_setup_tools=False)
+        body = json.loads(responses.calls[0].request.body)
+        assert body["task_setup_tools"] is False
 
     @responses.activate
     def test_cancel(self, http):
@@ -570,6 +584,17 @@ class TestTasks:
         assert body["user_id"] == "u_1"
         assert body["metadata"] == {"k": "v"}
         assert body["permission_mode"] == "approval"
+
+    @responses.activate
+    def test_run_can_disable_task_setup_tools(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/tasks/10/runs",
+            json={"id": 1, "status": "running", "created_at": "2026-01-01T00:00:00Z"},
+        )
+        Tasks(http).run(10, stream=False, task_setup_tools=False)
+        body = json.loads(responses.calls[0].request.body)
+        assert body["task_setup_tools"] is False
 
     @responses.activate
     def test_run_with_hitl_true(self, http):

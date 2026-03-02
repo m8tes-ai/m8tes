@@ -1494,6 +1494,21 @@ class TestRunsHumanInTheLoop:
         finally:
             v2_client.teammates.delete(tm.id)
 
+    def test_create_run_with_task_setup_tools_disabled(self, v2_client):
+        """Public SDK can disable internal task-setup tools per run."""
+        tm = v2_client.teammates.create(name="NoTaskSetupTools")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=tm.id,
+                message="Test without task setup tools",
+                stream=False,
+                task_setup_tools=False,
+            )
+            assert isinstance(run, Run)
+            assert run.status == "running"
+        finally:
+            v2_client.teammates.delete(tm.id)
+
     def test_plan_mode_without_hitl_rejected(self, v2_client):
         """permission_mode=plan without HITL raises ValidationError."""
         tm = v2_client.teammates.create(name="HitlPlanNoHitl")
@@ -1590,6 +1605,26 @@ class TestRunsHumanInTheLoop:
                     task.id,
                     stream=False,
                     human_in_the_loop=True,
+                )
+                assert isinstance(run, Run)
+            finally:
+                v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_task_run_with_task_setup_tools_disabled(self, v2_client):
+        """Public SDK can disable internal task-setup tools for saved-task runs."""
+        tm = v2_client.teammates.create(name="TaskNoSetupTools")
+        try:
+            task = v2_client.tasks.create(
+                teammate_id=tm.id,
+                instructions="Task run without task setup tools",
+            )
+            try:
+                run = v2_client.tasks.run(
+                    task.id,
+                    stream=False,
+                    task_setup_tools=False,
                 )
                 assert isinstance(run, Run)
             finally:
@@ -2874,7 +2909,7 @@ class TestRunsSDKMethods:
 
                 # Skip if no text produced (fake API key in CI, CLI not installed, or auth error)
                 has_text = any(isinstance(e, TextDeltaEvent) for e in events)
-                has_terminal = any(isinstance(e, (DoneEvent, ErrorEvent)) for e in events)
+                has_terminal = any(isinstance(e, DoneEvent | ErrorEvent) for e in events)
                 if not has_text and has_terminal:
                     pytest.skip("Claude produced no text — likely CI with fake API key")
 

@@ -34,6 +34,7 @@ class Runs:
         metadata: dict | None = None,
         memory: bool = True,
         history: bool = True,
+        task_setup_tools: bool = True,
         human_in_the_loop: bool = False,
         permission_mode: str = "autonomous",
     ) -> RunStream | Run:
@@ -61,6 +62,7 @@ class Runs:
             body["metadata"] = metadata
         body["memory"] = memory
         body["history"] = history
+        body["task_setup_tools"] = task_setup_tools
         if human_in_the_loop:
             body["human_in_the_loop"] = True
         if permission_mode != "autonomous":
@@ -189,6 +191,7 @@ class Runs:
         metadata: dict | None = None,
         memory: bool = True,
         history: bool = True,
+        task_setup_tools: bool = True,
         human_in_the_loop: bool = False,
         permission_mode: str = "autonomous",
         on_approval: Callable[[PermissionRequest], str] | None = None,
@@ -212,6 +215,7 @@ class Runs:
             metadata=metadata,
             memory=memory,
             history=history,
+            task_setup_tools=task_setup_tools,
             human_in_the_loop=human_in_the_loop,
             permission_mode=permission_mode,
         )
@@ -228,13 +232,19 @@ class Runs:
         run_id: int,
         *,
         message: str,
+        task_setup_tools: bool | None = None,
         on_approval: Callable[[PermissionRequest], str] | None = None,
         on_question: Callable[[PermissionRequest], dict[str, str]] | None = None,
         poll_interval: float = 2.0,
         poll_timeout: float = 300.0,
     ) -> Run:
         """Send a follow-up and wait until it completes. Returns the finished Run."""
-        run = self.reply(run_id, message=message, stream=False)
+        run = self.reply(
+            run_id,
+            message=message,
+            stream=False,
+            task_setup_tools=task_setup_tools,
+        )
         return self.wait(
             cast(Run, run).id,
             on_approval=on_approval,
@@ -255,6 +265,7 @@ class Runs:
         metadata: dict | None = None,
         memory: bool = True,
         history: bool = True,
+        task_setup_tools: bool = True,
         human_in_the_loop: bool = False,
         permission_mode: str = "autonomous",
     ) -> Generator[str, None, None]:
@@ -277,6 +288,7 @@ class Runs:
             metadata=metadata,
             memory=memory,
             history=history,
+            task_setup_tools=task_setup_tools,
             human_in_the_loop=human_in_the_loop,
             permission_mode=permission_mode,
         )
@@ -324,6 +336,7 @@ class Runs:
         *,
         message: str,
         stream: bool = True,
+        task_setup_tools: bool | None = None,
     ) -> RunStream | Run:
         """Follow-up message on an existing run. Creates a new run ID.
 
@@ -332,6 +345,8 @@ class Runs:
             Poll GET /runs/{id} until status is terminal to get output.
         """
         body = {"message": message, "stream": stream}
+        if task_setup_tools is not None:
+            body["task_setup_tools"] = task_setup_tools
         if stream:
             resp = self._http.stream("POST", f"/runs/{run_id}/reply", json=body)
             return RunStream(resp)
