@@ -117,6 +117,7 @@ class Task:
     status: str
     created_at: str
     updated_at: str | None = None
+    email_notifications: bool = True
     webhook_url: str | None = None
     webhook_enabled: bool = False
 
@@ -134,6 +135,7 @@ class Task:
             status=data.get("status", "enabled"),
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at"),
+            email_notifications=data.get("email_notifications", True),
             webhook_url=data.get("webhook_url"),
             webhook_enabled=data.get("webhook_enabled", False),
         )
