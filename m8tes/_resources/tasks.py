@@ -151,6 +151,7 @@ class Tasks:
         metadata: dict | None = None,
         memory: bool = True,
         history: bool = True,
+        task_setup_tools: bool = True,
         human_in_the_loop: bool = False,
         permission_mode: str = "autonomous",
     ) -> RunStream | Run:
@@ -163,7 +164,12 @@ class Tasks:
         Set human_in_the_loop=True to enable interactive features
         (clarifying questions, tool approval, plan mode).
         """
-        body: dict = {"stream": stream, "memory": memory, "history": history}
+        body: dict = {
+            "stream": stream,
+            "memory": memory,
+            "history": history,
+            "task_setup_tools": task_setup_tools,
+        }
         if user_id is not None:
             body["user_id"] = user_id
         if metadata is not None:
@@ -188,6 +194,7 @@ class Tasks:
         metadata: dict | None = None,
         memory: bool = True,
         history: bool = True,
+        task_setup_tools: bool = True,
         human_in_the_loop: bool = False,
         permission_mode: str = "autonomous",
         on_approval: Callable[[PermissionRequest], str] | None = None,
@@ -206,6 +213,7 @@ class Tasks:
             metadata=metadata,
             memory=memory,
             history=history,
+            task_setup_tools=task_setup_tools,
             human_in_the_loop=human_in_the_loop,
             permission_mode=permission_mode,
         )

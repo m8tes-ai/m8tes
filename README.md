@@ -50,6 +50,8 @@ with client.runs.create(
 print(stream.run_id)
 ```
 
+Set `task_setup_tools=False` on `client.runs.create(...)`, `client.runs.reply(...)`, or `client.tasks.run(...)` when you do not want the agent to receive the internal task-editing and integration-setup tools for that execution.
+
 → Full docs and examples at [m8tes.ai/docs](https://m8tes.ai/docs)
 
 ## What you skip
@@ -176,6 +178,7 @@ run = client.runs.create(
     message="draft and send the weekly report",
     human_in_the_loop=True,
     permission_mode="approval",  # or "plan", "autonomous"
+    task_setup_tools=False,      # keep this run limited to public tools only
     stream=False,
 )
 run = client.runs.wait(
