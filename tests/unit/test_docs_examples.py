@@ -26,7 +26,7 @@ class CallRecorder:
 
 
 class DummyWriteFile:
-    def __enter__(self) -> "DummyWriteFile":
+    def __enter__(self) -> DummyWriteFile:
         return self
 
     def __exit__(self, exc_type, exc, tb) -> bool:
@@ -52,7 +52,7 @@ class FakeRunStream:
             SimpleNamespace(type="done", delta=None, tool_name=None, tool_input=None),
         ]
 
-    def __enter__(self) -> "FakeRunStream":
+    def __enter__(self) -> FakeRunStream:
         self._recorder.record("runs.stream.enter")
         return self
 
