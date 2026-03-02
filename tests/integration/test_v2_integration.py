@@ -666,6 +666,58 @@ class TestTasksCRUD:
             v2_client.teammates.delete(tm.id)
 
 
+# ── Task Email Notifications ──────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestTaskEmailNotifications:
+    def test_create_defaults_to_true(self, v2_client):
+        """email_notifications defaults to True when omitted."""
+        tm = v2_client.teammates.create(name="EmailNotifDefault")
+        try:
+            task = v2_client.tasks.create(teammate_id=tm.id, instructions="Daily digest")
+            try:
+                assert task.email_notifications is True
+            finally:
+                v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_create_with_false(self, v2_client):
+        """email_notifications=False is persisted and returned."""
+        tm = v2_client.teammates.create(name="EmailNotifFalse")
+        try:
+            task = v2_client.tasks.create(
+                teammate_id=tm.id,
+                instructions="Silent task",
+                email_notifications=False,
+            )
+            try:
+                assert task.email_notifications is False
+                fetched = v2_client.tasks.get(task.id)
+                assert fetched.email_notifications is False
+            finally:
+                v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_update_toggle(self, v2_client):
+        """email_notifications can be toggled via update."""
+        tm = v2_client.teammates.create(name="EmailNotifToggle")
+        try:
+            task = v2_client.tasks.create(teammate_id=tm.id, instructions="Toggleable")
+            try:
+                assert task.email_notifications is True
+                updated = v2_client.tasks.update(task.id, email_notifications=False)
+                assert updated.email_notifications is False
+                re_enabled = v2_client.tasks.update(task.id, email_notifications=True)
+                assert re_enabled.email_notifications is True
+            finally:
+                v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+
 # ── Task Triggers ────────────────────────────────────────────────────
 
 
