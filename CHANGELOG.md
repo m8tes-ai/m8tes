@@ -2,6 +2,13 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [1.4.2] - 2026-03-02
+
+### Added
+- `tasks.create(email_notifications=False)` — disable email on scheduled run completion (default: `True`)
+- `tasks.update(task_id, email_notifications=False)` — toggle email notifications on existing tasks
+- `Task.email_notifications` — field on the `Task` dataclass reflecting the current setting
+
 ## [1.4.1] - 2026-02-28
 
 ### Added
