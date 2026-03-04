@@ -2388,6 +2388,79 @@ class TestMultiTenancyIsolation:
         finally:
             v2_client.teammates.delete(tm.id)
 
+    def test_run_inherits_scoped_teammate_user_id(self, v2_client):
+        """Run should inherit the teammate user_id when omitted."""
+        uid = _uid()
+        tm = v2_client.teammates.create(name="ScopedRunHost", user_id=uid)
+        try:
+            run = v2_client.runs.create(teammate_id=tm.id, message="Test", stream=False)
+            assert run.user_id == uid
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_run_rejects_mismatched_scoped_teammate_user_id(self, v2_client):
+        """Run should reject a user_id that does not match a scoped teammate."""
+        uid_a, uid_b = _uid(), _uid()
+        tm = v2_client.teammates.create(name="ScopedMismatchRunHost", user_id=uid_a)
+        try:
+            with pytest.raises(NotFoundError):
+                v2_client.runs.create(
+                    teammate_id=tm.id,
+                    message="Test",
+                    stream=False,
+                    user_id=uid_b,
+                )
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_task_rejects_mismatched_scoped_teammate_user_id(self, v2_client):
+        """Task creation should reject a user_id that does not match a scoped teammate."""
+        uid_a, uid_b = _uid(), _uid()
+        tm = v2_client.teammates.create(name="ScopedMismatchTaskHost", user_id=uid_a)
+        try:
+            with pytest.raises(NotFoundError):
+                v2_client.tasks.create(
+                    teammate_id=tm.id,
+                    instructions="Do the thing",
+                    user_id=uid_b,
+                )
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_task_run_inherits_scoped_task_user_id(self, v2_client):
+        """Saved-task runs should inherit the task scope when user_id is omitted."""
+        uid = _uid()
+        tm = v2_client.teammates.create(name="ScopedTaskRunHost", user_id=uid)
+        try:
+            task = v2_client.tasks.create(
+                teammate_id=tm.id,
+                instructions="Review the inbox",
+            )
+            try:
+                run = v2_client.tasks.run(task.id, stream=False)
+                assert run.user_id == uid
+            finally:
+                v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_task_run_rejects_mismatched_scoped_task_user_id(self, v2_client):
+        """Saved-task runs should reject a user_id that does not match the task scope."""
+        uid_a, uid_b = _uid(), _uid()
+        tm = v2_client.teammates.create(name="ScopedTaskRunMismatchHost", user_id=uid_a)
+        try:
+            task = v2_client.tasks.create(
+                teammate_id=tm.id,
+                instructions="Review the inbox",
+            )
+            try:
+                with pytest.raises(NotFoundError):
+                    v2_client.tasks.run(task.id, stream=False, user_id=uid_b)
+            finally:
+                v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
 
 # ── Response Type Verification ───────────────────────────────────────
 

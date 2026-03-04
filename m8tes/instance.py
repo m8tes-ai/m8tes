@@ -61,7 +61,8 @@ class AgentInstance:
             stream: Enable streaming (default: True)
             format: Output format - "events" (StreamEvent objects),
                 "text" (strings), or "json" (dicts)
-            task_setup_tools: Enable built-in same-scope management MCP tools (default: True)
+            task_setup_tools: Enable built-in same-scope management MCP tools for
+                teammates, tasks, runs, approvals, files, and memories (default: True)
 
         Yields:
             StreamEvent objects (or strings/dicts based on format)
@@ -91,7 +92,8 @@ class AgentInstance:
             mode: Execution mode - "task" for one-off, "chat" for conversation
             session_id: Optional session ID to resume (chat mode only)
             run_id: Optional run ID to reuse (prevents duplicate run creation)
-            task_setup_tools: Enable built-in same-scope management MCP tools (default: True)
+            task_setup_tools: Enable built-in same-scope management MCP tools for
+                teammates, tasks, runs, approvals, files, and memories (default: True)
 
         Yields:
             StreamEvent objects (or strings/dicts based on format)
