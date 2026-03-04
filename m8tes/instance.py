@@ -47,7 +47,11 @@ class AgentInstance:
         self._data = data
 
     def execute_task(
-        self, message: str, stream: bool = True, format: StreamFormat = "events"
+        self,
+        message: str,
+        stream: bool = True,
+        format: StreamFormat = "events",
+        task_setup_tools: bool = True,
     ) -> Generator[StreamEvent, None, None]:
         """
         Execute one-off task with streaming support (clears history first).
@@ -57,22 +61,15 @@ class AgentInstance:
             stream: Enable streaming (default: True)
             format: Output format - "events" (StreamEvent objects),
                 "text" (strings), or "json" (dicts)
+            task_setup_tools: Enable built-in task-setup MCP tools (default: True)
 
         Yields:
             StreamEvent objects (or strings/dicts based on format)
-
-        Examples:
-            # Stream with typed events
-            for event in instance.execute_task("Show my campaigns", stream=True):
-                if isinstance(event, TextDeltaEvent):
-                    print(event.delta, end="")
-
-            # Stream just text
-            for text in instance.execute_task("Show my campaigns", stream=True, format="text"):
-                print(text, end="")
         """
         # Execute via Claude SDK endpoint
-        yield from self._execute_via_sdk(message, format=format, stream=stream)
+        yield from self._execute_via_sdk(
+            message, format=format, stream=stream, task_setup_tools=task_setup_tools
+        )
 
     def _execute_via_sdk(
         self,
@@ -82,6 +79,7 @@ class AgentInstance:
         mode: Literal["task", "chat"] = "task",
         session_id: str | None = None,
         run_id: int | None = None,
+        task_setup_tools: bool = True,
     ) -> Generator[StreamEvent, None, None]:
         """
         Execute task via Claude SDK execution endpoint.
@@ -93,6 +91,7 @@ class AgentInstance:
             mode: Execution mode - "task" for one-off, "chat" for conversation
             session_id: Optional session ID to resume (chat mode only)
             run_id: Optional run ID to reuse (prevents duplicate run creation)
+            task_setup_tools: Enable built-in task-setup MCP tools (default: True)
 
         Yields:
             StreamEvent objects (or strings/dicts based on format)
@@ -105,7 +104,9 @@ class AgentInstance:
         execute_url = f"{backend_url}/api/v1/agents/instances/{self.id}/execute"
 
         # Build request body
-        body = {"task": message, "mode": mode, "stream": stream}
+        body: dict = {
+            "task": message, "mode": mode, "stream": stream, "task_setup_tools": task_setup_tools
+        }
 
         # Only include session_id if explicitly provided (for resuming conversations)
         if mode == "chat" and session_id:

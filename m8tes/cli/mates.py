@@ -590,7 +590,12 @@ class MateCLI:
             print(f"❌ Failed to get teammate: {e}")
 
     def task_interactive(
-        self, message: str, mate_id: str, output_format: str = "verbose", debug: bool = False
+        self,
+        message: str,
+        mate_id: str,
+        output_format: str = "verbose",
+        debug: bool = False,
+        task_setup_tools: bool = True,
     ) -> None:
         """
         Execute a one-off task with the teammate using streaming.
@@ -626,7 +631,9 @@ class MateCLI:
             # Stream task execution
             event_count = 0
             try:
-                for event in instance.execute_task(message, stream=True, format="events"):
+                for event in instance.execute_task(
+                    message, stream=True, format="events", task_setup_tools=task_setup_tools
+                ):
                     event_count += 1
                     if debug and output_format != "json":
                         print(f"[DEBUG] Event #{event_count}: {event.type}")
