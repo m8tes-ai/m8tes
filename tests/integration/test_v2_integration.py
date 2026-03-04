@@ -2944,7 +2944,7 @@ class TestRunsSDKMethods:
 
                 # Skip if no text produced (fake API key in CI, CLI not installed, or auth error)
                 has_text = any(isinstance(e, TextDeltaEvent) for e in events)
-                has_terminal = any(isinstance(e, (DoneEvent, ErrorEvent)) for e in events)
+                has_terminal = any(isinstance(e, DoneEvent | ErrorEvent) for e in events)
                 if not has_text and has_terminal:
                     pytest.skip("Claude produced no text — likely CI with fake API key")
 
