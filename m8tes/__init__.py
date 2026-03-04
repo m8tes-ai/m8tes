@@ -31,6 +31,7 @@ from ._streaming import RunStream
 from ._types import (
     AccountSettings,
     App,
+    AuditLog,
     AppConnection,
     AppConnectionInitiation,
     AppConnectionResult,
@@ -83,6 +84,7 @@ __all__ = [
     "Agent",
     "AgentError",
     "App",
+    "AuditLog",
     "AppConnection",
     "AppConnectionInitiation",
     "AppConnectionResult",
