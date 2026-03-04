@@ -32,7 +32,9 @@ print(result.output)
 print(f"inbox: {result.email_address}")  # forward emails here to trigger future runs
 ```
 
-Set `task_setup_tools=False` on `client.runs.create(...)`, `client.runs.reply(...)`, or `client.tasks.run(...)` when you do not want the agent to receive the internal same-scope management tools for teammates, tasks, runs, inboxes, webhooks, and app connections during that execution.
+Set `task_setup_tools=False` on `client.runs.create(...)`, `client.runs.reply(...)`, or `client.tasks.run(...)` when you do not want the agent to receive the internal same-scope management tools for teammates, tasks, runs, approvals, files, memories, inboxes, webhooks, and app connections during that execution.
+
+When you pass `user_id`, the run is scoped to that end user. If you target an existing teammate or task that is already scoped, the `user_id` you pass must match that resource's scope. If you omit `user_id`, runs and tasks inherit the scope from the targeted teammate or task.
 
 → Full docs and examples at [m8tes.ai/docs](https://m8tes.ai/docs)
 
@@ -245,12 +247,25 @@ client.memories.create(user_id="cust_123", content="prefers email over slack")
 # pre-approve tools
 client.permissions.create(user_id="cust_123", tool="gmail")
 
-# run on their behalf — memory, permissions, history all scoped
+# run on their behalf — memory, permissions, history, and internal management tools all scoped
 run = client.runs.create_and_wait(
     teammate_id=bot.id,
     message="check inbox for urgent items",
     user_id="cust_123",
 )
+```
+
+The same rule applies to saved tasks and follow-up runs:
+
+```python
+task = client.tasks.create(
+    teammate_id=bot.id,
+    instructions="review urgent inbox items",
+)
+
+# inherits cust_123 from the scoped teammate
+run = client.tasks.run(task.id, stream=False)
+assert run.user_id == "cust_123"
 ```
 
 ## Apps & connections

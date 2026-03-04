@@ -47,6 +47,9 @@ class Runs:
 
         Set human_in_the_loop=True to enable interactive features
         (clarifying questions, tool approval, plan mode).
+
+        If teammate_id points at an end-user-scoped teammate, omitting user_id
+        inherits that scope. Passing a different user_id is rejected.
         """
         body: dict = {"message": message, "stream": stream}
         if teammate_id is not None:
