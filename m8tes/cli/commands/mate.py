@@ -288,7 +288,10 @@ class TaskCommand(Command):
             "--no-task-setup-tools",
             action="store_true",
             default=False,
-            help="Disable built-in same-scope management tools for this run.",
+            help=(
+                "Disable built-in same-scope management tools for teammates, tasks, "
+                "runs, approvals, files, and memories on this run."
+            ),
         )
 
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:

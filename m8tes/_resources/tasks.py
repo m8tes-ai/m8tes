@@ -169,6 +169,9 @@ class Tasks:
 
         Set human_in_the_loop=True to enable interactive features
         (clarifying questions, tool approval, plan mode).
+
+        If the saved task is already scoped to an end user, omitting user_id
+        inherits that scope. Passing a different user_id is rejected.
         """
         body: dict = {
             "stream": stream,
