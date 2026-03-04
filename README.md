@@ -300,7 +300,7 @@ client.apps.disconnect("gemini", user_id="cust_123")
 
 | Resource | Key methods | Description |
 |----------|------------|-------------|
-| `client.teammates` | `create` `list` `get` `update` `delete` `enable_webhook` `disable_webhook` `enable_email_inbox` `disable_email_inbox` | Agent personas with tools and instructions |
+| `client.teammates` | `create` `list` `get` `update` `delete` `enable_webhook` `disable_webhook` `enable_email_inbox` `disable_email_inbox` `enable_fetchmail` `disable_fetchmail` | Agent personas with tools and instructions |
 | `client.runs` | `create` `poll` `wait` `create_and_wait` `reply` `reply_and_wait` `stream_text` `get` `list` `cancel` `permissions` `approve` `answer` `update_permission_mode` `list_files` `download_file` | Execute teammates and stream results |
 | `client.tasks` | `create` `list` `get` `update` `delete` `run` `run_and_wait` | Reusable task definitions |
 | `client.tasks.triggers` | `create` `list` `delete` | Schedule, webhook, and email triggers |

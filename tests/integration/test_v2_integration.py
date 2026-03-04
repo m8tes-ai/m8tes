@@ -33,6 +33,7 @@ from m8tes._types import (
     AccountSettings,
     EmailInbox,
     EndUser,
+    FetchmailInbox,
     Memory,
     PermissionPolicy,
     Run,
@@ -408,6 +409,67 @@ class TestTeammateEmailInbox:
             assert "@" in tm.email_address
         finally:
             v2_client.teammates.delete(tm.id)
+
+
+@pytest.mark.integration
+class TestTeammateFetchmail:
+    """Fetchmail (read-only inbox) lifecycle tests."""
+
+    def test_enable_disable_lifecycle(self, v2_client):
+        """Enable fetchmail → verify FetchmailInbox → disable → 204."""
+        tm = v2_client.teammates.create(name="FetchmailHost")
+        try:
+            inbox = v2_client.teammates.enable_fetchmail(tm.id)
+            assert isinstance(inbox, FetchmailInbox)
+            assert inbox.enabled is True
+            assert inbox.address is not None
+            assert "@" in inbox.address
+
+            v2_client.teammates.disable_fetchmail(tm.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_enable_idempotent(self, v2_client):
+        """Enable twice returns the same address."""
+        tm = v2_client.teammates.create(name="FetchmailIdem")
+        try:
+            inbox1 = v2_client.teammates.enable_fetchmail(tm.id)
+            inbox2 = v2_client.teammates.enable_fetchmail(tm.id)
+            assert inbox1.address == inbox2.address
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_fetchmail_fields_in_get(self, v2_client):
+        """Fetchmail fields appear in teammate.get() response."""
+        tm = v2_client.teammates.create(name="FetchmailGet")
+        try:
+            v2_client.teammates.enable_fetchmail(tm.id)
+            fetched = v2_client.teammates.get(tm.id)
+            assert fetched.fetchmail_enabled is True
+            assert fetched.fetchmail_address is not None
+            assert "@" in fetched.fetchmail_address
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_independent_from_email_inbox(self, v2_client):
+        """Fetchmail and email inbox use different addresses."""
+        tm = v2_client.teammates.create(name="FetchmailIndep")
+        try:
+            email = v2_client.teammates.enable_email_inbox(tm.id)
+            fetchmail = v2_client.teammates.enable_fetchmail(tm.id)
+            assert email.address != fetchmail.address
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_enable_nonexistent_404(self, v2_client):
+        """Enable fetchmail on nonexistent teammate returns 404."""
+        with pytest.raises(NotFoundError):
+            v2_client.teammates.enable_fetchmail(999999)
+
+    def test_disable_nonexistent_404(self, v2_client):
+        """Disable fetchmail on nonexistent teammate returns 404."""
+        with pytest.raises(NotFoundError):
+            v2_client.teammates.disable_fetchmail(999999)
 
 
 # ── Tasks ────────────────────────────────────────────────────────────
