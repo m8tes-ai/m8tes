@@ -1561,6 +1561,21 @@ class TestRunsHumanInTheLoop:
         finally:
             v2_client.teammates.delete(tm.id)
 
+    def test_create_run_with_feedback_disabled(self, v2_client):
+        """Public SDK can disable internal feedback tool per run."""
+        tm = v2_client.teammates.create(name="NoFeedback")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=tm.id,
+                message="Test without feedback tool",
+                stream=False,
+                feedback=False,
+            )
+            assert isinstance(run, Run)
+            assert run.status == "running"
+        finally:
+            v2_client.teammates.delete(tm.id)
+
     def test_plan_mode_without_hitl_rejected(self, v2_client):
         """permission_mode=plan without HITL raises ValidationError."""
         tm = v2_client.teammates.create(name="HitlPlanNoHitl")
@@ -1677,6 +1692,26 @@ class TestRunsHumanInTheLoop:
                     task.id,
                     stream=False,
                     task_setup_tools=False,
+                )
+                assert isinstance(run, Run)
+            finally:
+                v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_task_run_with_feedback_disabled(self, v2_client):
+        """Public SDK can disable internal feedback tool for saved-task runs."""
+        tm = v2_client.teammates.create(name="TaskNoFeedback")
+        try:
+            task = v2_client.tasks.create(
+                teammate_id=tm.id,
+                instructions="Task run without feedback tool",
+            )
+            try:
+                run = v2_client.tasks.run(
+                    task.id,
+                    stream=False,
+                    feedback=False,
                 )
                 assert isinstance(run, Run)
             finally:

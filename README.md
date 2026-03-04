@@ -32,7 +32,7 @@ print(result.output)
 print(f"inbox: {result.email_address}")  # forward emails here to trigger future runs
 ```
 
-Set `task_setup_tools=False` on `client.runs.create(...)`, `client.runs.reply(...)`, or `client.tasks.run(...)` when you do not want the agent to receive the internal same-scope management tools for teammates, tasks, runs, approvals, files, memories, inboxes, webhooks, and app connections during that execution.
+Set `task_setup_tools=False` on `client.runs.create(...)`, `client.runs.reply(...)`, or `client.tasks.run(...)` when you do not want the agent to receive the internal same-scope management tools for teammates, tasks, runs, approvals, files, memories, inboxes, webhooks, and app connections during that execution. Set `feedback=False` on those same V2 calls to disable the internal issue-reporting feedback tool (`report_issue`) for that execution.
 
 When you pass `user_id`, the run is scoped to that end user. If you target an existing teammate or task that is already scoped, the `user_id` you pass must match that resource's scope. If you omit `user_id`, runs and tasks inherit the scope from the targeted teammate or task.
 

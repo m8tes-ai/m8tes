@@ -158,6 +158,7 @@ class Tasks:
         memory: bool = True,
         history: bool = True,
         task_setup_tools: bool = True,
+        feedback: bool = True,
         human_in_the_loop: bool = False,
         permission_mode: str = "autonomous",
     ) -> RunStream | Run:
@@ -178,6 +179,7 @@ class Tasks:
             "memory": memory,
             "history": history,
             "task_setup_tools": task_setup_tools,
+            "feedback": feedback,
         }
         if user_id is not None:
             body["user_id"] = user_id
@@ -204,6 +206,7 @@ class Tasks:
         memory: bool = True,
         history: bool = True,
         task_setup_tools: bool = True,
+        feedback: bool = True,
         human_in_the_loop: bool = False,
         permission_mode: str = "autonomous",
         on_approval: Callable[[PermissionRequest], str] | None = None,
@@ -223,6 +226,7 @@ class Tasks:
             memory=memory,
             history=history,
             task_setup_tools=task_setup_tools,
+            feedback=feedback,
             human_in_the_loop=human_in_the_loop,
             permission_mode=permission_mode,
         )
