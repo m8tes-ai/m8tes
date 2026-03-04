@@ -64,6 +64,8 @@ class Teammate:
     updated_at: str | None = None
     inbound_email_enabled: bool = False
     email_address: str | None = None
+    fetchmail_enabled: bool = False
+    fetchmail_address: str | None = None
     webhook_enabled: bool = False
     webhook_url: str | None = None
 
@@ -81,6 +83,8 @@ class Teammate:
             allowed_senders=data.get("allowed_senders"),
             inbound_email_enabled=data.get("inbound_email_enabled", False),
             email_address=data.get("email_address"),
+            fetchmail_enabled=data.get("fetchmail_enabled", False),
+            fetchmail_address=data.get("fetchmail_address"),
             webhook_enabled=data.get("webhook_enabled", False),
             webhook_url=data.get("webhook_url"),
             status=data.get("status", "enabled"),
@@ -223,6 +227,18 @@ class EmailInbox:
 
     @classmethod
     def from_dict(cls, data: dict) -> EmailInbox:
+        return cls(enabled=data["enabled"], address=data.get("address"))
+
+
+@dataclass
+class FetchmailInbox:
+    """Teammate fetchmail (read-only) inbox status."""
+
+    enabled: bool
+    address: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> FetchmailInbox:
         return cls(enabled=data["enabled"], address=data.get("address"))
 
 

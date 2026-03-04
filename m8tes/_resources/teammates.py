@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .._types import EmailInbox, SyncPage, Teammate, TeammateWebhook
+from .._types import EmailInbox, FetchmailInbox, SyncPage, Teammate, TeammateWebhook
 from ._utils import _build_params
 
 _list = list  # preserve builtin; shadowed by .list() method
@@ -131,3 +131,12 @@ class Teammates:
     def disable_email_inbox(self, teammate_id: int) -> None:
         """Disable email inbox on a teammate."""
         self._http.request("DELETE", f"/teammates/{teammate_id}/email-inbox")
+
+    def enable_fetchmail(self, teammate_id: int) -> FetchmailInbox:
+        """Enable read-only email inbox on a teammate. Returns the email address."""
+        resp = self._http.request("POST", f"/teammates/{teammate_id}/fetchmail")
+        return FetchmailInbox.from_dict(resp.json())
+
+    def disable_fetchmail(self, teammate_id: int) -> None:
+        """Disable read-only email inbox on a teammate."""
+        self._http.request("DELETE", f"/teammates/{teammate_id}/fetchmail")
