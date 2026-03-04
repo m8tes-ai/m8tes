@@ -85,6 +85,7 @@ class Run:
     created_at: str
     updated_at: str | None
     permission_mode: str | None = None
+    email_address: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> Run:
@@ -99,6 +100,7 @@ class Run:
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at"),
             permission_mode=data.get("permission_mode"),
+            email_address=data.get("email_address"),
         )
 
 
@@ -117,6 +119,7 @@ class Task:
     status: str
     created_at: str
     updated_at: str | None = None
+    email_notifications: bool = True
     webhook_url: str | None = None
     webhook_enabled: bool = False
 
@@ -134,6 +137,7 @@ class Task:
             status=data.get("status", "enabled"),
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at"),
+            email_notifications=data.get("email_notifications", True),
             webhook_url=data.get("webhook_url"),
             webhook_enabled=data.get("webhook_enabled", False),
         )

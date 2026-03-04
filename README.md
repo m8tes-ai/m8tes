@@ -6,7 +6,7 @@
 
 **Build agents. Skip the infrastructure.**
 
-Hosted runtime, 150+ integrations, scheduling, memory, and email inbox. Ship autonomous agents to production in minutes.
+Hosted runtime, 150+ integrations, scheduling, memory, and optional email inboxes. Ship autonomous agents to production in minutes.
 
 ## Install
 
@@ -21,38 +21,28 @@ from m8tes import M8tes
 
 client = M8tes()  # uses M8TES_API_KEY env var
 
-# create a teammate with an email inbox
-teammate = client.teammates.create(
-    name="ops assistant",
-    tools=["stripe", "linear", "slack"],
-    instructions="pull last week's metrics, write a short summary, post to #ops on Slack",
+result = client.runs.create_and_wait(
+    message="pull last week's Stripe MRR and post to #revenue on Slack",
+    tools=["stripe", "slack"],
+    instructions="you are a finance ops assistant",
+    permission_mode="autonomous",
     email_inbox=True,
 )
-print(f"inbox: {teammate.email_address}")  # forward anything here to trigger a run
-
-# schedule it: every Monday at 9am ET
-task = client.tasks.create(
-    teammate_id=teammate.id,
-    instructions="run the weekly ops summary",
-    schedule="0 9 * * 1",
-    schedule_timezone="America/New_York",
-)
-
-# run it now — streams live output
-with client.runs.create(
-    teammate_id=teammate.id,
-    message="run the ops summary now",
-    permission_mode="autonomous",
-) as stream:
-    for chunk in stream.iter_text():
-        print(chunk, end="", flush=True)
-
-print(stream.run_id)
+print(result.output)
+print(f"inbox: {result.email_address}")  # forward emails here to trigger future runs
 ```
 
 Set `task_setup_tools=False` on `client.runs.create(...)`, `client.runs.reply(...)`, or `client.tasks.run(...)` when you do not want the agent to receive the internal task-editing and integration-setup tools for that execution.
 
 → Full docs and examples at [m8tes.ai/docs](https://m8tes.ai/docs)
+
+## Auth & usage
+
+Rotate your API key with `POST /api/v2/token`. That endpoint returns a new API key and invalidates the previous one.
+
+Check current plan, run usage, and cost limits with `client.auth.get_usage()` or `m8tes auth usage`.
+
+Need email-triggered runs? Opt in with `email_inbox=True` on `client.teammates.create(...)` or call `client.teammates.enable_email_inbox(teammate_id)` later.
 
 ## What you skip
 
@@ -67,7 +57,7 @@ Set `task_setup_tools=False` on `client.runs.create(...)`, `client.runs.reply(..
 | File output and delivery | ✅ Generated files downloadable via API |
 | Webhook infrastructure for agent events | ✅ Outbound webhooks built in |
 | Per-user data isolation | ✅ Set `user_id`, we handle the rest |
-| An email inbox for your agent | ✅ Every agent gets its own @m8tes.ai inbox |
+| An email inbox for your agent | ✅ Enable an @m8tes.ai inbox per teammate |
 
 ## What's included
 

@@ -666,6 +666,58 @@ class TestTasksCRUD:
             v2_client.teammates.delete(tm.id)
 
 
+# ── Task Email Notifications ──────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestTaskEmailNotifications:
+    def test_create_defaults_to_true(self, v2_client):
+        """email_notifications defaults to True when omitted."""
+        tm = v2_client.teammates.create(name="EmailNotifDefault")
+        try:
+            task = v2_client.tasks.create(teammate_id=tm.id, instructions="Daily digest")
+            try:
+                assert task.email_notifications is True
+            finally:
+                v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_create_with_false(self, v2_client):
+        """email_notifications=False is persisted and returned."""
+        tm = v2_client.teammates.create(name="EmailNotifFalse")
+        try:
+            task = v2_client.tasks.create(
+                teammate_id=tm.id,
+                instructions="Silent task",
+                email_notifications=False,
+            )
+            try:
+                assert task.email_notifications is False
+                fetched = v2_client.tasks.get(task.id)
+                assert fetched.email_notifications is False
+            finally:
+                v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_update_toggle(self, v2_client):
+        """email_notifications can be toggled via update."""
+        tm = v2_client.teammates.create(name="EmailNotifToggle")
+        try:
+            task = v2_client.tasks.create(teammate_id=tm.id, instructions="Toggleable")
+            try:
+                assert task.email_notifications is True
+                updated = v2_client.tasks.update(task.id, email_notifications=False)
+                assert updated.email_notifications is False
+                re_enabled = v2_client.tasks.update(task.id, email_notifications=True)
+                assert re_enabled.email_notifications is True
+            finally:
+                v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+
 # ── Task Triggers ────────────────────────────────────────────────────
 
 
@@ -2834,6 +2886,24 @@ class TestRunsSDKMethods:
             assert run.status in ("completed", "failed", "cancelled")
         finally:
             v2_client.teammates.delete(tm.id)
+
+    def test_create_and_wait_email_inbox(self, v2_client):
+        """create_and_wait(email_inbox=True) returns a run with email_address set."""
+        run = v2_client.runs.create_and_wait(
+            message="say hello",
+            instructions="you are a test assistant",
+            email_inbox=True,
+            poll_interval=1.0,
+            poll_timeout=120.0,
+        )
+        try:
+            assert isinstance(run, Run)
+            assert run.email_address is not None
+            assert "@" in run.email_address
+        finally:
+            if run.teammate_id:
+                with contextlib.suppress(Exception):
+                    v2_client.teammates.delete(run.teammate_id)
 
     def test_create_and_wait_has_output(self, v2_client):
         """create_and_wait() on completed run has non-empty output."""
