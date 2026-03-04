@@ -9,7 +9,7 @@ Usage:
     python demo.py
 """
 
-from m8tes import M8tes
+from m8tes import M8tes, PermissionMode
 
 client = M8tes()
 
@@ -43,7 +43,7 @@ print("-" * 48)
 with client.runs.create(
     teammate_id=teammate.id,
     message="run the ops summary now",
-    permission_mode="autonomous",
+    permission_mode=PermissionMode.AUTONOMOUS,
 ) as stream:
     for chunk in stream.iter_text():
         print(chunk, end="", flush=True)

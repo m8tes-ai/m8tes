@@ -6,7 +6,14 @@ from collections.abc import Callable, Generator
 from typing import TYPE_CHECKING, Any, cast
 
 from .._streaming import RunStream
-from .._types import PermissionModeResponse, PermissionRequest, Run, RunFile, SyncPage
+from .._types import (
+    PermissionMode,
+    PermissionModeResponse,
+    PermissionRequest,
+    Run,
+    RunFile,
+    SyncPage,
+)
 from ._utils import _build_params
 
 _list = list  # preserve builtin; shadowed by .list() method
@@ -37,7 +44,7 @@ class Runs:
         task_setup_tools: bool = True,
         feedback: bool = True,
         human_in_the_loop: bool = False,
-        permission_mode: str = "autonomous",
+        permission_mode: PermissionMode | str = PermissionMode.AUTONOMOUS,
         email_inbox: bool = False,
     ) -> RunStream | Run:
         """Create and execute a run.
@@ -202,7 +209,7 @@ class Runs:
         task_setup_tools: bool = True,
         feedback: bool = True,
         human_in_the_loop: bool = False,
-        permission_mode: str = "autonomous",
+        permission_mode: PermissionMode | str = PermissionMode.AUTONOMOUS,
         email_inbox: bool = False,
         on_approval: Callable[[PermissionRequest], str] | None = None,
         on_question: Callable[[PermissionRequest], dict[str, str]] | None = None,
@@ -289,7 +296,7 @@ class Runs:
         task_setup_tools: bool = True,
         feedback: bool = True,
         human_in_the_loop: bool = False,
-        permission_mode: str = "autonomous",
+        permission_mode: PermissionMode | str = PermissionMode.AUTONOMOUS,
     ) -> Generator[str, None, None]:
         """Create a streaming run and yield only text delta strings.
 
@@ -387,7 +394,7 @@ class Runs:
         self,
         run_id: int,
         *,
-        permission_mode: str,
+        permission_mode: PermissionMode | str,
     ) -> PermissionModeResponse:
         """Change permission mode mid-run.
 

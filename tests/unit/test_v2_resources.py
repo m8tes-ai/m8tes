@@ -18,6 +18,7 @@ from m8tes._types import (
     App,
     AppConnectionInitiation,
     AppConnectionResult,
+    PermissionMode,
     PermissionRequest,
     Run,
     RunFile,
@@ -236,6 +237,18 @@ class TestRuns:
         assert body["feedback"] is False
 
     @responses.activate
+    def test_create_accepts_permission_mode_enum(self, http):
+        responses.add(responses.POST, f"{BASE}/runs", json={"id": 1, "status": "running"})
+        Runs(http).create(
+            message="Do X",
+            stream=False,
+            human_in_the_loop=True,
+            permission_mode=PermissionMode.APPROVAL,
+        )
+        body = json.loads(responses.calls[0].request.body)
+        assert body["permission_mode"] == "approval"
+
+    @responses.activate
     def test_list(self, http):
         responses.add(
             responses.GET,
@@ -307,6 +320,19 @@ class TestRuns:
         assert result.permission_mode == "approval"
         body = json.loads(responses.calls[0].request.body)
         assert body == {"permission_mode": "approval"}
+
+    @responses.activate
+    def test_update_permission_mode_accepts_enum(self, http):
+        responses.add(
+            responses.PATCH,
+            f"{BASE}/runs/1/permission-mode",
+            json={"permission_mode": "plan"},
+            status=200,
+        )
+        result = Runs(http).update_permission_mode(1, permission_mode=PermissionMode.PLAN)
+        assert result.permission_mode == "plan"
+        body = json.loads(responses.calls[0].request.body)
+        assert body == {"permission_mode": "plan"}
 
     @responses.activate
     def test_permissions(self, http):
@@ -622,6 +648,22 @@ class TestTasks:
         assert body["feedback"] is False
 
     @responses.activate
+    def test_run_accepts_permission_mode_enum(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/tasks/10/runs",
+            json={"id": 1, "status": "running", "created_at": "2026-01-01T00:00:00Z"},
+        )
+        Tasks(http).run(
+            10,
+            stream=False,
+            human_in_the_loop=True,
+            permission_mode=PermissionMode.APPROVAL,
+        )
+        body = json.loads(responses.calls[0].request.body)
+        assert body["permission_mode"] == "approval"
+
+    @responses.activate
     def test_run_with_hitl_true(self, http):
         """human_in_the_loop=True is non-default, so it IS sent in body."""
         responses.add(
@@ -699,10 +741,51 @@ class TestApps:
                 "has_more": False,
             },
         )
-        result = Apps(http).list()
+        result = Apps(http).list(limit=2)
         assert len(result.data) == 1
         assert isinstance(result.data[0], App)
         assert result.data[0].name == "gmail"
+        assert "limit=2" in responses.calls[0].request.url
+
+    @responses.activate
+    def test_list_auto_paging(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/apps",
+            json={
+                "data": [
+                    {
+                        "name": "gmail",
+                        "display_name": "Gmail",
+                        "category": "email",
+                        "connected": True,
+                    }
+                ],
+                "has_more": True,
+            },
+        )
+        responses.add(
+            responses.GET,
+            f"{BASE}/apps",
+            json={
+                "data": [
+                    {
+                        "name": "slack",
+                        "display_name": "Slack",
+                        "category": "chat",
+                        "connected": False,
+                    }
+                ],
+                "has_more": False,
+            },
+        )
+
+        page = Apps(http).list(limit=1, user_id="cust_1")
+        apps = list(page.auto_paging_iter())
+
+        assert [app.name for app in apps] == ["gmail", "slack"]
+        assert "starting_after=gmail" in responses.calls[1].request.url
+        assert "user_id=cust_1" in responses.calls[1].request.url
 
     @responses.activate
     def test_connect(self, http):
