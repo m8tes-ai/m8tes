@@ -68,6 +68,7 @@ class Tasks:
         expected_output: str | None = None,
         goals: str | None = None,
         user_id: str | None = None,
+        email_notifications: bool = True,
         webhook: bool = False,
         schedule: str | None = None,
         schedule_timezone: str = "UTC",
@@ -83,6 +84,8 @@ class Tasks:
             body["goals"] = goals
         if user_id is not None:
             body["user_id"] = user_id
+        if not email_notifications:
+            body["email_notifications"] = False
         if webhook:
             body["webhook"] = True
         if schedule is not None:
@@ -127,6 +130,7 @@ class Tasks:
         tools: _list[str] | None = None,
         expected_output: str | None = None,
         goals: str | None = None,
+        email_notifications: bool | None = None,
     ) -> Task:
         body: dict = {}
         if name is not None:
@@ -139,6 +143,8 @@ class Tasks:
             body["expected_output"] = expected_output
         if goals is not None:
             body["goals"] = goals
+        if email_notifications is not None:
+            body["email_notifications"] = email_notifications
         resp = self._http.request("PATCH", f"/tasks/{task_id}", json=body)
         return Task.from_dict(resp.json())
 
