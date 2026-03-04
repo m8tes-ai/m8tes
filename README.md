@@ -17,7 +17,7 @@ pip install m8tes
 ## Quick start
 
 ```python
-from m8tes import M8tes
+from m8tes import M8tes, PermissionMode
 
 client = M8tes()  # uses M8TES_API_KEY env var
 
@@ -25,7 +25,7 @@ result = client.runs.create_and_wait(
     message="pull last week's Stripe MRR and post to #revenue on Slack",
     tools=["stripe", "slack"],
     instructions="you are a finance ops assistant",
-    permission_mode="autonomous",
+    permission_mode=PermissionMode.AUTONOMOUS,
     email_inbox=True,
 )
 print(result.output)
@@ -163,13 +163,16 @@ print(stream.run_id, stream.text)
 
 ## Human-in-the-loop
 
-Pass callbacks to `wait()` — approval pauses are handled inline:
+Pass callbacks to `wait()`. Approval pauses are handled inline:
+Use `PermissionMode` constants to avoid string typos.
 
 ```python
+from m8tes import PermissionMode
+
 run = client.runs.create(
     message="draft and send the weekly report",
     human_in_the_loop=True,
-    permission_mode="approval",  # or "plan", "autonomous"
+    permission_mode=PermissionMode.APPROVAL,
     task_setup_tools=False,      # keep this run limited to public tools only
     stream=False,
 )
@@ -187,7 +190,7 @@ Or create and wait in a single call:
 run = client.runs.create_and_wait(
     message="draft and send the weekly report",
     human_in_the_loop=True,
-    permission_mode="approval",
+    permission_mode=PermissionMode.APPROVAL,
     on_approval=lambda req: "allow",
 )
 ```
@@ -203,7 +206,7 @@ client.runs.answer(run.id, answers={"Which channel?": "#general"})
 ### Switch permission mode on an existing run
 
 ```python
-run = client.runs.update_permission_mode(run.id, permission_mode="approval")
+run = client.runs.update_permission_mode(run.id, permission_mode=PermissionMode.APPROVAL)
 print(run.permission_mode)  # "approval"
 ```
 

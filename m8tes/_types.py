@@ -4,9 +4,21 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
+from enum import StrEnum
 from typing import Any, Generic, TypeVar
 
 T = TypeVar("T")
+
+
+class PermissionMode(StrEnum):
+    """Permission modes for controlling tool access during runs.
+
+    Use these constants instead of raw strings when setting permission_mode.
+    """
+
+    AUTONOMOUS = "autonomous"
+    APPROVAL = "approval"
+    PLAN = "plan"
 
 
 @dataclass
@@ -25,7 +37,13 @@ class SyncPage(Generic[T]):
             if not page.has_more or not page.data or not page._fetch_next:
                 break
             last: Any = page.data[-1]
-            page = page._fetch_next(starting_after=last.id)
+            # Most SDK resources use integer `id` cursors. App pages use `name`.
+            cursor = getattr(last, "id", None)
+            if cursor is None:
+                cursor = getattr(last, "name", None)
+            if cursor is None:
+                break
+            page = page._fetch_next(starting_after=cursor)
 
 
 @dataclass

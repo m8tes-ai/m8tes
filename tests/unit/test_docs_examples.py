@@ -223,9 +223,16 @@ class PermissionRequest:
         self.tool_name = tool_name
 
 
+class PermissionMode:
+    AUTONOMOUS = "autonomous"
+    APPROVAL = "approval"
+    PLAN = "plan"
+
+
 def install_fake_m8tes(monkeypatch: pytest.MonkeyPatch, recorder: CallRecorder) -> None:
     module = ModuleType("m8tes")
     module.M8tes = lambda **kwargs: FakeClient(recorder, **kwargs)
+    module.PermissionMode = PermissionMode
     module.PermissionRequest = PermissionRequest
     monkeypatch.setitem(sys.modules, "m8tes", module)
 

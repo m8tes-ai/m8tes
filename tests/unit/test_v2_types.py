@@ -1,6 +1,6 @@
 """Tests for v2 SDK dataclass types."""
 
-from m8tes._types import App, Run, Task, Teammate, Trigger
+from m8tes._types import App, PermissionMode, Run, Task, Teammate, Trigger
 
 
 class TestTeammate:
@@ -86,3 +86,15 @@ class TestApp:
         )
         assert a.name == "gmail"
         assert a.connected is True
+
+
+class TestPermissionMode:
+    def test_enum_values(self):
+        assert PermissionMode.AUTONOMOUS == "autonomous"
+        assert PermissionMode.APPROVAL == "approval"
+        assert PermissionMode.PLAN == "plan"
+
+    def test_exported_from_package_root(self):
+        from m8tes import PermissionMode as ExportedPermissionMode
+
+        assert ExportedPermissionMode is PermissionMode
