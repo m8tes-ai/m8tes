@@ -105,7 +105,10 @@ class AgentInstance:
 
         # Build request body
         body: dict = {
-            "task": message, "mode": mode, "stream": stream, "task_setup_tools": task_setup_tools
+            "task": message,
+            "mode": mode,
+            "stream": stream,
+            "task_setup_tools": task_setup_tools,
         }
 
         # Only include session_id if explicitly provided (for resuming conversations)
