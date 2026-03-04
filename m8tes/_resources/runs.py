@@ -37,6 +37,7 @@ class Runs:
         task_setup_tools: bool = True,
         human_in_the_loop: bool = False,
         permission_mode: str = "autonomous",
+        email_inbox: bool = False,
     ) -> RunStream | Run:
         """Create and execute a run.
 
@@ -67,6 +68,8 @@ class Runs:
             body["human_in_the_loop"] = True
         if permission_mode != "autonomous":
             body["permission_mode"] = permission_mode
+        if email_inbox:
+            body["email_inbox"] = True
 
         if stream:
             resp = self._http.stream("POST", "/runs", json=body)
@@ -194,6 +197,7 @@ class Runs:
         task_setup_tools: bool = True,
         human_in_the_loop: bool = False,
         permission_mode: str = "autonomous",
+        email_inbox: bool = False,
         on_approval: Callable[[PermissionRequest], str] | None = None,
         on_question: Callable[[PermissionRequest], dict[str, str]] | None = None,
         poll_interval: float = 2.0,
@@ -204,28 +208,36 @@ class Runs:
         Pass on_approval= and on_question= to handle human-in-the-loop pauses inline.
         Without callbacks, HITL runs will raise RuntimeError when they pause for input.
         """
-        run = self.create(
-            message=message,
-            teammate_id=teammate_id,
-            tools=tools,
-            stream=False,
-            name=name,
-            instructions=instructions,
-            user_id=user_id,
-            metadata=metadata,
-            memory=memory,
-            history=history,
-            task_setup_tools=task_setup_tools,
-            human_in_the_loop=human_in_the_loop,
-            permission_mode=permission_mode,
+        initial = cast(
+            Run,
+            self.create(
+                message=message,
+                teammate_id=teammate_id,
+                tools=tools,
+                stream=False,
+                name=name,
+                instructions=instructions,
+                user_id=user_id,
+                metadata=metadata,
+                memory=memory,
+                history=history,
+                task_setup_tools=task_setup_tools,
+                human_in_the_loop=human_in_the_loop,
+                permission_mode=permission_mode,
+                email_inbox=email_inbox,
+            ),
         )
-        return self.wait(
-            cast(Run, run).id,
+        # Preserve email_address from initial response — GET /runs/{id} doesn't return it
+        final = self.wait(
+            initial.id,
             on_approval=on_approval,
             on_question=on_question,
             interval=poll_interval,
             timeout=poll_timeout,
         )
+        if initial.email_address and not final.email_address:
+            final.email_address = initial.email_address
+        return final
 
     def reply_and_wait(
         self,
