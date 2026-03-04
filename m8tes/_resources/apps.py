@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from .._types import App, AppConnectionInitiation, AppConnectionResult, SyncPage
+from ._utils import _build_params
 
 if TYPE_CHECKING:
     from .._http import HTTPClient
@@ -16,14 +17,28 @@ class Apps:
     def __init__(self, http: HTTPClient):
         self._http = http
 
-    def list(self, *, user_id: str | None = None) -> SyncPage[App]:
+    def list(
+        self,
+        *,
+        user_id: str | None = None,
+        limit: int = 20,
+        starting_after: int | str | None = None,
+    ) -> SyncPage[App]:
         """List available tools with connection status."""
-        params = {}
+        params = _build_params(limit=limit, starting_after=starting_after)
         if user_id:
             params["user_id"] = user_id
         resp = self._http.request("GET", "/apps", params=params)
         body = resp.json()
-        return SyncPage(data=[App.from_dict(d) for d in body["data"]], has_more=body["has_more"])
+
+        def _fetch_next(**kw: object) -> SyncPage[App]:
+            return self.list(user_id=user_id, **kw)  # type: ignore[arg-type]
+
+        return SyncPage(
+            data=[App.from_dict(d) for d in body["data"]],
+            has_more=body["has_more"],
+            _fetch_next=_fetch_next,
+        )
 
     def is_connected(self, app_name: str, *, user_id: str | None = None) -> bool:
         """True if the app is connected for this account or end-user."""

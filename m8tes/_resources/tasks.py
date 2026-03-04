@@ -6,7 +6,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, cast
 
 from .._streaming import RunStream
-from .._types import PermissionRequest, Run, SyncPage, Task, Trigger
+from .._types import PermissionMode, PermissionRequest, Run, SyncPage, Task, Trigger
 from ._utils import _build_params
 
 _list = list  # preserve builtin; shadowed by .list() method
@@ -160,7 +160,7 @@ class Tasks:
         task_setup_tools: bool = True,
         feedback: bool = True,
         human_in_the_loop: bool = False,
-        permission_mode: str = "autonomous",
+        permission_mode: PermissionMode | str = PermissionMode.AUTONOMOUS,
     ) -> RunStream | Run:
         """Execute a saved task, creating a new run.
 
@@ -208,7 +208,7 @@ class Tasks:
         task_setup_tools: bool = True,
         feedback: bool = True,
         human_in_the_loop: bool = False,
-        permission_mode: str = "autonomous",
+        permission_mode: PermissionMode | str = PermissionMode.AUTONOMOUS,
         on_approval: Callable[[PermissionRequest], str] | None = None,
         on_question: Callable[[PermissionRequest], dict[str, str]] | None = None,
         poll_interval: float = 2.0,
