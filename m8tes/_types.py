@@ -203,6 +203,37 @@ class RunFile:
 
 
 @dataclass
+class AuditLog:
+    """A single API request audit record."""
+
+    id: int
+    method: str
+    path: str
+    status_code: int
+    duration_ms: int
+    action: str | None
+    resource_type: str | None
+    resource_id: str | None
+    api_key_prefix: str | None
+    created_at: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> AuditLog:
+        return cls(
+            id=data["id"],
+            method=data["method"],
+            path=data["path"],
+            status_code=data["status_code"],
+            duration_ms=data["duration_ms"],
+            action=data.get("action"),
+            resource_type=data.get("resource_type"),
+            resource_id=data.get("resource_id"),
+            api_key_prefix=data.get("api_key_prefix"),
+            created_at=data.get("created_at", ""),
+        )
+
+
+@dataclass
 class TeammateWebhook:
     """Teammate webhook trigger details (returned when enabling webhook)."""
 
