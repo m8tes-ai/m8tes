@@ -288,7 +288,7 @@ class TaskCommand(Command):
             "--no-task-setup-tools",
             action="store_true",
             default=False,
-            help="Disable built-in task-setup tools for this run.",
+            help="Disable built-in same-scope management tools for this run.",
         )
 
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
