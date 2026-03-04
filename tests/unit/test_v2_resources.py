@@ -8,6 +8,7 @@ import responses
 from m8tes._exceptions import NotFoundError
 from m8tes._http import HTTPClient
 from m8tes._resources.apps import Apps
+from m8tes._resources.audit_logs import AuditLogs
 from m8tes._resources.memories import Memories
 from m8tes._resources.permissions import Permissions
 from m8tes._resources.runs import Runs
@@ -18,6 +19,7 @@ from m8tes._types import (
     App,
     AppConnectionInitiation,
     AppConnectionResult,
+    AuditLog,
     PermissionMode,
     PermissionRequest,
     Run,
@@ -178,6 +180,60 @@ class TestTeammates:
 
 
 # ── Runs ─────────────────────────────────────────────────────────────
+
+
+class TestAuditLogs:
+    @responses.activate
+    def test_list(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/audit-logs",
+            json={
+                "data": [
+                    {
+                        "id": 1,
+                        "method": "POST",
+                        "path": "/api/v2/runs/",
+                        "status_code": 200,
+                        "duration_ms": 45,
+                        "action": "create",
+                        "resource_type": "run",
+                        "resource_id": None,
+                        "api_key_prefix": "m8_test_pref",
+                        "created_at": "2026-03-05T10:00:00Z",
+                    }
+                ],
+                "has_more": False,
+            },
+        )
+        page = AuditLogs(http).list()
+        assert isinstance(page, SyncPage)
+        assert len(page.data) == 1
+        assert isinstance(page.data[0], AuditLog)
+        assert page.data[0].resource_type == "run"
+
+    @responses.activate
+    def test_list_with_filters(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/audit-logs",
+            json={"data": [], "has_more": False},
+        )
+        AuditLogs(http).list(
+            action="create",
+            resource_type="run",
+            method="post",
+            status_code=201,
+            limit=10,
+            starting_after=5,
+        )
+        url = responses.calls[0].request.url
+        assert "action=create" in url
+        assert "resource_type=run" in url
+        assert "method=POST" in url
+        assert "status_code=201" in url
+        assert "limit=10" in url
+        assert "starting_after=5" in url
 
 
 class TestRuns:

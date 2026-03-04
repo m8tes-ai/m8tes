@@ -46,6 +46,14 @@ Check current plan, run usage, and cost limits with `client.auth.get_usage()` or
 
 Need email-triggered runs? Opt in with `email_inbox=True` on `client.teammates.create(...)` or call `client.teammates.enable_email_inbox(teammate_id)` later.
 
+Inspect account request history with `client.audit_logs.list(...)`:
+
+```python
+page = client.audit_logs.list(method="POST", resource_type="run", limit=10)
+for log in page.data:
+    print(log.created_at, log.method, log.path, log.status_code)
+```
+
 ## What you skip
 
 | Build it yourself | With m8tes |
@@ -302,6 +310,7 @@ client.apps.disconnect("gemini", user_id="cust_123")
 |----------|------------|-------------|
 | `client.teammates` | `create` `list` `get` `update` `delete` `enable_webhook` `disable_webhook` `enable_email_inbox` `disable_email_inbox` `enable_fetchmail` `disable_fetchmail` | Agent personas with tools and instructions |
 | `client.runs` | `create` `poll` `wait` `create_and_wait` `reply` `reply_and_wait` `stream_text` `get` `list` `cancel` `permissions` `approve` `answer` `update_permission_mode` `list_files` `download_file` | Execute teammates and stream results |
+| `client.audit_logs` | `list` | Account-scoped API request history |
 | `client.tasks` | `create` `list` `get` `update` `delete` `run` `run_and_wait` | Reusable task definitions |
 | `client.tasks.triggers` | `create` `list` `delete` | Schedule, webhook, and email triggers |
 | `client.apps` | `list` `is_connected` `connect` `connect_oauth` `connect_api_key` `connect_complete` `disconnect` | Tool catalog and end-user app connections |

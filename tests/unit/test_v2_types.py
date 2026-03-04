@@ -1,6 +1,6 @@
 """Tests for v2 SDK dataclass types."""
 
-from m8tes._types import App, PermissionMode, Run, Task, Teammate, Trigger
+from m8tes._types import App, AuditLog, PermissionMode, Run, Task, Teammate, Trigger
 
 
 class TestTeammate:
@@ -86,6 +86,28 @@ class TestApp:
         )
         assert a.name == "gmail"
         assert a.connected is True
+
+
+class TestAuditLog:
+    def test_from_dict(self):
+        log = AuditLog.from_dict(
+            {
+                "id": 7,
+                "method": "POST",
+                "path": "/api/v2/runs/",
+                "status_code": 201,
+                "duration_ms": 33,
+                "action": "create",
+                "resource_type": "run",
+                "resource_id": None,
+                "api_key_prefix": "m8_abc12345",
+                "created_at": "2026-03-05T10:00:00Z",
+            }
+        )
+        assert log.id == 7
+        assert log.method == "POST"
+        assert log.status_code == 201
+        assert log.resource_type == "run"
 
 
 class TestPermissionMode:
