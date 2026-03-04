@@ -35,6 +35,7 @@ class Runs:
         memory: bool = True,
         history: bool = True,
         task_setup_tools: bool = True,
+        feedback: bool = True,
         human_in_the_loop: bool = False,
         permission_mode: str = "autonomous",
         email_inbox: bool = False,
@@ -67,6 +68,7 @@ class Runs:
         body["memory"] = memory
         body["history"] = history
         body["task_setup_tools"] = task_setup_tools
+        body["feedback"] = feedback
         if human_in_the_loop:
             body["human_in_the_loop"] = True
         if permission_mode != "autonomous":
@@ -198,6 +200,7 @@ class Runs:
         memory: bool = True,
         history: bool = True,
         task_setup_tools: bool = True,
+        feedback: bool = True,
         human_in_the_loop: bool = False,
         permission_mode: str = "autonomous",
         email_inbox: bool = False,
@@ -225,6 +228,7 @@ class Runs:
                 memory=memory,
                 history=history,
                 task_setup_tools=task_setup_tools,
+                feedback=feedback,
                 human_in_the_loop=human_in_the_loop,
                 permission_mode=permission_mode,
                 email_inbox=email_inbox,
@@ -248,6 +252,7 @@ class Runs:
         *,
         message: str,
         task_setup_tools: bool | None = None,
+        feedback: bool | None = None,
         on_approval: Callable[[PermissionRequest], str] | None = None,
         on_question: Callable[[PermissionRequest], dict[str, str]] | None = None,
         poll_interval: float = 2.0,
@@ -259,6 +264,7 @@ class Runs:
             message=message,
             stream=False,
             task_setup_tools=task_setup_tools,
+            feedback=feedback,
         )
         return self.wait(
             cast(Run, run).id,
@@ -281,6 +287,7 @@ class Runs:
         memory: bool = True,
         history: bool = True,
         task_setup_tools: bool = True,
+        feedback: bool = True,
         human_in_the_loop: bool = False,
         permission_mode: str = "autonomous",
     ) -> Generator[str, None, None]:
@@ -304,6 +311,7 @@ class Runs:
             memory=memory,
             history=history,
             task_setup_tools=task_setup_tools,
+            feedback=feedback,
             human_in_the_loop=human_in_the_loop,
             permission_mode=permission_mode,
         )
@@ -352,6 +360,7 @@ class Runs:
         message: str,
         stream: bool = True,
         task_setup_tools: bool | None = None,
+        feedback: bool | None = None,
     ) -> RunStream | Run:
         """Follow-up message on an existing run. Creates a new run ID.
 
@@ -362,6 +371,8 @@ class Runs:
         body = {"message": message, "stream": stream}
         if task_setup_tools is not None:
             body["task_setup_tools"] = task_setup_tools
+        if feedback is not None:
+            body["feedback"] = feedback
         if stream:
             resp = self._http.stream("POST", f"/runs/{run_id}/reply", json=body)
             return RunStream(resp)

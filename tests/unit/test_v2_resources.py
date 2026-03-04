@@ -229,6 +229,13 @@ class TestRuns:
         assert body["task_setup_tools"] is False
 
     @responses.activate
+    def test_create_can_disable_feedback(self, http):
+        responses.add(responses.POST, f"{BASE}/runs", json={"id": 1, "status": "running"})
+        Runs(http).create(message="Do X", stream=False, feedback=False)
+        body = json.loads(responses.calls[0].request.body)
+        assert body["feedback"] is False
+
+    @responses.activate
     def test_list(self, http):
         responses.add(
             responses.GET,
@@ -272,6 +279,13 @@ class TestRuns:
         Runs(http).reply(1, message="More", stream=False, task_setup_tools=False)
         body = json.loads(responses.calls[0].request.body)
         assert body["task_setup_tools"] is False
+
+    @responses.activate
+    def test_reply_can_override_feedback(self, http):
+        responses.add(responses.POST, f"{BASE}/runs/1/reply", json={"id": 1})
+        Runs(http).reply(1, message="More", stream=False, feedback=False)
+        body = json.loads(responses.calls[0].request.body)
+        assert body["feedback"] is False
 
     @responses.activate
     def test_cancel(self, http):
@@ -595,6 +609,17 @@ class TestTasks:
         Tasks(http).run(10, stream=False, task_setup_tools=False)
         body = json.loads(responses.calls[0].request.body)
         assert body["task_setup_tools"] is False
+
+    @responses.activate
+    def test_run_can_disable_feedback(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/tasks/10/runs",
+            json={"id": 1, "status": "running", "created_at": "2026-01-01T00:00:00Z"},
+        )
+        Tasks(http).run(10, stream=False, feedback=False)
+        body = json.loads(responses.calls[0].request.body)
+        assert body["feedback"] is False
 
     @responses.activate
     def test_run_with_hitl_true(self, http):
