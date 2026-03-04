@@ -637,7 +637,7 @@ class TestMateCommands:
 
         assert result == 0
         mock_mate_cli.task_interactive.assert_called_once_with(
-            "Run analysis", "123", output_format="verbose", debug=False
+            "Run analysis", "123", output_format="verbose", debug=False, task_setup_tools=True
         )
 
     def test_chat_command_attributes(self):
