@@ -31,6 +31,7 @@ from m8tes._exceptions import (
 )
 from m8tes._types import (
     AccountSettings,
+    AuditLog,
     EmailInbox,
     EndUser,
     Memory,
@@ -1436,6 +1437,36 @@ class TestWebhookIsolationAndEdges:
         finally:
             other_client.close()
             v2_client.webhooks.delete(wh.id)
+
+
+# ── Audit logs ───────────────────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestAuditLogs:
+    def test_list_returns_typed_page(self, v2_client):
+        """Audit logs list returns a typed SyncPage."""
+        page = v2_client.audit_logs.list(limit=5)
+        assert isinstance(page, SyncPage)
+        assert all(isinstance(log, AuditLog) for log in page.data)
+
+    def test_filters_and_scoping(self, v2_client, backend_url):
+        """Audit logs are account-scoped and support basic filters."""
+        other_client = _new_v2_client(backend_url, email_prefix="audit-cross")
+
+        # Generate one scoped log entry for this account.
+        v2_client.runs.list(limit=1)
+        own_logs = v2_client.audit_logs.list(resource_type="run", method="GET", limit=50)
+        own_ids = {log.id for log in own_logs.data}
+
+        # Generate logs on another account and ensure they are not visible here.
+        other_client.runs.list(limit=1)
+        try:
+            other_logs = other_client.audit_logs.list(resource_type="run", method="GET", limit=50)
+            other_ids = {log.id for log in other_logs.data}
+            assert own_ids.isdisjoint(other_ids)
+        finally:
+            other_client.close()
 
 
 # ── Runs (list/get only — no execution) ─────────────────────────────

@@ -34,6 +34,7 @@ class RunCommandGroup(CommandGroup):
         self.add_subcommand(UsageCommand())
         self.add_subcommand(SetPermissionModeCommand())
         self.add_subcommand(ToolsCommand())
+        self.add_subcommand(AuditLogsCommand())
 
 
 class GetRunCommand(Command):
@@ -438,4 +439,67 @@ class SetPermissionModeCommand(Command):
             return 0
         except SDKM8tesError as e:
             print(f"❌ Failed to update permission mode: {e}")
+            return 1
+
+
+class AuditLogsCommand(Command):
+    """List account-scoped v2 API request audit logs."""
+
+    name = "audit-logs"
+    aliases: ClassVar[list[str]] = ["logs"]
+    description = "List account API request audit logs"
+    requires_auth = True
+
+    def add_arguments(self, parser: ArgumentParser) -> None:
+        parser.add_argument("--limit", type=int, default=20, help="Maximum logs to return")
+        parser.add_argument(
+            "--action",
+            choices=["list", "read", "create", "update", "delete"],
+            help="Filter by action",
+        )
+        parser.add_argument("--resource-type", help="Filter by resource type (for example run)")
+        parser.add_argument(
+            "--method",
+            choices=["GET", "POST", "PATCH", "PUT", "DELETE"],
+            help="Filter by HTTP method",
+        )
+        parser.add_argument("--status-code", type=int, help="Filter by status code")
+
+    def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
+        if not client:
+            print("❌ Authentication required")
+            return 1
+
+        try:
+            with v2_client_from_args(args, client) as v2_client:
+                page = v2_client.audit_logs.list(
+                    action=getattr(args, "action", None),
+                    resource_type=getattr(args, "resource_type", None),
+                    method=getattr(args, "method", None),
+                    status_code=getattr(args, "status_code", None),
+                    limit=getattr(args, "limit", 20),
+                )
+
+            if not page.data:
+                print("No audit logs found.")
+                return 0
+
+            print(f"\n🧾 Audit Logs (showing {len(page.data)})")
+            print(f"{'=' * 80}")
+            for log in page.data:
+                resource = (
+                    f"{log.resource_type}/{log.resource_id}"
+                    if log.resource_type and log.resource_id
+                    else (log.resource_type or "N/A")
+                )
+                action = log.action or "N/A"
+                print(
+                    f"{log.id:>6}  {log.method:<6} {log.status_code:<3} "
+                    f"{resource:<20} {action:<7} {log.path}"
+                )
+            if page.has_more:
+                print("\nMore logs available. Use --limit to fetch a larger page.")
+            return 0
+        except SDKM8tesError as e:
+            print(f"❌ Failed to list audit logs: {e}")
             return 1
