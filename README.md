@@ -32,7 +32,7 @@ print(result.output)
 print(f"inbox: {result.email_address}")  # forward emails here to trigger future runs
 ```
 
-Set `task_setup_tools=False` on `client.runs.create(...)`, `client.runs.reply(...)`, or `client.tasks.run(...)` when you do not want the agent to receive the internal task-editing and integration-setup tools for that execution.
+Set `task_setup_tools=False` on `client.runs.create(...)`, `client.runs.reply(...)`, or `client.tasks.run(...)` when you do not want the agent to receive the internal same-scope management tools for teammates, tasks, runs, inboxes, webhooks, and app connections during that execution.
 
 → Full docs and examples at [m8tes.ai/docs](https://m8tes.ai/docs)
 
