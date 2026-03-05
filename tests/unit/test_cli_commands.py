@@ -637,7 +637,7 @@ class TestMateCommands:
 
         assert result == 0
         mock_mate_cli.task_interactive.assert_called_once_with(
-            "Run analysis", "123", output_format="verbose", debug=False
+            "Run analysis", "123", output_format="verbose", debug=False, task_setup_tools=True
         )
 
     def test_chat_command_attributes(self):
@@ -676,7 +676,7 @@ class TestRunCommands:
         group = RunCommandGroup()
         subcommands = group.get_subcommands()
 
-        assert len(subcommands) == 7
+        assert len(subcommands) == 8
 
     def test_run_command_group_attributes(self):
         """Test run command group has correct attributes."""
@@ -821,4 +821,77 @@ class TestRunCommands:
         mock_v2.runs.update_permission_mode.assert_called_once_with(
             42,
             permission_mode="approval",
+        )
+
+    def test_audit_logs_command_arguments(self):
+        """Audit logs command should expose the documented filters."""
+        from m8tes.cli.commands.run import AuditLogsCommand
+
+        cmd = AuditLogsCommand()
+        parser = ArgumentParser()
+        cmd.add_arguments(parser)
+
+        args = parser.parse_args(
+            [
+                "--limit",
+                "5",
+                "--action",
+                "create",
+                "--resource-type",
+                "run",
+                "--method",
+                "POST",
+                "--status-code",
+                "201",
+            ]
+        )
+        assert args.limit == 5
+        assert args.action == "create"
+        assert args.resource_type == "run"
+        assert args.method == "POST"
+        assert args.status_code == 201
+
+    @patch("m8tes.cli.commands.run.v2_client_from_args")
+    def test_audit_logs_command_execute_success(self, mock_v2_client_from_args):
+        """Audit logs command should delegate to the v2 audit_logs resource."""
+        from m8tes.cli.commands.run import AuditLogsCommand
+
+        mock_v2 = Mock()
+        mock_v2.audit_logs.list.return_value = Mock(
+            data=[
+                Mock(
+                    id=1,
+                    method="POST",
+                    status_code=201,
+                    resource_type="run",
+                    resource_id=None,
+                    action="create",
+                    path="/api/v2/runs/",
+                )
+            ],
+            has_more=False,
+        )
+        mock_v2_client_from_args.return_value = nullcontext(mock_v2)
+        mock_client = Mock()
+
+        cmd = AuditLogsCommand()
+        args = Namespace(
+            api_key=None,
+            base_url=None,
+            action="create",
+            resource_type="run",
+            method="POST",
+            status_code=201,
+            limit=20,
+        )
+
+        result = cmd.execute(args, mock_client)
+
+        assert result == 0
+        mock_v2.audit_logs.list.assert_called_once_with(
+            action="create",
+            resource_type="run",
+            method="POST",
+            status_code=201,
+            limit=20,
         )

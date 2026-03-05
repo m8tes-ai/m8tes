@@ -8,6 +8,7 @@ import responses
 from m8tes._exceptions import NotFoundError
 from m8tes._http import HTTPClient
 from m8tes._resources.apps import Apps
+from m8tes._resources.audit_logs import AuditLogs
 from m8tes._resources.memories import Memories
 from m8tes._resources.permissions import Permissions
 from m8tes._resources.runs import Runs
@@ -18,6 +19,8 @@ from m8tes._types import (
     App,
     AppConnectionInitiation,
     AppConnectionResult,
+    AuditLog,
+    PermissionMode,
     PermissionRequest,
     Run,
     RunFile,
@@ -48,6 +51,7 @@ class TestTeammates:
             json={
                 "id": 1,
                 "name": "Bot",
+                "default_permission_mode": "autonomous",
                 "status": "enabled",
                 "tools": [],
                 "created_at": "",
@@ -75,10 +79,12 @@ class TestTeammates:
             user_id="u_1",
             metadata={"k": "v"},
             allowed_senders=["@acme.com"],
+            default_permission_mode="approval",
         )
         body = json.loads(responses.calls[0].request.body)
         assert body["tools"] == ["gmail"]
         assert body["allowed_senders"] == ["@acme.com"]
+        assert body["default_permission_mode"] == "approval"
 
     @responses.activate
     def test_list(self, http):
@@ -114,9 +120,20 @@ class TestTeammates:
     @responses.activate
     def test_update_sends_only_provided_fields(self, http):
         responses.add(responses.PATCH, f"{BASE}/teammates/1", json={"id": 1, "name": "X"})
-        Teammates(http).update(1, name="X", tools=["gmail"], allowed_senders=["@a.com"])
+        Teammates(http).update(
+            1,
+            name="X",
+            tools=["gmail"],
+            allowed_senders=["@a.com"],
+            default_permission_mode="plan",
+        )
         body = json.loads(responses.calls[0].request.body)
-        assert body == {"name": "X", "tools": ["gmail"], "allowed_senders": ["@a.com"]}
+        assert body == {
+            "name": "X",
+            "tools": ["gmail"],
+            "allowed_senders": ["@a.com"],
+            "default_permission_mode": "plan",
+        }
 
     @responses.activate
     def test_delete(self, http):
@@ -179,6 +196,60 @@ class TestTeammates:
 # ── Runs ─────────────────────────────────────────────────────────────
 
 
+class TestAuditLogs:
+    @responses.activate
+    def test_list(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/audit-logs",
+            json={
+                "data": [
+                    {
+                        "id": 1,
+                        "method": "POST",
+                        "path": "/api/v2/runs/",
+                        "status_code": 200,
+                        "duration_ms": 45,
+                        "action": "create",
+                        "resource_type": "run",
+                        "resource_id": None,
+                        "api_key_prefix": "m8_test_pref",
+                        "created_at": "2026-03-05T10:00:00Z",
+                    }
+                ],
+                "has_more": False,
+            },
+        )
+        page = AuditLogs(http).list()
+        assert isinstance(page, SyncPage)
+        assert len(page.data) == 1
+        assert isinstance(page.data[0], AuditLog)
+        assert page.data[0].resource_type == "run"
+
+    @responses.activate
+    def test_list_with_filters(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/audit-logs",
+            json={"data": [], "has_more": False},
+        )
+        AuditLogs(http).list(
+            action="create",
+            resource_type="run",
+            method="post",
+            status_code=201,
+            limit=10,
+            starting_after=5,
+        )
+        url = responses.calls[0].request.url
+        assert "action=create" in url
+        assert "resource_type=run" in url
+        assert "method=POST" in url
+        assert "status_code=201" in url
+        assert "limit=10" in url
+        assert "starting_after=5" in url
+
+
 class TestRuns:
     @responses.activate
     def test_create_streaming(self, http):
@@ -222,6 +293,32 @@ class TestRuns:
         assert body["stream"] is False
 
     @responses.activate
+    def test_create_can_disable_task_setup_tools(self, http):
+        responses.add(responses.POST, f"{BASE}/runs", json={"id": 1, "status": "running"})
+        Runs(http).create(message="Do X", stream=False, task_setup_tools=False)
+        body = json.loads(responses.calls[0].request.body)
+        assert body["task_setup_tools"] is False
+
+    @responses.activate
+    def test_create_can_disable_feedback(self, http):
+        responses.add(responses.POST, f"{BASE}/runs", json={"id": 1, "status": "running"})
+        Runs(http).create(message="Do X", stream=False, feedback=False)
+        body = json.loads(responses.calls[0].request.body)
+        assert body["feedback"] is False
+
+    @responses.activate
+    def test_create_accepts_permission_mode_enum(self, http):
+        responses.add(responses.POST, f"{BASE}/runs", json={"id": 1, "status": "running"})
+        Runs(http).create(
+            message="Do X",
+            stream=False,
+            human_in_the_loop=True,
+            permission_mode=PermissionMode.APPROVAL,
+        )
+        body = json.loads(responses.calls[0].request.body)
+        assert body["permission_mode"] == "approval"
+
+    @responses.activate
     def test_list(self, http):
         responses.add(
             responses.GET,
@@ -260,6 +357,20 @@ class TestRuns:
         assert isinstance(result, Run)
 
     @responses.activate
+    def test_reply_can_override_task_setup_tools(self, http):
+        responses.add(responses.POST, f"{BASE}/runs/1/reply", json={"id": 1})
+        Runs(http).reply(1, message="More", stream=False, task_setup_tools=False)
+        body = json.loads(responses.calls[0].request.body)
+        assert body["task_setup_tools"] is False
+
+    @responses.activate
+    def test_reply_can_override_feedback(self, http):
+        responses.add(responses.POST, f"{BASE}/runs/1/reply", json={"id": 1})
+        Runs(http).reply(1, message="More", stream=False, feedback=False)
+        body = json.loads(responses.calls[0].request.body)
+        assert body["feedback"] is False
+
+    @responses.activate
     def test_cancel(self, http):
         responses.add(
             responses.POST, f"{BASE}/runs/1/cancel", json={"id": 1, "status": "cancelled"}
@@ -279,6 +390,19 @@ class TestRuns:
         assert result.permission_mode == "approval"
         body = json.loads(responses.calls[0].request.body)
         assert body == {"permission_mode": "approval"}
+
+    @responses.activate
+    def test_update_permission_mode_accepts_enum(self, http):
+        responses.add(
+            responses.PATCH,
+            f"{BASE}/runs/1/permission-mode",
+            json={"permission_mode": "plan"},
+            status=200,
+        )
+        result = Runs(http).update_permission_mode(1, permission_mode=PermissionMode.PLAN)
+        assert result.permission_mode == "plan"
+        body = json.loads(responses.calls[0].request.body)
+        assert body == {"permission_mode": "plan"}
 
     @responses.activate
     def test_permissions(self, http):
@@ -350,11 +474,27 @@ class TestRuns:
 
     @responses.activate
     def test_create_default_hitl_not_sent(self, http):
-        """human_in_the_loop=False (default) is NOT sent in the body."""
+        """human_in_the_loop omitted stays omitted in the body."""
         responses.add(responses.POST, f"{BASE}/runs", json={"id": 1, "status": "running"})
         Runs(http).create(message="Do X", stream=False)
         body = json.loads(responses.calls[0].request.body)
         assert "human_in_the_loop" not in body
+
+    @responses.activate
+    def test_create_explicit_false_hitl_is_sent(self, http):
+        """Explicit human_in_the_loop=False is serialized for override behavior."""
+        responses.add(responses.POST, f"{BASE}/runs", json={"id": 1, "status": "running"})
+        Runs(http).create(message="Do X", stream=False, human_in_the_loop=False)
+        body = json.loads(responses.calls[0].request.body)
+        assert body["human_in_the_loop"] is False
+
+    @responses.activate
+    def test_create_explicit_autonomous_permission_mode_is_sent(self, http):
+        """Explicit autonomous override is serialized."""
+        responses.add(responses.POST, f"{BASE}/runs", json={"id": 1, "status": "running"})
+        Runs(http).create(message="Do X", stream=False, permission_mode="autonomous")
+        body = json.loads(responses.calls[0].request.body)
+        assert body["permission_mode"] == "autonomous"
 
     @responses.activate
     def test_list_files(self, http):
@@ -572,6 +712,44 @@ class TestTasks:
         assert body["permission_mode"] == "approval"
 
     @responses.activate
+    def test_run_can_disable_task_setup_tools(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/tasks/10/runs",
+            json={"id": 1, "status": "running", "created_at": "2026-01-01T00:00:00Z"},
+        )
+        Tasks(http).run(10, stream=False, task_setup_tools=False)
+        body = json.loads(responses.calls[0].request.body)
+        assert body["task_setup_tools"] is False
+
+    @responses.activate
+    def test_run_can_disable_feedback(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/tasks/10/runs",
+            json={"id": 1, "status": "running", "created_at": "2026-01-01T00:00:00Z"},
+        )
+        Tasks(http).run(10, stream=False, feedback=False)
+        body = json.loads(responses.calls[0].request.body)
+        assert body["feedback"] is False
+
+    @responses.activate
+    def test_run_accepts_permission_mode_enum(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/tasks/10/runs",
+            json={"id": 1, "status": "running", "created_at": "2026-01-01T00:00:00Z"},
+        )
+        Tasks(http).run(
+            10,
+            stream=False,
+            human_in_the_loop=True,
+            permission_mode=PermissionMode.APPROVAL,
+        )
+        body = json.loads(responses.calls[0].request.body)
+        assert body["permission_mode"] == "approval"
+
+    @responses.activate
     def test_run_with_hitl_true(self, http):
         """human_in_the_loop=True is non-default, so it IS sent in body."""
         responses.add(
@@ -585,7 +763,7 @@ class TestTasks:
 
     @responses.activate
     def test_run_default_hitl_not_sent(self, http):
-        """human_in_the_loop=False (default) is NOT sent in the body."""
+        """human_in_the_loop omitted stays omitted in the body."""
         responses.add(
             responses.POST,
             f"{BASE}/tasks/10/runs",
@@ -594,6 +772,30 @@ class TestTasks:
         Tasks(http).run(10, stream=False)
         body = json.loads(responses.calls[0].request.body)
         assert "human_in_the_loop" not in body
+
+    @responses.activate
+    def test_run_explicit_false_hitl_is_sent(self, http):
+        """Explicit human_in_the_loop=False is serialized for task-run overrides."""
+        responses.add(
+            responses.POST,
+            f"{BASE}/tasks/10/runs",
+            json={"id": 1, "status": "running", "created_at": "2026-01-01T00:00:00Z"},
+        )
+        Tasks(http).run(10, stream=False, human_in_the_loop=False)
+        body = json.loads(responses.calls[0].request.body)
+        assert body["human_in_the_loop"] is False
+
+    @responses.activate
+    def test_run_explicit_autonomous_permission_mode_is_sent(self, http):
+        """Explicit autonomous override is serialized for task runs."""
+        responses.add(
+            responses.POST,
+            f"{BASE}/tasks/10/runs",
+            json={"id": 1, "status": "running", "created_at": "2026-01-01T00:00:00Z"},
+        )
+        Tasks(http).run(10, stream=False, permission_mode="autonomous")
+        body = json.loads(responses.calls[0].request.body)
+        assert body["permission_mode"] == "autonomous"
 
     @responses.activate
     def test_delete(self, http):
@@ -649,10 +851,51 @@ class TestApps:
                 "has_more": False,
             },
         )
-        result = Apps(http).list()
+        result = Apps(http).list(limit=2)
         assert len(result.data) == 1
         assert isinstance(result.data[0], App)
         assert result.data[0].name == "gmail"
+        assert "limit=2" in responses.calls[0].request.url
+
+    @responses.activate
+    def test_list_auto_paging(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/apps",
+            json={
+                "data": [
+                    {
+                        "name": "gmail",
+                        "display_name": "Gmail",
+                        "category": "email",
+                        "connected": True,
+                    }
+                ],
+                "has_more": True,
+            },
+        )
+        responses.add(
+            responses.GET,
+            f"{BASE}/apps",
+            json={
+                "data": [
+                    {
+                        "name": "slack",
+                        "display_name": "Slack",
+                        "category": "chat",
+                        "connected": False,
+                    }
+                ],
+                "has_more": False,
+            },
+        )
+
+        page = Apps(http).list(limit=1, user_id="cust_1")
+        apps = list(page.auto_paging_iter())
+
+        assert [app.name for app in apps] == ["gmail", "slack"]
+        assert "starting_after=gmail" in responses.calls[1].request.url
+        assert "user_id=cust_1" in responses.calls[1].request.url
 
     @responses.activate
     def test_connect(self, http):

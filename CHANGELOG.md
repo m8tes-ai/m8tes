@@ -2,6 +2,21 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [1.5.1] - 2026-03-05
+
+### Added
+- `teammates.enable_fetchmail(teammate_id)` — enable read-only email inbox; returns `FetchmailInbox` with `enabled` and `address`
+- `teammates.disable_fetchmail(teammate_id)` — disable read-only inbox
+- `FetchmailInbox` dataclass in `_types.py`
+- `Teammate.fetchmail_enabled` and `Teammate.fetchmail_address` fields
+
+## [1.5.0] - 2026-03-02
+
+### Added
+- `runs.create(email_inbox=True)` — enable email inbox on the auto-created teammate in one call
+- `runs.create_and_wait(email_inbox=True)` — same; the returned `Run` has `email_address` set
+- `Run.email_address` — email address for triggering future runs (set when `email_inbox=True` on creation)
+
 ## [1.4.2] - 2026-03-02
 
 ### Added

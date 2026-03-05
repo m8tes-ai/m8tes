@@ -10,7 +10,7 @@ Usage:
     python plan-mode.py
 """
 
-from m8tes import M8tes, PermissionRequest
+from m8tes import M8tes, PermissionMode, PermissionRequest
 
 client = M8tes()
 
@@ -59,7 +59,7 @@ run = client.runs.create(
     message="Process unread support emails: create Linear tickets for bugs, "
     "post urgent issues to #ops in Slack.",
     human_in_the_loop=True,
-    permission_mode="plan",
+    permission_mode=PermissionMode.PLAN,
     stream=False,
 )
 
@@ -75,7 +75,7 @@ automated_run = client.runs.create_and_wait(
     teammate_id=agent.id,
     message="Check for any new Linear tickets assigned to me and post a summary to Slack.",
     human_in_the_loop=True,
-    permission_mode="plan",
+    permission_mode=PermissionMode.PLAN,
     on_question=lambda req: {"Plan Approval": "Approve"} if req.is_plan_approval else {},
     on_approval=lambda req: "allow",
 )
