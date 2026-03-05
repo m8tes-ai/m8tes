@@ -157,8 +157,10 @@ class Tasks:
         metadata: dict | None = None,
         memory: bool = True,
         history: bool = True,
-        human_in_the_loop: bool = False,
-        permission_mode: str = "autonomous",
+        task_setup_tools: bool = True,
+        feedback: bool = True,
+        human_in_the_loop: bool | None = None,
+        permission_mode: str | None = None,
     ) -> RunStream | Run:
         """Execute a saved task, creating a new run.
 
@@ -168,15 +170,24 @@ class Tasks:
 
         Set human_in_the_loop=True to enable interactive features
         (clarifying questions, tool approval, plan mode).
+
+        If the saved task is already scoped to an end user, omitting user_id
+        inherits that scope. Passing a different user_id is rejected.
         """
-        body: dict = {"stream": stream, "memory": memory, "history": history}
+        body: dict = {
+            "stream": stream,
+            "memory": memory,
+            "history": history,
+            "task_setup_tools": task_setup_tools,
+            "feedback": feedback,
+        }
         if user_id is not None:
             body["user_id"] = user_id
         if metadata is not None:
             body["metadata"] = metadata
-        if human_in_the_loop:
-            body["human_in_the_loop"] = True
-        if permission_mode != "autonomous":
+        if human_in_the_loop is not None:
+            body["human_in_the_loop"] = human_in_the_loop
+        if permission_mode is not None:
             body["permission_mode"] = permission_mode
 
         if stream:
@@ -194,8 +205,10 @@ class Tasks:
         metadata: dict | None = None,
         memory: bool = True,
         history: bool = True,
-        human_in_the_loop: bool = False,
-        permission_mode: str = "autonomous",
+        task_setup_tools: bool = True,
+        feedback: bool = True,
+        human_in_the_loop: bool | None = None,
+        permission_mode: str | None = None,
         on_approval: Callable[[PermissionRequest], str] | None = None,
         on_question: Callable[[PermissionRequest], dict[str, str]] | None = None,
         poll_interval: float = 2.0,
@@ -212,6 +225,8 @@ class Tasks:
             metadata=metadata,
             memory=memory,
             history=history,
+            task_setup_tools=task_setup_tools,
+            feedback=feedback,
             human_in_the_loop=human_in_the_loop,
             permission_mode=permission_mode,
         )

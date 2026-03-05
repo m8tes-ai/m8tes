@@ -6,7 +6,14 @@ from collections.abc import Callable, Generator
 from typing import TYPE_CHECKING, Any, cast
 
 from .._streaming import RunStream
-from .._types import PermissionModeResponse, PermissionRequest, Run, RunFile, SyncPage
+from .._types import (
+    PermissionMode,
+    PermissionModeResponse,
+    PermissionRequest,
+    Run,
+    RunFile,
+    SyncPage,
+)
 from ._utils import _build_params
 
 _list = list  # preserve builtin; shadowed by .list() method
@@ -34,8 +41,11 @@ class Runs:
         metadata: dict | None = None,
         memory: bool = True,
         history: bool = True,
-        human_in_the_loop: bool = False,
-        permission_mode: str = "autonomous",
+        task_setup_tools: bool = True,
+        feedback: bool = True,
+        human_in_the_loop: bool | None = None,
+        permission_mode: str | None = None,
+        email_inbox: bool = False,
     ) -> RunStream | Run:
         """Create and execute a run.
 
@@ -45,6 +55,9 @@ class Runs:
 
         Set human_in_the_loop=True to enable interactive features
         (clarifying questions, tool approval, plan mode).
+
+        If teammate_id points at an end-user-scoped teammate, omitting user_id
+        inherits that scope. Passing a different user_id is rejected.
         """
         body: dict = {"message": message, "stream": stream}
         if teammate_id is not None:
@@ -61,10 +74,14 @@ class Runs:
             body["metadata"] = metadata
         body["memory"] = memory
         body["history"] = history
-        if human_in_the_loop:
-            body["human_in_the_loop"] = True
-        if permission_mode != "autonomous":
+        body["task_setup_tools"] = task_setup_tools
+        body["feedback"] = feedback
+        if human_in_the_loop is not None:
+            body["human_in_the_loop"] = human_in_the_loop
+        if permission_mode is not None:
             body["permission_mode"] = permission_mode
+        if email_inbox:
+            body["email_inbox"] = True
 
         if stream:
             resp = self._http.stream("POST", "/runs", json=body)
@@ -189,8 +206,11 @@ class Runs:
         metadata: dict | None = None,
         memory: bool = True,
         history: bool = True,
-        human_in_the_loop: bool = False,
-        permission_mode: str = "autonomous",
+        task_setup_tools: bool = True,
+        feedback: bool = True,
+        human_in_the_loop: bool | None = None,
+        permission_mode: str | None = None,
+        email_inbox: bool = False,
         on_approval: Callable[[PermissionRequest], str] | None = None,
         on_question: Callable[[PermissionRequest], dict[str, str]] | None = None,
         poll_interval: float = 2.0,
@@ -201,40 +221,58 @@ class Runs:
         Pass on_approval= and on_question= to handle human-in-the-loop pauses inline.
         Without callbacks, HITL runs will raise RuntimeError when they pause for input.
         """
-        run = self.create(
-            message=message,
-            teammate_id=teammate_id,
-            tools=tools,
-            stream=False,
-            name=name,
-            instructions=instructions,
-            user_id=user_id,
-            metadata=metadata,
-            memory=memory,
-            history=history,
-            human_in_the_loop=human_in_the_loop,
-            permission_mode=permission_mode,
+        initial = cast(
+            Run,
+            self.create(
+                message=message,
+                teammate_id=teammate_id,
+                tools=tools,
+                stream=False,
+                name=name,
+                instructions=instructions,
+                user_id=user_id,
+                metadata=metadata,
+                memory=memory,
+                history=history,
+                task_setup_tools=task_setup_tools,
+                feedback=feedback,
+                human_in_the_loop=human_in_the_loop,
+                permission_mode=permission_mode,
+                email_inbox=email_inbox,
+            ),
         )
-        return self.wait(
-            cast(Run, run).id,
+        # Preserve email_address from initial response — GET /runs/{id} doesn't return it
+        final = self.wait(
+            initial.id,
             on_approval=on_approval,
             on_question=on_question,
             interval=poll_interval,
             timeout=poll_timeout,
         )
+        if initial.email_address and not final.email_address:
+            final.email_address = initial.email_address
+        return final
 
     def reply_and_wait(
         self,
         run_id: int,
         *,
         message: str,
+        task_setup_tools: bool | None = None,
+        feedback: bool | None = None,
         on_approval: Callable[[PermissionRequest], str] | None = None,
         on_question: Callable[[PermissionRequest], dict[str, str]] | None = None,
         poll_interval: float = 2.0,
         poll_timeout: float = 300.0,
     ) -> Run:
         """Send a follow-up and wait until it completes. Returns the finished Run."""
-        run = self.reply(run_id, message=message, stream=False)
+        run = self.reply(
+            run_id,
+            message=message,
+            stream=False,
+            task_setup_tools=task_setup_tools,
+            feedback=feedback,
+        )
         return self.wait(
             cast(Run, run).id,
             on_approval=on_approval,
@@ -255,8 +293,10 @@ class Runs:
         metadata: dict | None = None,
         memory: bool = True,
         history: bool = True,
-        human_in_the_loop: bool = False,
-        permission_mode: str = "autonomous",
+        task_setup_tools: bool = True,
+        feedback: bool = True,
+        human_in_the_loop: bool | None = None,
+        permission_mode: str | None = None,
     ) -> Generator[str, None, None]:
         """Create a streaming run and yield only text delta strings.
 
@@ -277,6 +317,8 @@ class Runs:
             metadata=metadata,
             memory=memory,
             history=history,
+            task_setup_tools=task_setup_tools,
+            feedback=feedback,
             human_in_the_loop=human_in_the_loop,
             permission_mode=permission_mode,
         )
@@ -324,6 +366,8 @@ class Runs:
         *,
         message: str,
         stream: bool = True,
+        task_setup_tools: bool | None = None,
+        feedback: bool | None = None,
     ) -> RunStream | Run:
         """Follow-up message on an existing run. Creates a new run ID.
 
@@ -332,6 +376,10 @@ class Runs:
             Poll GET /runs/{id} until status is terminal to get output.
         """
         body = {"message": message, "stream": stream}
+        if task_setup_tools is not None:
+            body["task_setup_tools"] = task_setup_tools
+        if feedback is not None:
+            body["feedback"] = feedback
         if stream:
             resp = self._http.stream("POST", f"/runs/{run_id}/reply", json=body)
             return RunStream(resp)
@@ -346,7 +394,7 @@ class Runs:
         self,
         run_id: int,
         *,
-        permission_mode: str,
+        permission_mode: PermissionMode | str,
     ) -> PermissionModeResponse:
         """Change permission mode mid-run.
 

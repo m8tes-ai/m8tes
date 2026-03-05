@@ -4,6 +4,7 @@ from m8tes._types import (
     App,
     AppConnectionInitiation,
     AppConnectionResult,
+    AuditLog,
     Memory,
     PermissionPolicy,
     PermissionRequest,
@@ -29,6 +30,7 @@ class TestTeammateFromDict:
         assert t.role is None
         assert t.user_id is None
         assert t.metadata is None
+        assert t.default_permission_mode == "autonomous"
         assert t.status == "enabled"
         assert t.created_at == ""
 
@@ -45,6 +47,7 @@ class TestTeammateFromDict:
                 "user_id": "u1",
                 "metadata": {"k": "v"},
                 "allowed_senders": ["@a.com"],
+                "default_permission_mode": "approval",
                 "status": "disabled",
                 "created_at": "2024-01-01",
                 "updated_at": "2024-01-02",
@@ -52,6 +55,7 @@ class TestTeammateFromDict:
         )
         assert t.tools == ["gmail"]
         assert t.allowed_senders == ["@a.com"]
+        assert t.default_permission_mode == "approval"
         assert t.updated_at == "2024-01-02"
 
 
@@ -231,6 +235,23 @@ class TestRunFileFromDict:
         f = RunFile.from_dict({"name": "report.csv", "size": 1024})
         assert f.name == "report.csv"
         assert f.size == 1024
+
+
+class TestAuditLogFromDict:
+    def test_basic(self):
+        log = AuditLog.from_dict(
+            {
+                "id": 1,
+                "method": "GET",
+                "path": "/api/v2/runs/",
+                "status_code": 200,
+                "duration_ms": 12,
+                "created_at": "2026-03-05T10:00:00Z",
+            }
+        )
+        assert log.id == 1
+        assert log.method == "GET"
+        assert log.action is None
 
 
 class TestTeammateWebhookFromDict:
