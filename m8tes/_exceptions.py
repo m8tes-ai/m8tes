@@ -40,6 +40,10 @@ class ValidationError(M8tesError):
     """422 — invalid request parameters."""
 
 
+class BillingError(M8tesError):
+    """402 — billing limit reached or subscription issue."""
+
+
 class RateLimitError(M8tesError):
     """429 — too many requests."""
 
@@ -52,6 +56,7 @@ class APIError(M8tesError):
 STATUS_MAP: dict[int, type[M8tesError]] = {
     400: ValidationError,
     401: AuthenticationError,
+    402: BillingError,
     403: PermissionDeniedError,
     404: NotFoundError,
     409: ConflictError,

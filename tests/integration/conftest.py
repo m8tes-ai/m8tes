@@ -14,6 +14,25 @@ def get_backend_url() -> str:
     return os.getenv("E2E_BACKEND_URL", "http://localhost:8000")
 
 
+def require_test_catalog() -> bool:
+    """Return True when the integration suite should enforce a seeded app catalog."""
+    return os.getenv("E2E_REQUIRE_TEST_CATALOG") == "1"
+
+
+def assert_seeded_test_catalog(client: M8tes) -> None:
+    """Fail fast when deterministic SDK integration runs without the expected app catalog."""
+    page = client.apps.list()
+    apps = page.data
+
+    assert len(apps) >= 2, (
+        f"Deterministic SDK integration requires at least 2 seeded apps. Found {len(apps)}."
+    )
+    assert any(app.auth_type in ("api_key", "api_key_proxy") for app in apps), (
+        "Deterministic SDK integration requires at least one app with "
+        "auth_type 'api_key' or 'api_key_proxy'."
+    )
+
+
 @pytest.fixture(scope="session")
 def backend_url():
     """Verify backend is running and return its URL."""
@@ -48,6 +67,8 @@ def v2_client(backend_url):
     assert resp.status_code == 201, f"Registration failed: {resp.text}"
     token = resp.json()["api_key"]
 
-    client = M8tes(api_key=token, base_url=f"{backend_url}/api/v2")
+    client = M8tes(api_key=token, base_url=f"{backend_url}/api/v2", timeout=30)
+    if require_test_catalog():
+        assert_seeded_test_catalog(client)
     yield client
     client.close()

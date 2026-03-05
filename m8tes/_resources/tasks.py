@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from collections.abc import Callable
+from typing import TYPE_CHECKING, cast
 
 from .._streaming import RunStream
-from .._types import Run, SyncPage, Task, Trigger
+from .._types import PermissionRequest, Run, SyncPage, Task, Trigger
 from ._utils import _build_params
 
 _list = list  # preserve builtin; shadowed by .list() method
@@ -32,6 +33,7 @@ class TaskTriggers:
         trigger_name: str | None = None,
         trigger_config: dict | None = None,
         user_id: str | None = None,
+        allowed_senders: list[str] | None = None,
     ) -> Trigger:
         body: dict = {"type": type, "timezone": timezone}
         if cron:
@@ -46,6 +48,8 @@ class TaskTriggers:
             body["trigger_config"] = trigger_config
         if user_id:
             body["user_id"] = user_id
+        if allowed_senders is not None:
+            body["allowed_senders"] = allowed_senders
         resp = self._http.request("POST", f"/tasks/{task_id}/triggers", json=body)
         return Trigger.from_dict(resp.json())
 
@@ -76,6 +80,10 @@ class Tasks:
         expected_output: str | None = None,
         goals: str | None = None,
         user_id: str | None = None,
+        email_notifications: bool = True,
+        webhook: bool = False,
+        schedule: str | None = None,
+        schedule_timezone: str = "UTC",
     ) -> Task:
         body: dict = {"teammate_id": teammate_id, "instructions": instructions}
         if name is not None:
@@ -88,6 +96,13 @@ class Tasks:
             body["goals"] = goals
         if user_id is not None:
             body["user_id"] = user_id
+        if not email_notifications:
+            body["email_notifications"] = False
+        if webhook:
+            body["webhook"] = True
+        if schedule is not None:
+            body["schedule"] = schedule
+            body["schedule_timezone"] = schedule_timezone
         resp = self._http.request("POST", "/tasks", json=body)
         return Task.from_dict(resp.json())
 
@@ -127,6 +142,7 @@ class Tasks:
         tools: _list[str] | None = None,
         expected_output: str | None = None,
         goals: str | None = None,
+        email_notifications: bool | None = None,
     ) -> Task:
         body: dict = {}
         if name is not None:
@@ -139,6 +155,8 @@ class Tasks:
             body["expected_output"] = expected_output
         if goals is not None:
             body["goals"] = goals
+        if email_notifications is not None:
+            body["email_notifications"] = email_notifications
         resp = self._http.request("PATCH", f"/tasks/{task_id}", json=body)
         return Task.from_dict(resp.json())
 
@@ -151,8 +169,10 @@ class Tasks:
         metadata: dict | None = None,
         memory: bool = True,
         history: bool = True,
-        human_in_the_loop: bool = False,
-        permission_mode: str = "autonomous",
+        task_setup_tools: bool = True,
+        feedback: bool = True,
+        human_in_the_loop: bool | None = None,
+        permission_mode: str | None = None,
     ) -> RunStream | Run:
         """Execute a saved task, creating a new run.
 
@@ -162,15 +182,24 @@ class Tasks:
 
         Set human_in_the_loop=True to enable interactive features
         (clarifying questions, tool approval, plan mode).
+
+        If the saved task is already scoped to an end user, omitting user_id
+        inherits that scope. Passing a different user_id is rejected.
         """
-        body: dict = {"stream": stream, "memory": memory, "history": history}
+        body: dict = {
+            "stream": stream,
+            "memory": memory,
+            "history": history,
+            "task_setup_tools": task_setup_tools,
+            "feedback": feedback,
+        }
         if user_id is not None:
             body["user_id"] = user_id
         if metadata is not None:
             body["metadata"] = metadata
-        if human_in_the_loop:
-            body["human_in_the_loop"] = True
-        if permission_mode != "autonomous":
+        if human_in_the_loop is not None:
+            body["human_in_the_loop"] = human_in_the_loop
+        if permission_mode is not None:
             body["permission_mode"] = permission_mode
 
         if stream:
@@ -179,6 +208,49 @@ class Tasks:
 
         resp = self._http.request("POST", f"/tasks/{task_id}/runs", json=body)
         return Run.from_dict(resp.json())
+
+    def run_and_wait(
+        self,
+        task_id: int,
+        *,
+        user_id: str | None = None,
+        metadata: dict | None = None,
+        memory: bool = True,
+        history: bool = True,
+        task_setup_tools: bool = True,
+        feedback: bool = True,
+        human_in_the_loop: bool | None = None,
+        permission_mode: str | None = None,
+        on_approval: Callable[[PermissionRequest], str] | None = None,
+        on_question: Callable[[PermissionRequest], dict[str, str]] | None = None,
+        poll_interval: float = 2.0,
+        poll_timeout: float = 300.0,
+    ) -> Run:
+        """Execute a task and wait for completion. Returns the finished Run.
+
+        Pass on_approval= and on_question= to handle human-in-the-loop pauses inline.
+        """
+        run = self.run(
+            task_id,
+            stream=False,
+            user_id=user_id,
+            metadata=metadata,
+            memory=memory,
+            history=history,
+            task_setup_tools=task_setup_tools,
+            feedback=feedback,
+            human_in_the_loop=human_in_the_loop,
+            permission_mode=permission_mode,
+        )
+        from .runs import Runs
+
+        return Runs(self._http).wait(
+            cast(Run, run).id,
+            on_approval=on_approval,
+            on_question=on_question,
+            interval=poll_interval,
+            timeout=poll_timeout,
+        )
 
     def delete(self, task_id: int) -> None:
         self._http.request("DELETE", f"/tasks/{task_id}")

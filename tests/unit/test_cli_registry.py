@@ -154,6 +154,15 @@ class TestCommandRegistry:
         assert len(registry.get_all_commands()) == 0
         assert len(registry.get_command_groups()) == 0
 
+    def test_auto_discover_includes_apps_group(self):
+        """Auto-discovery should register the generic apps command group."""
+        registry = CommandRegistry()
+
+        registry.auto_discover_commands()
+
+        assert registry.has_command("apps")
+        assert registry.has_command("app")
+
 
 class TestCommand:
     """Test cases for Command base class."""

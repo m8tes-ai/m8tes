@@ -8,6 +8,8 @@ from ._exceptions import AuthenticationError
 from ._http import HTTPClient
 from ._resources import (
     Apps,
+    AuditLogs,
+    Auth,
     Memories,
     Permissions,
     Runs,
@@ -32,16 +34,19 @@ class M8tes:
     def __init__(
         self,
         api_key: str | None = None,
-        base_url: str = "https://m8tes.ai/api/v2",
+        base_url: str | None = None,
         timeout: int = 300,
     ):
         api_key = api_key or os.environ.get("M8TES_API_KEY")
+        base_url = base_url or os.environ.get("M8TES_BASE_URL") or "https://m8tes.ai/api/v2"
         if not api_key:
             raise AuthenticationError(
                 "No API key provided. Pass api_key= or set M8TES_API_KEY env var."
             )
 
         self._http = HTTPClient(api_key=api_key, base_url=base_url, timeout=timeout)
+        self.auth = Auth(self._http)
+        self.audit_logs = AuditLogs(self._http)
         self.teammates = Teammates(self._http)
         self.runs = Runs(self._http)
         self.tasks = Tasks(self._http)
