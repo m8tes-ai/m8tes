@@ -4,7 +4,7 @@ import pytest
 
 from m8tes._client import M8tes
 from m8tes._exceptions import AuthenticationError
-from m8tes._resources import Apps, Runs, Tasks, Teammates
+from m8tes._resources import Apps, AuditLogs, Runs, Tasks, Teammates
 
 
 class TestClientInit:
@@ -24,6 +24,7 @@ class TestClientInit:
 
     def test_resource_namespaces(self):
         client = M8tes(api_key="m8_test", base_url="http://localhost")
+        assert isinstance(client.audit_logs, AuditLogs)
         assert isinstance(client.teammates, Teammates)
         assert isinstance(client.runs, Runs)
         assert isinstance(client.tasks, Tasks)

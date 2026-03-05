@@ -123,12 +123,21 @@ make test-integration         # requires backend running at localhost:8000
 - Any change to FastAPI payloads must update `types.py` and regenerate documentation/snippets.
 - Chat and task are the same flow (both create a Task + Run). Ensure new commands/methods work consistently for both patterns.
 
+## After Every SDK Change
+
+**Always do these after any change to SDK behavior, API surface, or bug fixes:**
+
+1. Add a changelog entry in `CHANGELOG.md` describing what changed and why.
+2. Bump the version in `pyproject.toml` following semver (`patch` for fixes, `minor` for new features, `major` for breaking changes).
+
+Skipping these makes it impossible for users to know what version they need or what changed.
+
 ## Release Checklist
 
 - Version bump in `pyproject.toml`.
+- `CHANGELOG.md` updated with a clear entry for this release.
 - `make check` clean, integration suite green.
 - CLI help (`m8tes --help`) reflects new commands/flags.
-- Changelog entry summarizing mate/API changes.
 
 ## References
 

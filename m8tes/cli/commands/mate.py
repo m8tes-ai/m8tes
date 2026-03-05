@@ -284,6 +284,15 @@ class TaskCommand(Command):
             action="store_true",
             help="Enable debug mode with detailed logging and event traces",
         )
+        parser.add_argument(
+            "--no-task-setup-tools",
+            action="store_true",
+            default=False,
+            help=(
+                "Disable built-in same-scope management tools for teammates, tasks, "
+                "runs, approvals, files, and memories on this run."
+            ),
+        )
 
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
         """Execute teammate task."""
@@ -326,12 +335,14 @@ class TaskCommand(Command):
 
             output_format = getattr(args, "output", "verbose")
             debug = getattr(args, "debug", False)
+            no_task_setup_tools = getattr(args, "no_task_setup_tools", False)
 
             mate_cli.task_interactive(
                 message,
                 str(confirmed_mate_id),
                 output_format=output_format,
                 debug=debug,
+                task_setup_tools=not no_task_setup_tools,
             )
             return 0
         except AuthenticationError as e:
