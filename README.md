@@ -220,6 +220,32 @@ run = client.runs.update_permission_mode(run.id, permission_mode="approval")
 print(run.permission_mode)  # "approval"
 ```
 
+## Computer use
+
+When your account has sandbox execution enabled, agents run inside a full Linux desktop. No changes to your code — you get the same run API. The agent gains three extra tools automatically: `computer` (mouse/keyboard/screenshots), `bash` (shell), and `str_replace_based_edit_tool` (file editing).
+
+```python
+with client.runs.create(
+    teammate_id=...,
+    message="open chromium, go to example.com, and return the page title",
+) as stream:
+    for event in stream:
+        if event.type == "tool_result":
+            for block in event.content or []:
+                if block.get("type") == "image":
+                    # base64 PNG screenshot after each desktop action
+                    screenshot_data = block["source"]["data"]
+        if event.type == "text-delta":
+            print(event.delta, end="")
+```
+
+Extra events in the stream:
+
+| Event | When |
+|-------|------|
+| `sandbox-connecting` | Desktop environment starting |
+| `sandbox-connected` | Desktop ready (`duration_ms` included) |
+
 ## Triggers
 
 ```python
