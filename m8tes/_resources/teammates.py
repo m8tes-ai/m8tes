@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .._types import EmailInbox, SyncPage, Teammate, TeammateWebhook
+from .._types import EmailInbox, FetchmailInbox, SyncPage, Teammate, TeammateWebhook
 from ._utils import _build_params
 
 _list = list  # preserve builtin; shadowed by .list() method
@@ -32,6 +32,7 @@ class Teammates:
         allowed_senders: list[str] | None = None,
         email_inbox: bool = False,
         webhook: bool = False,
+        default_permission_mode: str | None = None,
     ) -> Teammate:
         body: dict = {}
         if name is not None:
@@ -54,6 +55,8 @@ class Teammates:
             body["email_inbox"] = True
         if webhook:
             body["webhook"] = True
+        if default_permission_mode is not None:
+            body["default_permission_mode"] = default_permission_mode
         resp = self._http.request("POST", "/teammates", json=body)
         return Teammate.from_dict(resp.json())
 
@@ -92,6 +95,7 @@ class Teammates:
         goals: str | None = None,
         metadata: dict | None = None,
         allowed_senders: _list[str] | None = None,
+        default_permission_mode: str | None = None,
     ) -> Teammate:
         body: dict = {}
         if name is not None:
@@ -108,6 +112,8 @@ class Teammates:
             body["metadata"] = metadata
         if allowed_senders is not None:
             body["allowed_senders"] = allowed_senders
+        if default_permission_mode is not None:
+            body["default_permission_mode"] = default_permission_mode
         resp = self._http.request("PATCH", f"/teammates/{teammate_id}", json=body)
         return Teammate.from_dict(resp.json())
 
@@ -131,3 +137,12 @@ class Teammates:
     def disable_email_inbox(self, teammate_id: int) -> None:
         """Disable email inbox on a teammate."""
         self._http.request("DELETE", f"/teammates/{teammate_id}/email-inbox")
+
+    def enable_fetchmail(self, teammate_id: int) -> FetchmailInbox:
+        """Enable read-only email inbox on a teammate. Returns the email address."""
+        resp = self._http.request("POST", f"/teammates/{teammate_id}/fetchmail")
+        return FetchmailInbox.from_dict(resp.json())
+
+    def disable_fetchmail(self, teammate_id: int) -> None:
+        """Disable read-only email inbox on a teammate."""
+        self._http.request("DELETE", f"/teammates/{teammate_id}/fetchmail")

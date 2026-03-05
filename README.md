@@ -17,38 +17,24 @@ pip install m8tes
 ## Quick start
 
 ```python
-from m8tes import M8tes
+from m8tes import M8tes, PermissionMode
 
 client = M8tes()  # uses M8TES_API_KEY env var
 
-# create a teammate and enable its email inbox
-teammate = client.teammates.create(
-    name="ops assistant",
-    tools=["stripe", "linear", "slack"],
-    instructions="pull last week's metrics, write a short summary, post to #ops on Slack",
+result = client.runs.create_and_wait(
+    message="pull last week's Stripe MRR and post to #revenue on Slack",
+    tools=["stripe", "slack"],
+    instructions="you are a finance ops assistant",
+    permission_mode=PermissionMode.AUTONOMOUS,
     email_inbox=True,
 )
-print(f"inbox: {teammate.email_address}")  # forward anything here to trigger a run
-
-# schedule it: every Monday at 9am ET
-task = client.tasks.create(
-    teammate_id=teammate.id,
-    instructions="run the weekly ops summary",
-    schedule="0 9 * * 1",
-    schedule_timezone="America/New_York",
-)
-
-# run it now — streams live output
-with client.runs.create(
-    teammate_id=teammate.id,
-    message="run the ops summary now",
-    permission_mode="autonomous",
-) as stream:
-    for chunk in stream.iter_text():
-        print(chunk, end="", flush=True)
-
-print(stream.run_id)
+print(result.output)
+print(f"inbox: {result.email_address}")  # forward emails here to trigger future runs
 ```
+
+Set `task_setup_tools=False` on `client.runs.create(...)`, `client.runs.reply(...)`, or `client.tasks.run(...)` when you do not want the agent to receive the internal same-scope management tools for teammates, tasks, runs, approvals, files, memories, inboxes, webhooks, and app connections during that execution. Set `feedback=False` on those same V2 calls to disable the internal issue-reporting feedback tool (`report_issue`) for that execution.
+
+When you pass `user_id`, the run is scoped to that end user. If you target an existing teammate or task that is already scoped, the `user_id` you pass must match that resource's scope. If you omit `user_id`, runs and tasks inherit the scope from the targeted teammate or task.
 
 → Full docs and examples at [m8tes.ai/docs](https://m8tes.ai/docs)
 
@@ -59,6 +45,14 @@ Rotate your API key with `POST /api/v2/token`. That endpoint returns a new API k
 Check current plan, run usage, and cost limits with `client.auth.get_usage()` or `m8tes auth usage`.
 
 Need email-triggered runs? Opt in with `email_inbox=True` on `client.teammates.create(...)` or call `client.teammates.enable_email_inbox(teammate_id)` later.
+
+Inspect account request history with `client.audit_logs.list(...)`:
+
+```python
+page = client.audit_logs.list(method="POST", resource_type="run", limit=10)
+for log in page.data:
+    print(log.created_at, log.method, log.path, log.status_code)
+```
 
 ## What you skip
 
@@ -177,13 +171,17 @@ print(stream.run_id, stream.text)
 
 ## Human-in-the-loop
 
-Pass callbacks to `wait()` — approval pauses are handled inline:
+Pass callbacks to `wait()`. Approval pauses are handled inline:
+Use `PermissionMode` constants to avoid string typos.
 
 ```python
+from m8tes import PermissionMode
+
 run = client.runs.create(
     message="draft and send the weekly report",
     human_in_the_loop=True,
-    permission_mode="approval",  # or "plan", "autonomous"
+    permission_mode=PermissionMode.APPROVAL,
+    task_setup_tools=False,      # keep this run limited to public tools only
     stream=False,
 )
 run = client.runs.wait(
@@ -200,7 +198,7 @@ Or create and wait in a single call:
 run = client.runs.create_and_wait(
     message="draft and send the weekly report",
     human_in_the_loop=True,
-    permission_mode="approval",
+    permission_mode=PermissionMode.APPROVAL,
     on_approval=lambda req: "allow",
 )
 ```
@@ -216,7 +214,7 @@ client.runs.answer(run.id, answers={"Which channel?": "#general"})
 ### Switch permission mode on an existing run
 
 ```python
-run = client.runs.update_permission_mode(run.id, permission_mode="approval")
+run = client.runs.update_permission_mode(run.id, permission_mode=PermissionMode.APPROVAL)
 print(run.permission_mode)  # "approval"
 ```
 
@@ -286,12 +284,25 @@ client.memories.create(user_id="cust_123", content="prefers email over slack")
 # pre-approve tools
 client.permissions.create(user_id="cust_123", tool="gmail")
 
-# run on their behalf — memory, permissions, history all scoped
+# run on their behalf — memory, permissions, history, and internal management tools all scoped
 run = client.runs.create_and_wait(
     teammate_id=bot.id,
     message="check inbox for urgent items",
     user_id="cust_123",
 )
+```
+
+The same rule applies to saved tasks and follow-up runs:
+
+```python
+task = client.tasks.create(
+    teammate_id=bot.id,
+    instructions="review urgent inbox items",
+)
+
+# inherits cust_123 from the scoped teammate
+run = client.tasks.run(task.id, stream=False)
+assert run.user_id == "cust_123"
 ```
 
 ## Apps & connections
@@ -323,8 +334,9 @@ client.apps.disconnect("gemini", user_id="cust_123")
 
 | Resource | Key methods | Description |
 |----------|------------|-------------|
-| `client.teammates` | `create` `list` `get` `update` `delete` `enable_webhook` `disable_webhook` `enable_email_inbox` `disable_email_inbox` | Agent personas with tools and instructions |
+| `client.teammates` | `create` `list` `get` `update` `delete` `enable_webhook` `disable_webhook` `enable_email_inbox` `disable_email_inbox` `enable_fetchmail` `disable_fetchmail` | Agent personas with tools and instructions |
 | `client.runs` | `create` `poll` `wait` `create_and_wait` `reply` `reply_and_wait` `stream_text` `get` `list` `cancel` `permissions` `approve` `answer` `update_permission_mode` `list_files` `download_file` | Execute teammates and stream results |
+| `client.audit_logs` | `list` | Account-scoped API request history |
 | `client.tasks` | `create` `list` `get` `update` `delete` `run` `run_and_wait` | Reusable task definitions |
 | `client.tasks.triggers` | `create` `list` `delete` | Schedule, webhook, and email triggers |
 | `client.apps` | `list` `is_connected` `connect` `connect_oauth` `connect_api_key` `connect_complete` `disconnect` | Tool catalog and end-user app connections |

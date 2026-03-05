@@ -31,8 +31,10 @@ from m8tes._exceptions import (
 )
 from m8tes._types import (
     AccountSettings,
+    AuditLog,
     EmailInbox,
     EndUser,
+    FetchmailInbox,
     Memory,
     PermissionPolicy,
     Run,
@@ -408,6 +410,67 @@ class TestTeammateEmailInbox:
             assert "@" in tm.email_address
         finally:
             v2_client.teammates.delete(tm.id)
+
+
+@pytest.mark.integration
+class TestTeammateFetchmail:
+    """Fetchmail (read-only inbox) lifecycle tests."""
+
+    def test_enable_disable_lifecycle(self, v2_client):
+        """Enable fetchmail → verify FetchmailInbox → disable → 204."""
+        tm = v2_client.teammates.create(name="FetchmailHost")
+        try:
+            inbox = v2_client.teammates.enable_fetchmail(tm.id)
+            assert isinstance(inbox, FetchmailInbox)
+            assert inbox.enabled is True
+            assert inbox.address is not None
+            assert "@" in inbox.address
+
+            v2_client.teammates.disable_fetchmail(tm.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_enable_idempotent(self, v2_client):
+        """Enable twice returns the same address."""
+        tm = v2_client.teammates.create(name="FetchmailIdem")
+        try:
+            inbox1 = v2_client.teammates.enable_fetchmail(tm.id)
+            inbox2 = v2_client.teammates.enable_fetchmail(tm.id)
+            assert inbox1.address == inbox2.address
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_fetchmail_fields_in_get(self, v2_client):
+        """Fetchmail fields appear in teammate.get() response."""
+        tm = v2_client.teammates.create(name="FetchmailGet")
+        try:
+            v2_client.teammates.enable_fetchmail(tm.id)
+            fetched = v2_client.teammates.get(tm.id)
+            assert fetched.fetchmail_enabled is True
+            assert fetched.fetchmail_address is not None
+            assert "@" in fetched.fetchmail_address
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_independent_from_email_inbox(self, v2_client):
+        """Fetchmail and email inbox use different addresses."""
+        tm = v2_client.teammates.create(name="FetchmailIndep")
+        try:
+            email = v2_client.teammates.enable_email_inbox(tm.id)
+            fetchmail = v2_client.teammates.enable_fetchmail(tm.id)
+            assert email.address != fetchmail.address
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_enable_nonexistent_404(self, v2_client):
+        """Enable fetchmail on nonexistent teammate returns 404."""
+        with pytest.raises(NotFoundError):
+            v2_client.teammates.enable_fetchmail(999999)
+
+    def test_disable_nonexistent_404(self, v2_client):
+        """Disable fetchmail on nonexistent teammate returns 404."""
+        with pytest.raises(NotFoundError):
+            v2_client.teammates.disable_fetchmail(999999)
 
 
 # ── Tasks ────────────────────────────────────────────────────────────
@@ -1438,6 +1501,36 @@ class TestWebhookIsolationAndEdges:
             v2_client.webhooks.delete(wh.id)
 
 
+# ── Audit logs ───────────────────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestAuditLogs:
+    def test_list_returns_typed_page(self, v2_client):
+        """Audit logs list returns a typed SyncPage."""
+        page = v2_client.audit_logs.list(limit=5)
+        assert isinstance(page, SyncPage)
+        assert all(isinstance(log, AuditLog) for log in page.data)
+
+    def test_filters_and_scoping(self, v2_client, backend_url):
+        """Audit logs are account-scoped and support basic filters."""
+        other_client = _new_v2_client(backend_url, email_prefix="audit-cross")
+
+        # Generate one scoped log entry for this account.
+        v2_client.runs.list(limit=1)
+        own_logs = v2_client.audit_logs.list(resource_type="run", method="GET", limit=50)
+        own_ids = {log.id for log in own_logs.data}
+
+        # Generate logs on another account and ensure they are not visible here.
+        other_client.runs.list(limit=1)
+        try:
+            other_logs = other_client.audit_logs.list(resource_type="run", method="GET", limit=50)
+            other_ids = {log.id for log in other_logs.data}
+            assert own_ids.isdisjoint(other_ids)
+        finally:
+            other_client.close()
+
+
 # ── Runs (list/get only — no execution) ─────────────────────────────
 
 
@@ -1546,6 +1639,36 @@ class TestRunsHumanInTheLoop:
         finally:
             v2_client.teammates.delete(tm.id)
 
+    def test_create_run_with_task_setup_tools_disabled(self, v2_client):
+        """Public SDK can disable internal task-setup tools per run."""
+        tm = v2_client.teammates.create(name="NoTaskSetupTools")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=tm.id,
+                message="Test without task setup tools",
+                stream=False,
+                task_setup_tools=False,
+            )
+            assert isinstance(run, Run)
+            assert run.status == "running"
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_create_run_with_feedback_disabled(self, v2_client):
+        """Public SDK can disable internal feedback tool per run."""
+        tm = v2_client.teammates.create(name="NoFeedback")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=tm.id,
+                message="Test without feedback tool",
+                stream=False,
+                feedback=False,
+            )
+            assert isinstance(run, Run)
+            assert run.status == "running"
+        finally:
+            v2_client.teammates.delete(tm.id)
+
     def test_plan_mode_without_hitl_rejected(self, v2_client):
         """permission_mode=plan without HITL raises ValidationError."""
         tm = v2_client.teammates.create(name="HitlPlanNoHitl")
@@ -1642,6 +1765,46 @@ class TestRunsHumanInTheLoop:
                     task.id,
                     stream=False,
                     human_in_the_loop=True,
+                )
+                assert isinstance(run, Run)
+            finally:
+                v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_task_run_with_task_setup_tools_disabled(self, v2_client):
+        """Public SDK can disable internal task-setup tools for saved-task runs."""
+        tm = v2_client.teammates.create(name="TaskNoSetupTools")
+        try:
+            task = v2_client.tasks.create(
+                teammate_id=tm.id,
+                instructions="Task run without task setup tools",
+            )
+            try:
+                run = v2_client.tasks.run(
+                    task.id,
+                    stream=False,
+                    task_setup_tools=False,
+                )
+                assert isinstance(run, Run)
+            finally:
+                v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_task_run_with_feedback_disabled(self, v2_client):
+        """Public SDK can disable internal feedback tool for saved-task runs."""
+        tm = v2_client.teammates.create(name="TaskNoFeedback")
+        try:
+            task = v2_client.tasks.create(
+                teammate_id=tm.id,
+                instructions="Task run without feedback tool",
+            )
+            try:
+                run = v2_client.tasks.run(
+                    task.id,
+                    stream=False,
+                    feedback=False,
                 )
                 assert isinstance(run, Run)
             finally:
@@ -2353,6 +2516,79 @@ class TestMultiTenancyIsolation:
         finally:
             v2_client.teammates.delete(tm.id)
 
+    def test_run_inherits_scoped_teammate_user_id(self, v2_client):
+        """Run should inherit the teammate user_id when omitted."""
+        uid = _uid()
+        tm = v2_client.teammates.create(name="ScopedRunHost", user_id=uid)
+        try:
+            run = v2_client.runs.create(teammate_id=tm.id, message="Test", stream=False)
+            assert run.user_id == uid
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_run_rejects_mismatched_scoped_teammate_user_id(self, v2_client):
+        """Run should reject a user_id that does not match a scoped teammate."""
+        uid_a, uid_b = _uid(), _uid()
+        tm = v2_client.teammates.create(name="ScopedMismatchRunHost", user_id=uid_a)
+        try:
+            with pytest.raises(NotFoundError):
+                v2_client.runs.create(
+                    teammate_id=tm.id,
+                    message="Test",
+                    stream=False,
+                    user_id=uid_b,
+                )
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_task_rejects_mismatched_scoped_teammate_user_id(self, v2_client):
+        """Task creation should reject a user_id that does not match a scoped teammate."""
+        uid_a, uid_b = _uid(), _uid()
+        tm = v2_client.teammates.create(name="ScopedMismatchTaskHost", user_id=uid_a)
+        try:
+            with pytest.raises(NotFoundError):
+                v2_client.tasks.create(
+                    teammate_id=tm.id,
+                    instructions="Do the thing",
+                    user_id=uid_b,
+                )
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_task_run_inherits_scoped_task_user_id(self, v2_client):
+        """Saved-task runs should inherit the task scope when user_id is omitted."""
+        uid = _uid()
+        tm = v2_client.teammates.create(name="ScopedTaskRunHost", user_id=uid)
+        try:
+            task = v2_client.tasks.create(
+                teammate_id=tm.id,
+                instructions="Review the inbox",
+            )
+            try:
+                run = v2_client.tasks.run(task.id, stream=False)
+                assert run.user_id == uid
+            finally:
+                v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_task_run_rejects_mismatched_scoped_task_user_id(self, v2_client):
+        """Saved-task runs should reject a user_id that does not match the task scope."""
+        uid_a, uid_b = _uid(), _uid()
+        tm = v2_client.teammates.create(name="ScopedTaskRunMismatchHost", user_id=uid_a)
+        try:
+            task = v2_client.tasks.create(
+                teammate_id=tm.id,
+                instructions="Review the inbox",
+            )
+            try:
+                with pytest.raises(NotFoundError):
+                    v2_client.tasks.run(task.id, stream=False, user_id=uid_b)
+            finally:
+                v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
 
 # ── Response Type Verification ───────────────────────────────────────
 
@@ -2852,6 +3088,24 @@ class TestRunsSDKMethods:
         finally:
             v2_client.teammates.delete(tm.id)
 
+    def test_create_and_wait_email_inbox(self, v2_client):
+        """create_and_wait(email_inbox=True) returns a run with email_address set."""
+        run = v2_client.runs.create_and_wait(
+            message="say hello",
+            instructions="you are a test assistant",
+            email_inbox=True,
+            poll_interval=1.0,
+            poll_timeout=120.0,
+        )
+        try:
+            assert isinstance(run, Run)
+            assert run.email_address is not None
+            assert "@" in run.email_address
+        finally:
+            if run.teammate_id:
+                with contextlib.suppress(Exception):
+                    v2_client.teammates.delete(run.teammate_id)
+
     def test_create_and_wait_has_output(self, v2_client):
         """create_and_wait() on completed run has non-empty output."""
         tm = v2_client.teammates.create(name="CreateWaitOutputHost")
@@ -2926,7 +3180,7 @@ class TestRunsSDKMethods:
 
                 # Skip if no text produced (fake API key in CI, CLI not installed, or auth error)
                 has_text = any(isinstance(e, TextDeltaEvent) for e in events)
-                has_terminal = any(isinstance(e, (DoneEvent, ErrorEvent)) for e in events)
+                has_terminal = any(isinstance(e, DoneEvent | ErrorEvent) for e in events)
                 if not has_text and has_terminal:
                     pytest.skip("Claude produced no text — likely CI with fake API key")
 

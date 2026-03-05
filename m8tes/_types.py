@@ -4,9 +4,21 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
+from enum import StrEnum
 from typing import Any, Generic, TypeVar
 
 T = TypeVar("T")
+
+
+class PermissionMode(StrEnum):
+    """Permission modes for controlling tool access during runs.
+
+    Use these constants instead of raw strings when setting permission_mode.
+    """
+
+    AUTONOMOUS = "autonomous"
+    APPROVAL = "approval"
+    PLAN = "plan"
 
 
 @dataclass
@@ -25,7 +37,13 @@ class SyncPage(Generic[T]):
             if not page.has_more or not page.data or not page._fetch_next:
                 break
             last: Any = page.data[-1]
-            page = page._fetch_next(starting_after=last.id)
+            # Most SDK resources use integer `id` cursors. App pages use `name`.
+            cursor = getattr(last, "id", None)
+            if cursor is None:
+                cursor = getattr(last, "name", None)
+            if cursor is None:
+                break
+            page = page._fetch_next(starting_after=cursor)
 
 
 @dataclass
@@ -41,11 +59,14 @@ class Teammate:
     user_id: str | None
     metadata: dict | None
     allowed_senders: list[str] | None
+    default_permission_mode: str
     status: str
     created_at: str
     updated_at: str | None = None
     inbound_email_enabled: bool = False
     email_address: str | None = None
+    fetchmail_enabled: bool = False
+    fetchmail_address: str | None = None
     webhook_enabled: bool = False
     webhook_url: str | None = None
 
@@ -61,8 +82,11 @@ class Teammate:
             user_id=data.get("user_id"),
             metadata=data.get("metadata"),
             allowed_senders=data.get("allowed_senders"),
+            default_permission_mode=data.get("default_permission_mode", "autonomous"),
             inbound_email_enabled=data.get("inbound_email_enabled", False),
             email_address=data.get("email_address"),
+            fetchmail_enabled=data.get("fetchmail_enabled", False),
+            fetchmail_address=data.get("fetchmail_address"),
             webhook_enabled=data.get("webhook_enabled", False),
             webhook_url=data.get("webhook_url"),
             status=data.get("status", "enabled"),
@@ -85,6 +109,7 @@ class Run:
     created_at: str
     updated_at: str | None
     permission_mode: str | None = None
+    email_address: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> Run:
@@ -99,6 +124,7 @@ class Run:
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at"),
             permission_mode=data.get("permission_mode"),
+            email_address=data.get("email_address"),
         )
 
 
@@ -183,6 +209,37 @@ class RunFile:
 
 
 @dataclass
+class AuditLog:
+    """A single API request audit record."""
+
+    id: int
+    method: str
+    path: str
+    status_code: int
+    duration_ms: int
+    action: str | None
+    resource_type: str | None
+    resource_id: str | None
+    api_key_prefix: str | None
+    created_at: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> AuditLog:
+        return cls(
+            id=data["id"],
+            method=data["method"],
+            path=data["path"],
+            status_code=data["status_code"],
+            duration_ms=data["duration_ms"],
+            action=data.get("action"),
+            resource_type=data.get("resource_type"),
+            resource_id=data.get("resource_id"),
+            api_key_prefix=data.get("api_key_prefix"),
+            created_at=data.get("created_at", ""),
+        )
+
+
+@dataclass
 class TeammateWebhook:
     """Teammate webhook trigger details (returned when enabling webhook)."""
 
@@ -203,6 +260,18 @@ class EmailInbox:
 
     @classmethod
     def from_dict(cls, data: dict) -> EmailInbox:
+        return cls(enabled=data["enabled"], address=data.get("address"))
+
+
+@dataclass
+class FetchmailInbox:
+    """Teammate fetchmail (read-only) inbox status."""
+
+    enabled: bool
+    address: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> FetchmailInbox:
         return cls(enabled=data["enabled"], address=data.get("address"))
 
 
