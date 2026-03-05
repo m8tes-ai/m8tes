@@ -59,6 +59,7 @@ class Teammate:
     user_id: str | None
     metadata: dict | None
     allowed_senders: list[str] | None
+    default_permission_mode: str
     status: str
     created_at: str
     updated_at: str | None = None
@@ -81,6 +82,7 @@ class Teammate:
             user_id=data.get("user_id"),
             metadata=data.get("metadata"),
             allowed_senders=data.get("allowed_senders"),
+            default_permission_mode=data.get("default_permission_mode", "autonomous"),
             inbound_email_enabled=data.get("inbound_email_enabled", False),
             email_address=data.get("email_address"),
             fetchmail_enabled=data.get("fetchmail_enabled", False),

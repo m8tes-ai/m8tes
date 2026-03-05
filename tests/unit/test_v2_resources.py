@@ -51,6 +51,7 @@ class TestTeammates:
             json={
                 "id": 1,
                 "name": "Bot",
+                "default_permission_mode": "autonomous",
                 "status": "enabled",
                 "tools": [],
                 "created_at": "",
@@ -78,10 +79,12 @@ class TestTeammates:
             user_id="u_1",
             metadata={"k": "v"},
             allowed_senders=["@acme.com"],
+            default_permission_mode="approval",
         )
         body = json.loads(responses.calls[0].request.body)
         assert body["tools"] == ["gmail"]
         assert body["allowed_senders"] == ["@acme.com"]
+        assert body["default_permission_mode"] == "approval"
 
     @responses.activate
     def test_list(self, http):
@@ -117,9 +120,20 @@ class TestTeammates:
     @responses.activate
     def test_update_sends_only_provided_fields(self, http):
         responses.add(responses.PATCH, f"{BASE}/teammates/1", json={"id": 1, "name": "X"})
-        Teammates(http).update(1, name="X", tools=["gmail"], allowed_senders=["@a.com"])
+        Teammates(http).update(
+            1,
+            name="X",
+            tools=["gmail"],
+            allowed_senders=["@a.com"],
+            default_permission_mode="plan",
+        )
         body = json.loads(responses.calls[0].request.body)
-        assert body == {"name": "X", "tools": ["gmail"], "allowed_senders": ["@a.com"]}
+        assert body == {
+            "name": "X",
+            "tools": ["gmail"],
+            "allowed_senders": ["@a.com"],
+            "default_permission_mode": "plan",
+        }
 
     @responses.activate
     def test_delete(self, http):
@@ -460,11 +474,27 @@ class TestRuns:
 
     @responses.activate
     def test_create_default_hitl_not_sent(self, http):
-        """human_in_the_loop=False (default) is NOT sent in the body."""
+        """human_in_the_loop omitted stays omitted in the body."""
         responses.add(responses.POST, f"{BASE}/runs", json={"id": 1, "status": "running"})
         Runs(http).create(message="Do X", stream=False)
         body = json.loads(responses.calls[0].request.body)
         assert "human_in_the_loop" not in body
+
+    @responses.activate
+    def test_create_explicit_false_hitl_is_sent(self, http):
+        """Explicit human_in_the_loop=False is serialized for override behavior."""
+        responses.add(responses.POST, f"{BASE}/runs", json={"id": 1, "status": "running"})
+        Runs(http).create(message="Do X", stream=False, human_in_the_loop=False)
+        body = json.loads(responses.calls[0].request.body)
+        assert body["human_in_the_loop"] is False
+
+    @responses.activate
+    def test_create_explicit_autonomous_permission_mode_is_sent(self, http):
+        """Explicit autonomous override is serialized."""
+        responses.add(responses.POST, f"{BASE}/runs", json={"id": 1, "status": "running"})
+        Runs(http).create(message="Do X", stream=False, permission_mode="autonomous")
+        body = json.loads(responses.calls[0].request.body)
+        assert body["permission_mode"] == "autonomous"
 
     @responses.activate
     def test_list_files(self, http):
@@ -733,7 +763,7 @@ class TestTasks:
 
     @responses.activate
     def test_run_default_hitl_not_sent(self, http):
-        """human_in_the_loop=False (default) is NOT sent in the body."""
+        """human_in_the_loop omitted stays omitted in the body."""
         responses.add(
             responses.POST,
             f"{BASE}/tasks/10/runs",
@@ -742,6 +772,30 @@ class TestTasks:
         Tasks(http).run(10, stream=False)
         body = json.loads(responses.calls[0].request.body)
         assert "human_in_the_loop" not in body
+
+    @responses.activate
+    def test_run_explicit_false_hitl_is_sent(self, http):
+        """Explicit human_in_the_loop=False is serialized for task-run overrides."""
+        responses.add(
+            responses.POST,
+            f"{BASE}/tasks/10/runs",
+            json={"id": 1, "status": "running", "created_at": "2026-01-01T00:00:00Z"},
+        )
+        Tasks(http).run(10, stream=False, human_in_the_loop=False)
+        body = json.loads(responses.calls[0].request.body)
+        assert body["human_in_the_loop"] is False
+
+    @responses.activate
+    def test_run_explicit_autonomous_permission_mode_is_sent(self, http):
+        """Explicit autonomous override is serialized for task runs."""
+        responses.add(
+            responses.POST,
+            f"{BASE}/tasks/10/runs",
+            json={"id": 1, "status": "running", "created_at": "2026-01-01T00:00:00Z"},
+        )
+        Tasks(http).run(10, stream=False, permission_mode="autonomous")
+        body = json.loads(responses.calls[0].request.body)
+        assert body["permission_mode"] == "autonomous"
 
     @responses.activate
     def test_delete(self, http):

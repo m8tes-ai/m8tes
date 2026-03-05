@@ -6,7 +6,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, cast
 
 from .._streaming import RunStream
-from .._types import PermissionMode, PermissionRequest, Run, SyncPage, Task, Trigger
+from .._types import PermissionRequest, Run, SyncPage, Task, Trigger
 from ._utils import _build_params
 
 _list = list  # preserve builtin; shadowed by .list() method
@@ -159,8 +159,8 @@ class Tasks:
         history: bool = True,
         task_setup_tools: bool = True,
         feedback: bool = True,
-        human_in_the_loop: bool = False,
-        permission_mode: PermissionMode | str = PermissionMode.AUTONOMOUS,
+        human_in_the_loop: bool | None = None,
+        permission_mode: str | None = None,
     ) -> RunStream | Run:
         """Execute a saved task, creating a new run.
 
@@ -185,9 +185,9 @@ class Tasks:
             body["user_id"] = user_id
         if metadata is not None:
             body["metadata"] = metadata
-        if human_in_the_loop:
-            body["human_in_the_loop"] = True
-        if permission_mode != "autonomous":
+        if human_in_the_loop is not None:
+            body["human_in_the_loop"] = human_in_the_loop
+        if permission_mode is not None:
             body["permission_mode"] = permission_mode
 
         if stream:
@@ -207,8 +207,8 @@ class Tasks:
         history: bool = True,
         task_setup_tools: bool = True,
         feedback: bool = True,
-        human_in_the_loop: bool = False,
-        permission_mode: PermissionMode | str = PermissionMode.AUTONOMOUS,
+        human_in_the_loop: bool | None = None,
+        permission_mode: str | None = None,
         on_approval: Callable[[PermissionRequest], str] | None = None,
         on_question: Callable[[PermissionRequest], dict[str, str]] | None = None,
         poll_interval: float = 2.0,

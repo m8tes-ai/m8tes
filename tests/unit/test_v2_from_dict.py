@@ -30,6 +30,7 @@ class TestTeammateFromDict:
         assert t.role is None
         assert t.user_id is None
         assert t.metadata is None
+        assert t.default_permission_mode == "autonomous"
         assert t.status == "enabled"
         assert t.created_at == ""
 
@@ -46,6 +47,7 @@ class TestTeammateFromDict:
                 "user_id": "u1",
                 "metadata": {"k": "v"},
                 "allowed_senders": ["@a.com"],
+                "default_permission_mode": "approval",
                 "status": "disabled",
                 "created_at": "2024-01-01",
                 "updated_at": "2024-01-02",
@@ -53,6 +55,7 @@ class TestTeammateFromDict:
         )
         assert t.tools == ["gmail"]
         assert t.allowed_senders == ["@a.com"]
+        assert t.default_permission_mode == "approval"
         assert t.updated_at == "2024-01-02"
 
 
