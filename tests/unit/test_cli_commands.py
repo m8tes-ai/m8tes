@@ -3,14 +3,25 @@ Tests for CLI command implementations.
 """
 
 from argparse import ArgumentParser, Namespace
+from contextlib import nullcontext
 from unittest.mock import Mock, patch
 
+from m8tes.cli.commands.apps import (
+    AppsCommandGroup,
+    ConnectApiKeyCommand,
+    ConnectCompleteCommand,
+    ConnectOAuthCommand,
+    DisconnectCommand as AppsDisconnectCommand,
+    ListAppsCommand,
+)
 from m8tes.cli.commands.auth import (
     AuthCommandGroup,
     LoginCommand,
     LogoutCommand,
     RegisterCommand,
+    ResendVerifyCommand,
     StatusCommand,
+    UsageCommand as AuthUsageCommand,
 )
 from m8tes.cli.commands.google import (
     ConnectCommand,
@@ -46,13 +57,15 @@ class TestAuthCommands:
         group = AuthCommandGroup()
         subcommands = group.get_subcommands()
 
-        assert len(subcommands) == 4
+        assert len(subcommands) == 6
 
         # Check subcommand types
         subcommand_types = [type(cmd) for cmd in subcommands]
         assert RegisterCommand in subcommand_types
         assert LoginCommand in subcommand_types
         assert StatusCommand in subcommand_types
+        assert AuthUsageCommand in subcommand_types
+        assert ResendVerifyCommand in subcommand_types
         assert LogoutCommand in subcommand_types
 
     def test_register_command_attributes(self):
@@ -156,6 +169,108 @@ class TestAuthCommands:
 
         assert result == 0
         mock_auth_cli.login_interactive.assert_called_once_with(save_token=False)
+
+    @patch("m8tes.cli.commands.auth.v2_client_from_args")
+    def test_auth_usage_command_execute_success(self, mock_v2_client_from_args):
+        """Auth usage command should print usage via the v2 client."""
+        mock_v2 = Mock()
+        mock_v2.auth.get_usage.return_value = Mock(
+            plan="pro",
+            runs_used=12,
+            runs_limit=100,
+            cost_used=4.5,
+            cost_limit=50.0,
+            period_end="2026-03-31T00:00:00Z",
+        )
+        mock_v2_client_from_args.return_value = nullcontext(mock_v2)
+
+        cmd = AuthUsageCommand()
+        result = cmd.execute(Namespace(api_key=None, base_url=None), None)
+
+        assert result == 0
+        mock_v2.auth.get_usage.assert_called_once_with()
+
+    @patch("m8tes.cli.commands.auth.v2_client_from_args")
+    def test_auth_resend_verify_command_execute_success(self, mock_v2_client_from_args):
+        """Resend verify should delegate to the v2 auth resource."""
+        mock_v2 = Mock()
+        mock_v2.auth.resend_verify.return_value = "Verification email sent."
+        mock_v2_client_from_args.return_value = nullcontext(mock_v2)
+
+        cmd = ResendVerifyCommand()
+        result = cmd.execute(Namespace(api_key=None, base_url=None), None)
+
+        assert result == 0
+        mock_v2.auth.resend_verify.assert_called_once_with()
+
+
+class TestAppsCommands:
+    """Test cases for generic v2 app management commands."""
+
+    def test_apps_command_group_setup(self):
+        """Apps command group should expose list/connect/disconnect flows."""
+        group = AppsCommandGroup()
+        subcommands = group.get_subcommands()
+
+        assert len(subcommands) == 5
+        subcommand_types = [type(cmd) for cmd in subcommands]
+        assert ListAppsCommand in subcommand_types
+        assert ConnectOAuthCommand in subcommand_types
+        assert ConnectApiKeyCommand in subcommand_types
+        assert ConnectCompleteCommand in subcommand_types
+        assert AppsDisconnectCommand in subcommand_types
+
+    def test_connect_oauth_arguments(self):
+        """OAuth connect command should require app name and redirect URI."""
+        cmd = ConnectOAuthCommand()
+        parser = ArgumentParser()
+
+        cmd.add_arguments(parser)
+        args = parser.parse_args(["gmail", "--redirect-uri", "https://app.example.com/callback"])
+
+        assert args.app_name == "gmail"
+        assert args.redirect_uri == "https://app.example.com/callback"
+
+    @patch("m8tes.cli.commands.apps.v2_client_from_args")
+    def test_connect_api_key_execute_success(self, mock_v2_client_from_args):
+        """API key connect command should call the explicit v2 helper."""
+        mock_v2 = Mock()
+        mock_v2.apps.connect_api_key.return_value = Mock(app="gemini", status="connected")
+        mock_v2_client_from_args.return_value = nullcontext(mock_v2)
+        mock_client = Mock()
+
+        cmd = ConnectApiKeyCommand()
+        args = Namespace(
+            app_name="gemini",
+            app_api_key="sk_test_123",
+            user_id="cust_123",
+            api_key=None,
+            base_url=None,
+        )
+
+        result = cmd.execute(args, mock_client)
+
+        assert result == 0
+        mock_v2.apps.connect_api_key.assert_called_once_with(
+            "gemini",
+            "sk_test_123",
+            user_id="cust_123",
+        )
+
+    @patch("m8tes.cli.commands.apps.v2_client_from_args")
+    def test_disconnect_execute_success(self, mock_v2_client_from_args):
+        """Disconnect command should call the v2 apps resource."""
+        mock_v2 = Mock()
+        mock_v2_client_from_args.return_value = nullcontext(mock_v2)
+        mock_client = Mock()
+
+        cmd = AppsDisconnectCommand()
+        args = Namespace(app_name="gmail", user_id="cust_123", api_key=None, base_url=None)
+
+        result = cmd.execute(args, mock_client)
+
+        assert result == 0
+        mock_v2.apps.disconnect.assert_called_once_with("gmail", user_id="cust_123")
 
 
 class TestGoogleCommands:
@@ -522,7 +637,7 @@ class TestMateCommands:
 
         assert result == 0
         mock_mate_cli.task_interactive.assert_called_once_with(
-            "Run analysis", "123", output_format="verbose", debug=False
+            "Run analysis", "123", output_format="verbose", debug=False, task_setup_tools=True
         )
 
     def test_chat_command_attributes(self):
@@ -561,7 +676,7 @@ class TestRunCommands:
         group = RunCommandGroup()
         subcommands = group.get_subcommands()
 
-        assert len(subcommands) == 6
+        assert len(subcommands) == 8
 
     def test_run_command_group_attributes(self):
         """Test run command group has correct attributes."""
@@ -674,3 +789,109 @@ class TestRunCommands:
         assert cmd.name == "tools"
         assert "executions" in cmd.aliases
         assert cmd.requires_auth
+
+    def test_set_permission_mode_arguments(self):
+        """Run mode command should accept run ID and a valid permission mode."""
+        from m8tes.cli.commands.run import SetPermissionModeCommand
+
+        cmd = SetPermissionModeCommand()
+        parser = ArgumentParser()
+        cmd.add_arguments(parser)
+
+        args = parser.parse_args(["42", "approval"])
+        assert args.run_id == 42
+        assert args.permission_mode == "approval"
+
+    @patch("m8tes.cli.commands.run.v2_client_from_args")
+    def test_set_permission_mode_execute_success(self, mock_v2_client_from_args):
+        """Run mode command should delegate to the v2 runs resource."""
+        from m8tes.cli.commands.run import SetPermissionModeCommand
+
+        mock_v2 = Mock()
+        mock_v2.runs.update_permission_mode.return_value = Mock(permission_mode="approval")
+        mock_v2_client_from_args.return_value = nullcontext(mock_v2)
+        mock_client = Mock()
+
+        cmd = SetPermissionModeCommand()
+        args = Namespace(run_id=42, permission_mode="approval", api_key=None, base_url=None)
+
+        result = cmd.execute(args, mock_client)
+
+        assert result == 0
+        mock_v2.runs.update_permission_mode.assert_called_once_with(
+            42,
+            permission_mode="approval",
+        )
+
+    def test_audit_logs_command_arguments(self):
+        """Audit logs command should expose the documented filters."""
+        from m8tes.cli.commands.run import AuditLogsCommand
+
+        cmd = AuditLogsCommand()
+        parser = ArgumentParser()
+        cmd.add_arguments(parser)
+
+        args = parser.parse_args(
+            [
+                "--limit",
+                "5",
+                "--action",
+                "create",
+                "--resource-type",
+                "run",
+                "--method",
+                "POST",
+                "--status-code",
+                "201",
+            ]
+        )
+        assert args.limit == 5
+        assert args.action == "create"
+        assert args.resource_type == "run"
+        assert args.method == "POST"
+        assert args.status_code == 201
+
+    @patch("m8tes.cli.commands.run.v2_client_from_args")
+    def test_audit_logs_command_execute_success(self, mock_v2_client_from_args):
+        """Audit logs command should delegate to the v2 audit_logs resource."""
+        from m8tes.cli.commands.run import AuditLogsCommand
+
+        mock_v2 = Mock()
+        mock_v2.audit_logs.list.return_value = Mock(
+            data=[
+                Mock(
+                    id=1,
+                    method="POST",
+                    status_code=201,
+                    resource_type="run",
+                    resource_id=None,
+                    action="create",
+                    path="/api/v2/runs/",
+                )
+            ],
+            has_more=False,
+        )
+        mock_v2_client_from_args.return_value = nullcontext(mock_v2)
+        mock_client = Mock()
+
+        cmd = AuditLogsCommand()
+        args = Namespace(
+            api_key=None,
+            base_url=None,
+            action="create",
+            resource_type="run",
+            method="POST",
+            status_code=201,
+            limit=20,
+        )
+
+        result = cmd.execute(args, mock_client)
+
+        assert result == 0
+        mock_v2.audit_logs.list.assert_called_once_with(
+            action="create",
+            resource_type="run",
+            method="POST",
+            status_code=201,
+            limit=20,
+        )

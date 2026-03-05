@@ -1,16 +1,16 @@
 [project]
 name = "m8tes"
-version = "0.2.0"
-description = "Python SDK for building autonomous AI agents on m8tes.ai"
+version = "1.5.1"
+description = "Python SDK for building autonomous AI agents with 150+ integrations, hosted execution, schedules, and human-in-the-loop"
 readme = "README.md"
 requires-python = ">=3.11.9"
 license = "MIT"
 authors = [
     {name = "m8tes.ai", email = "support@m8tes.ai"}
 ]
-keywords = ["ai", "agents", "automation", "llm", "sdk"]
+keywords = ["ai", "agents", "automation", "llm", "sdk", "autonomous-agents", "ai-agent", "mcp", "claude", "anthropic", "ai-teammates", "workflow-automation"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
@@ -37,6 +37,9 @@ dev = [
     "build>=0.10.0",
     "twine>=4.0.0",
     "wheel>=0.40.0",
+    "pip-audit>=2.0.0",
+    "pytest-timeout>=0.5",
+    "apscheduler>=3.0.0",  # needed by test_v2_schema_contract to import backend schemas.py
 ]
 
 [project.scripts]

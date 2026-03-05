@@ -93,6 +93,7 @@ class CommandRegistry:
         # Common command module names to try
         command_modules = [
             f"{package_name}.auth",
+            f"{package_name}.apps",
             f"{package_name}.meta",
             f"{package_name}.google",
             f"{package_name}.mate",

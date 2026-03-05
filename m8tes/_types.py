@@ -4,9 +4,21 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
+from enum import StrEnum
 from typing import Any, Generic, TypeVar
 
 T = TypeVar("T")
+
+
+class PermissionMode(StrEnum):
+    """Permission modes for controlling tool access during runs.
+
+    Use these constants instead of raw strings when setting permission_mode.
+    """
+
+    AUTONOMOUS = "autonomous"
+    APPROVAL = "approval"
+    PLAN = "plan"
 
 
 @dataclass
@@ -25,7 +37,13 @@ class SyncPage(Generic[T]):
             if not page.has_more or not page.data or not page._fetch_next:
                 break
             last: Any = page.data[-1]
-            page = page._fetch_next(starting_after=last.id)
+            # Most SDK resources use integer `id` cursors. App pages use `name`.
+            cursor = getattr(last, "id", None)
+            if cursor is None:
+                cursor = getattr(last, "name", None)
+            if cursor is None:
+                break
+            page = page._fetch_next(starting_after=cursor)
 
 
 @dataclass
@@ -41,11 +59,16 @@ class Teammate:
     user_id: str | None
     metadata: dict | None
     allowed_senders: list[str] | None
+    default_permission_mode: str
     status: str
     created_at: str
     updated_at: str | None = None
     inbound_email_enabled: bool = False
     email_address: str | None = None
+    fetchmail_enabled: bool = False
+    fetchmail_address: str | None = None
+    webhook_enabled: bool = False
+    webhook_url: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> Teammate:
@@ -59,8 +82,13 @@ class Teammate:
             user_id=data.get("user_id"),
             metadata=data.get("metadata"),
             allowed_senders=data.get("allowed_senders"),
+            default_permission_mode=data.get("default_permission_mode", "autonomous"),
             inbound_email_enabled=data.get("inbound_email_enabled", False),
             email_address=data.get("email_address"),
+            fetchmail_enabled=data.get("fetchmail_enabled", False),
+            fetchmail_address=data.get("fetchmail_address"),
+            webhook_enabled=data.get("webhook_enabled", False),
+            webhook_url=data.get("webhook_url"),
             status=data.get("status", "enabled"),
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at"),
@@ -80,6 +108,8 @@ class Run:
     metadata: dict | None
     created_at: str
     updated_at: str | None
+    permission_mode: str | None = None
+    email_address: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> Run:
@@ -93,6 +123,8 @@ class Run:
             metadata=data.get("metadata"),
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at"),
+            permission_mode=data.get("permission_mode"),
+            email_address=data.get("email_address"),
         )
 
 
@@ -112,6 +144,9 @@ class Task:
     created_at: str
     updated_at: str | None = None
     app_trigger_count: int = 0
+    email_notifications: bool = True
+    webhook_url: str | None = None
+    webhook_enabled: bool = False
 
     @classmethod
     def from_dict(cls, data: dict) -> Task:
@@ -128,6 +163,9 @@ class Task:
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at"),
             app_trigger_count=data.get("app_trigger_count", 0),
+            email_notifications=data.get("email_notifications", True),
+            webhook_url=data.get("webhook_url"),
+            webhook_enabled=data.get("webhook_enabled", False),
         )
 
 
@@ -199,6 +237,37 @@ class RunFile:
 
 
 @dataclass
+class AuditLog:
+    """A single API request audit record."""
+
+    id: int
+    method: str
+    path: str
+    status_code: int
+    duration_ms: int
+    action: str | None
+    resource_type: str | None
+    resource_id: str | None
+    api_key_prefix: str | None
+    created_at: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> AuditLog:
+        return cls(
+            id=data["id"],
+            method=data["method"],
+            path=data["path"],
+            status_code=data["status_code"],
+            duration_ms=data["duration_ms"],
+            action=data.get("action"),
+            resource_type=data.get("resource_type"),
+            resource_id=data.get("resource_id"),
+            api_key_prefix=data.get("api_key_prefix"),
+            created_at=data.get("created_at", ""),
+        )
+
+
+@dataclass
 class TeammateWebhook:
     """Teammate webhook trigger details (returned when enabling webhook)."""
 
@@ -223,6 +292,18 @@ class EmailInbox:
 
 
 @dataclass
+class FetchmailInbox:
+    """Teammate fetchmail (read-only) inbox status."""
+
+    enabled: bool
+    address: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> FetchmailInbox:
+        return cls(enabled=data["enabled"], address=data.get("address"))
+
+
+@dataclass
 class App:
     """An available tool/integration."""
 
@@ -230,6 +311,22 @@ class App:
     display_name: str
     category: str
     connected: bool
+    auth_type: str = ""  # "composio" | "api_key" | "api_key_proxy"
+
+    @property
+    def needs_oauth(self) -> bool:
+        """True for OAuth-based integrations (Gmail, Slack, etc.).
+        False for API key integrations (Gemini, OpenAI, etc.).
+
+        Use to route to the right helper:
+            if app.needs_oauth:
+                conn = client.apps.connect_oauth(
+                    app.name, redirect_uri=callback_url, user_id=uid
+                )
+            else:
+                conn = client.apps.connect_api_key(app.name, api_key=user_key, user_id=uid)
+        """
+        return self.auth_type == "composio"
 
     @classmethod
     def from_dict(cls, data: dict) -> App:
@@ -238,26 +335,42 @@ class App:
             display_name=data.get("display_name", data["name"]),
             category=data.get("category", "general"),
             connected=data.get("connected", False),
+            auth_type=data.get("auth_type", ""),
         )
 
 
 @dataclass
-class AppConnection:
-    """Result of an OAuth connection initiation or completion."""
+class AppConnectionInitiation:
+    """Returned by apps.connect() — redirect the user to authorization_url to complete OAuth."""
 
-    authorization_url: str | None
-    connection_id: str | None
-    status: str | None
-    app: str | None
+    authorization_url: str
+    connection_id: str
 
     @classmethod
-    def from_dict(cls, data: dict) -> AppConnection:
+    def from_dict(cls, data: dict) -> AppConnectionInitiation:
         return cls(
-            authorization_url=data.get("authorization_url"),
-            connection_id=data.get("connection_id"),
-            status=data.get("status"),
-            app=data.get("app"),
+            authorization_url=data["authorization_url"],
+            connection_id=data["connection_id"],
         )
+
+
+@dataclass
+class AppConnectionResult:
+    """Returned by apps.connect_complete() — confirms the connection is active."""
+
+    status: str
+    app: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> AppConnectionResult:
+        return cls(
+            status=data["status"],
+            app=data["app"],
+        )
+
+
+# Legacy alias kept for backwards compatibility — use AppConnectionInitiation or AppConnectionResult
+AppConnection = AppConnectionInitiation
 
 
 @dataclass
@@ -303,6 +416,23 @@ class PermissionRequest:
             resolved_at=data.get("resolved_at"),
         )
 
+    @property
+    def is_plan_approval(self) -> bool:
+        """True if this is a plan mode approval pause (agent proposing a plan)."""
+        if self.tool_name != "AskUserQuestion" or not self.tool_input:
+            return False
+        return any(q.get("header") == "Plan Approval" for q in self.tool_input.get("questions", []))
+
+    @property
+    def plan_text(self) -> str | None:
+        """The proposed plan text. Only set for plan approval requests."""
+        if not self.is_plan_approval or not self.tool_input:
+            return None
+        for q in self.tool_input.get("questions", []):
+            if q.get("header") == "Plan Approval":
+                return q.get("question") or None
+        return None
+
 
 @dataclass
 class PermissionPolicy:
@@ -321,6 +451,17 @@ class PermissionPolicy:
             tool_name=data["tool_name"],
             created_at=data.get("created_at", ""),
         )
+
+
+@dataclass
+class PermissionModeResponse:
+    """Current permission mode for a run."""
+
+    permission_mode: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> PermissionModeResponse:
+        return cls(permission_mode=data["permission_mode"])
 
 
 @dataclass
@@ -417,3 +558,54 @@ class AccountSettings:
     @classmethod
     def from_dict(cls, data: dict) -> AccountSettings:
         return cls(company_research=data["company_research"])
+
+
+@dataclass
+class SignupResult:
+    """Returned by m8tes.signup() — new account with API key."""
+
+    api_key: str
+    email: str
+    message: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> SignupResult:
+        return cls(api_key=data["api_key"], email=data["email"], message=data["message"])
+
+
+@dataclass
+class TokenResult:
+    """Returned by m8tes.get_token() — newly generated API key."""
+
+    api_key: str
+    email: str
+    message: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> TokenResult:
+        return cls(api_key=data["api_key"], email=data["email"], message=data["message"])
+
+
+@dataclass
+class Usage:
+    """Billing usage and limits for the authenticated user."""
+
+    plan: str
+    runs_used: int
+    runs_limit: int
+    cost_used: str
+    cost_limit: str
+    period_end: str
+    subscription_status: str | None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Usage:
+        return cls(
+            plan=data["plan"],
+            runs_used=data["runs_used"],
+            runs_limit=data["runs_limit"],
+            cost_used=data["cost_used"],
+            cost_limit=data["cost_limit"],
+            period_end=data["period_end"],
+            subscription_status=data.get("subscription_status"),
+        )
