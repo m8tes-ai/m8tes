@@ -43,8 +43,8 @@ class Runs:
         history: bool = True,
         task_setup_tools: bool = True,
         feedback: bool = True,
-        human_in_the_loop: bool = False,
-        permission_mode: PermissionMode | str = PermissionMode.AUTONOMOUS,
+        human_in_the_loop: bool | None = None,
+        permission_mode: str | None = None,
         email_inbox: bool = False,
     ) -> RunStream | Run:
         """Create and execute a run.
@@ -76,9 +76,9 @@ class Runs:
         body["history"] = history
         body["task_setup_tools"] = task_setup_tools
         body["feedback"] = feedback
-        if human_in_the_loop:
-            body["human_in_the_loop"] = True
-        if permission_mode != "autonomous":
+        if human_in_the_loop is not None:
+            body["human_in_the_loop"] = human_in_the_loop
+        if permission_mode is not None:
             body["permission_mode"] = permission_mode
         if email_inbox:
             body["email_inbox"] = True
@@ -208,8 +208,8 @@ class Runs:
         history: bool = True,
         task_setup_tools: bool = True,
         feedback: bool = True,
-        human_in_the_loop: bool = False,
-        permission_mode: PermissionMode | str = PermissionMode.AUTONOMOUS,
+        human_in_the_loop: bool | None = None,
+        permission_mode: str | None = None,
         email_inbox: bool = False,
         on_approval: Callable[[PermissionRequest], str] | None = None,
         on_question: Callable[[PermissionRequest], dict[str, str]] | None = None,
@@ -295,8 +295,8 @@ class Runs:
         history: bool = True,
         task_setup_tools: bool = True,
         feedback: bool = True,
-        human_in_the_loop: bool = False,
-        permission_mode: PermissionMode | str = PermissionMode.AUTONOMOUS,
+        human_in_the_loop: bool | None = None,
+        permission_mode: str | None = None,
     ) -> Generator[str, None, None]:
         """Create a streaming run and yield only text delta strings.
 
