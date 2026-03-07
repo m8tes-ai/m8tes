@@ -436,6 +436,8 @@ class SetPermissionModeCommand(Command):
             print("\n✅ Permission mode updated")
             print(f"   Run ID: {args.run_id}")
             print(f"   Permission mode: {result.permission_mode}")
+            if result.permission_mode == "autonomous":
+                print("   Pending tool approvals were auto-approved. Questions still need answers.")
             return 0
         except SDKM8tesError as e:
             print(f"❌ Failed to update permission mode: {e}")

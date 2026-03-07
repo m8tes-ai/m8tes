@@ -218,6 +218,10 @@ run = client.runs.update_permission_mode(run.id, permission_mode=PermissionMode.
 print(run.permission_mode)  # "approval"
 ```
 
+Switch mode while the run is still active, including `awaiting_approval`. Switching to
+`PermissionMode.AUTONOMOUS` auto-approves pending tool approval requests and resumes a paused
+tool approval run. `AskUserQuestion` and plan approvals still wait for `client.runs.answer()`.
+
 ## Computer use
 
 When your account has sandbox execution enabled, agents run inside a full Linux desktop. No changes to your code — you get the same run API. The agent gains three extra tools automatically: `computer` (mouse/keyboard/screenshots), `bash` (shell), and `str_replace_based_edit_tool` (file editing).
@@ -426,6 +430,9 @@ m8tes run set-permission-mode 42 approval
 m8tes mate task ID "message"        # run a task
 m8tes mate chat ID                  # interactive chat
 ```
+
+`m8tes run set-permission-mode` also works while a run is paused. Switching to `autonomous`
+resumes pending tool approvals, but `AskUserQuestion` still waits for an explicit answer.
 
 See [CLI documentation](https://m8tes.ai/docs/cli) for all commands and options.
 
