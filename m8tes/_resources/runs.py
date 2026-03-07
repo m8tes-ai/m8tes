@@ -399,7 +399,9 @@ class Runs:
         """Change permission mode mid-run.
 
         Switches between 'autonomous', 'approval', and 'plan'.
-        When switching to 'autonomous', all pending permission requests are auto-approved.
+        Switching to 'autonomous' auto-approves pending tool approval requests and
+        resumes paused tool approval runs. AskUserQuestion pauses still require
+        runs.answer().
         """
         resp = self._http.request(
             "PATCH",
