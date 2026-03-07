@@ -3218,6 +3218,39 @@ class TestRunsSDKMethods:
                 v2_client.runs.cancel(run.id)
             v2_client.teammates.delete(tm.id)
 
+    def test_update_permission_mode_auto_approves_pending_tool_request(self, v2_client):
+        """SDK mode switch auto-approves an outstanding tool permission request."""
+        import requests
+
+        tm = v2_client.teammates.create(name="ModeSwitchAutoApproveHost")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=tm.id,
+                message="Switch modes",
+                stream=False,
+            )
+
+            backend_url = v2_client._http._base_url.rsplit("/api/v2", 1)[0]
+            resp = requests.post(
+                f"{backend_url}/api/v1/runs/{run.id}/permission-request",
+                headers={"Authorization": v2_client._http._session.headers["Authorization"]},
+                json={"tool_name": "gmail_send", "tool_input": {"to": "user@example.com"}},
+                timeout=30,
+            )
+            assert resp.status_code == 200, resp.text
+
+            result = v2_client.runs.update_permission_mode(run.id, permission_mode="autonomous")
+            assert result.permission_mode == "autonomous"
+
+            permissions = v2_client.runs.permissions(run.id)
+            request_id = resp.json()["request_id"]
+            request = next(req for req in permissions if req.request_id == request_id)
+            assert request.status == "allowed"
+        finally:
+            with contextlib.suppress(ConflictError, UnboundLocalError):
+                v2_client.runs.cancel(run.id)
+            v2_client.teammates.delete(tm.id)
+
 
 # ── Runs: Parameter Combinations ────────────────────────────────────
 
