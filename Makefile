@@ -48,7 +48,7 @@ help:
 
 # Development setup
 install:
-	uv sync
+	uv sync --extra dev
 
 upgrade:
 	uv sync --upgrade
@@ -205,7 +205,7 @@ watch-tests:
 
 # CI/CD helpers
 ci-install:
-	uv sync
+	uv sync --extra dev
 
 check: format lint type-check test-cov
 	@echo "✅ CI checks completed"
