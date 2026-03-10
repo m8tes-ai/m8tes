@@ -21,7 +21,7 @@ def test_get_usage():
         json={
             "plan": "free",
             "runs_used": 1,
-            "runs_limit": 5,
+            "runs_limit": 1,
             "cost_used": "0.25",
             "cost_limit": "5.00",
             "period_end": "2026-03-31T00:00:00Z",
