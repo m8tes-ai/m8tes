@@ -3720,7 +3720,7 @@ class TestAuthEndpoints:
         data = resp.json()
         assert data["plan"] == "free"
         assert isinstance(data["runs_used"], int)
-        assert data["runs_limit"] == 5
+        assert data["runs_limit"] == 1
         assert "cost_used" in data
         assert "cost_limit" in data
         assert "period_end" in data

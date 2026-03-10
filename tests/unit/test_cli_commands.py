@@ -177,7 +177,7 @@ class TestAuthCommands:
         mock_v2.auth.get_usage.return_value = Mock(
             plan="pro",
             runs_used=12,
-            runs_limit=100,
+            runs_limit=20,
             cost_used=4.5,
             cost_limit=50.0,
             period_end="2026-03-31T00:00:00Z",
