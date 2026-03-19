@@ -317,3 +317,11 @@ def test_customer_agent_example_keeps_user_scoping(monkeypatch: pytest.MonkeyPat
     run_user_ids = [call["user_id"] for call in recorder.find("runs.create_and_wait")]
     assert run_user_ids == ["acme-corp", "globex-inc"]
     assert recorder.find("runs.list")[0]["user_id"] == "acme-corp"
+
+
+def test_reddit_outreach_example_uses_reddit_and_sheets(monkeypatch: pytest.MonkeyPatch):
+    recorder = run_example(monkeypatch, "reddit-outreach.py")
+
+    create_call = recorder.find("teammates.create")[0]
+    assert create_call["tools"] == ["reddit", "google-sheets"]
+    assert recorder.find("runs.create_and_wait")

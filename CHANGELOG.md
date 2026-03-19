@@ -2,6 +2,11 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [1.5.2] - 2026-03-19
+
+### Added
+- `examples/reddit-outreach.py` — Reddit community engagement + Google Sheets tracking example; configure `SPREADSHEET_ID` and `TARGET_AUDIENCE`, run outreach sessions that log each comment to a tracking sheet
+
 ## [1.5.1] - 2026-03-05
 
 ### Added
