@@ -147,6 +147,12 @@ class Task:
     email_notifications: bool = True
     webhook_url: str | None = None
     webhook_enabled: bool = False
+    # Template propagation metadata (null on custom tasks). Set when a task
+    # was seeded from a teammate template — see /api/v2/teammate-templates
+    # and Teammates.create(from_template=...).
+    source_template_task_slug: str | None = None
+    is_modified: bool = False
+    user_recommends_removal: bool = False
 
     @classmethod
     def from_dict(cls, data: dict) -> Task:
@@ -166,6 +172,9 @@ class Task:
             email_notifications=data.get("email_notifications", True),
             webhook_url=data.get("webhook_url"),
             webhook_enabled=data.get("webhook_enabled", False),
+            source_template_task_slug=data.get("source_template_task_slug"),
+            is_modified=data.get("is_modified", False),
+            user_recommends_removal=data.get("user_recommends_removal", False),
         )
 
 

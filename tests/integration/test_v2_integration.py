@@ -3811,3 +3811,73 @@ class TestAuthSDK:
         msg = v2_client.auth.resend_verify()
         assert isinstance(msg, str)
         assert msg
+
+
+@pytest.mark.integration
+class TestTeammateTemplates:
+    """Verticalized teammate templates: from_template enable + reset.
+
+    Requires a backend with the ppc-manager template registered and the
+    Google Ads AppIntegration seeded. The happy path also requires the test
+    user to have a connected Google Ads Integration row — when absent the
+    backend returns 400 missing_integration, which we assert as a fall-through
+    path. The unknown-slug and conflict tests don't depend on integrations.
+    """
+
+    def test_from_template_unknown_slug_raises_not_found(self, v2_client):
+        with pytest.raises(NotFoundError):
+            v2_client.teammates.create(from_template="no-such-template-zzz")
+
+    def test_from_template_conflicting_fields_raises_validation(self, v2_client):
+        # tools + from_template should be rejected with 400 from_template_conflict.
+        # Backend returns 400 which the SDK maps to ValidationError.
+        with pytest.raises(ValidationError):
+            v2_client.teammates.create(
+                from_template="ppc-manager",
+                tools=["gmail"],
+                instructions="custom override should be rejected",
+            )
+
+    def test_from_template_missing_integration_or_happy_path(self, v2_client):
+        """Either creates the teammate (Google Ads connected) or 400s
+        with missing_integration. Both are valid backend states for this
+        integration test."""
+        try:
+            teammate = v2_client.teammates.create(from_template="ppc-manager")
+        except ValidationError as e:
+            # Without a connected Google Ads integration we get a 400 with
+            # missing_integration error code. The teammate is NOT created.
+            assert e.status_code == 400
+            return
+
+        try:
+            assert teammate.name == "PPC Manager"
+            assert "google_ads" in (teammate.tools or [])
+            # Reset on a freshly enabled teammate with no customizations is
+            # a no-op — returns empty list.
+            reset_fields = v2_client.teammates.reset(teammate.id)
+            assert reset_fields == []
+
+            # Customize a field, then reset it.
+            v2_client.teammates.update(
+                teammate.id,
+                instructions="my custom prompt that overrides the template",
+            )
+            cleared = v2_client.teammates.reset(teammate.id, fields=["instructions"])
+            assert "instructions" in cleared
+
+            # After reset, the next GET should show the template's default
+            # back in place of the override.
+            refreshed = v2_client.teammates.get(teammate.id)
+            assert "my custom prompt" not in (refreshed.instructions or "")
+        finally:
+            v2_client.teammates.delete(teammate.id)
+
+    def test_reset_unlinked_teammate_returns_empty_list(self, v2_client):
+        """Custom (non-templated) teammate has no overrides — reset is a no-op."""
+        teammate = v2_client.teammates.create(name="Custom mate for reset test")
+        try:
+            cleared = v2_client.teammates.reset(teammate.id, fields=["instructions"])
+            assert cleared == []
+        finally:
+            v2_client.teammates.delete(teammate.id)

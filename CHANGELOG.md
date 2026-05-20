@@ -2,6 +2,13 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [1.6.0] - 2026-05-20
+
+### Added
+- `client.teammates.create(from_template="ppc-manager")` — enable a verticalized teammate template (PPC Manager for Google Ads is the first). Other body fields except `user_id` + `metadata` may not co-exist; backend rejects them with 400 `from_template_conflict`. The teammate stays linked to the template via `template_slug`; future improvements we ship to the template flow through automatically to fields the user hasn't customized.
+- `client.teammates.reset(teammate_id, fields=[...])` — clear customer overrides on a template-linked teammate, re-enabling automatic propagation of template defaults for the named fields. `fields=None` resets every override. Non-templated teammates return an empty list (nothing to reset).
+- Integration tests covering from_template enable (happy path + 400 missing integration), conflict rejection (400 from_template_conflict), 404 on unknown slug, and reset semantics on both linked and unlinked teammates.
+
 ## [1.5.2] - 2026-03-19
 
 ### Added
