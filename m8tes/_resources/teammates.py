@@ -33,7 +33,19 @@ class Teammates:
         email_inbox: bool = False,
         webhook: bool = False,
         default_permission_mode: str | None = None,
+        from_template: str | None = None,
     ) -> Teammate:
+        """Create a teammate.
+
+        Two modes:
+        - Custom: provide name, instructions, tools, etc.
+        - Templated: provide ``from_template="ppc-manager"`` to enable a pre-built
+          persona. Improvements we ship to the template flow through automatically
+          on subsequent reads, unless you customize the field via ``update()``
+          (which routes through per-field overrides). Only ``user_id`` and
+          ``metadata`` may co-exist with ``from_template``; other fields raise
+          400 ``from_template_conflict``.
+        """
         body: dict = {}
         if name is not None:
             body["name"] = name
@@ -57,6 +69,8 @@ class Teammates:
             body["webhook"] = True
         if default_permission_mode is not None:
             body["default_permission_mode"] = default_permission_mode
+        if from_template is not None:
+            body["from_template"] = from_template
         resp = self._http.request("POST", "/teammates", json=body)
         return Teammate.from_dict(resp.json())
 
@@ -119,6 +133,25 @@ class Teammates:
 
     def delete(self, teammate_id: int) -> None:
         self._http.request("DELETE", f"/teammates/{teammate_id}")
+
+    def reset(self, teammate_id: int, *, fields: _list[str] | None = None) -> _list[str]:
+        """Clear customer overrides on a template-linked teammate.
+
+        Templated teammates store user customizations in an overrides JSON; this
+        clears the named keys (or all of them when ``fields`` is None), letting
+        future template updates flow through to the reset fields again. On
+        non-templated teammates returns an empty list (no overrides to clear).
+
+        Returns the list of fields actually reset.
+
+        `list` is shadowed by the ``.list()`` method on this class; ``_list`` is
+        the module-level alias for ``builtins.list`` (see top of file).
+        """
+        body: dict = {}
+        if fields is not None:
+            body["fields"] = fields
+        resp = self._http.request("POST", f"/teammates/{teammate_id}/reset", json=body)
+        return _list(resp.json().get("reset_fields", []))
 
     def enable_webhook(self, teammate_id: int) -> TeammateWebhook:
         """Enable webhook trigger on a teammate. Returns the webhook URL (shown once)."""
