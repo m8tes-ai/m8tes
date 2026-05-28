@@ -378,6 +378,23 @@ class AppConnectionResult:
         )
 
 
+@dataclass
+class AppProvisionResult:
+    """Returned by apps.provision() — a platform-managed resource (e.g. a Twilio number)."""
+
+    status: str
+    app: str
+    phone_number: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> AppProvisionResult:
+        return cls(
+            status=data["status"],
+            app=data["app"],
+            phone_number=data.get("phone_number"),
+        )
+
+
 # Legacy alias kept for backwards compatibility — use AppConnectionInitiation or AppConnectionResult
 AppConnection = AppConnectionInitiation
 

@@ -2,6 +2,14 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [1.7.0] - 2026-05-28
+
+### Added
+- `client.apps.provision("twilio", user_id="cust_123")` — provision a platform-managed resource (a dedicated Twilio phone number) for the account or a specific end-user. Returns `AppProvisionResult` with `phone_number`. For apps with `auth_type='platform_provisioned'`.
+- `client.apps.release("twilio", user_id="cust_123")` — release a provisioned resource back to the provider (semantic alias of `disconnect()` for platform-provisioned apps).
+- `AppProvisionResult` dataclass in `_types.py` (exported from the package root).
+- Per-end-user numbers are strictly isolated at run time: a run scoped to `user_id` only ever sees that end-user's number, never the account-level one.
+
 ## [1.6.0] - 2026-05-20
 
 ### Added

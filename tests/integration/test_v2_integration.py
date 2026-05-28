@@ -2445,6 +2445,48 @@ class TestAppsWritable:
         assert disconnected.connected is False
 
 
+@pytest.mark.integration
+class TestAppsProvision:
+    """Provision/release platform-managed resources (e.g. Twilio phone numbers)."""
+
+    def test_provision_rejects_non_platform_app(self, v2_client):
+        """provision() on a non-platform-provisioned app (an API-key app) is a 400."""
+        app = _require_api_key_app(v2_client)
+        with pytest.raises(ValidationError):
+            v2_client.apps.provision(app.name)
+
+    def test_provision_nonexistent_app(self, v2_client):
+        """provision() on an unknown app is a 404."""
+        with pytest.raises(NotFoundError):
+            v2_client.apps.provision(f"missing-{uuid.uuid4().hex[:8]}")
+
+    def test_provision_and_release_roundtrip(self, v2_client):
+        """Full provision -> release happy path. Opt-in: buys a real phone number."""
+        if os.getenv("E2E_TWILIO_PROVISION") != "1":
+            pytest.skip(
+                "Set E2E_TWILIO_PROVISION=1 to run live provisioning (buys a real Twilio number)"
+            )
+        app = next(
+            (a for a in v2_client.apps.list().data if a.auth_type == "platform_provisioned"),
+            None,
+        )
+        if app is None:
+            pytest.skip("No platform_provisioned app in catalog")
+
+        user_id = _uid()
+        result = v2_client.apps.provision(app.name, user_id=user_id)
+        try:
+            assert result.status == "provisioned"
+            assert result.app == app.name
+            assert result.phone_number
+            # The end-user now sees the app connected (strictly scoped to this user_id).
+            page = v2_client.apps.list(user_id=user_id)
+            connected = next((a for a in page.data if a.name == app.name), None)
+            assert connected is not None and connected.connected is True
+        finally:
+            v2_client.apps.release(app.name, user_id=user_id)
+
+
 # ── Context Manager ──────────────────────────────────────────────────
 
 
