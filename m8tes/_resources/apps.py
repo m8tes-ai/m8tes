@@ -5,7 +5,14 @@ from __future__ import annotations
 import builtins
 from typing import TYPE_CHECKING
 
-from .._types import App, AppConnectionInitiation, AppConnectionResult, AppTriggerType, SyncPage
+from .._types import (
+    App,
+    AppConnectionInitiation,
+    AppConnectionResult,
+    AppProvisionResult,
+    AppTriggerType,
+    SyncPage,
+)
 from ._utils import _build_params
 
 if TYPE_CHECKING:
@@ -110,6 +117,28 @@ class Apps:
             payload["user_id"] = user_id
         resp = self._http.request("POST", f"/apps/{app_name}/connect/complete", json=payload)
         return AppConnectionResult.from_dict(resp.json())
+
+    def provision(self, app_name: str, *, user_id: str | None = None) -> AppProvisionResult:
+        """Provision a platform-managed resource (e.g. a Twilio phone number).
+
+        For apps with auth_type='platform_provisioned'. Pass user_id= to provision a
+        dedicated resource for a specific end-user (strictly isolated at run time);
+        omit it for an account-level resource. Returns the provisioned details, e.g.
+        ``result.phone_number``.
+        """
+        payload: dict = {}
+        if user_id:
+            payload["user_id"] = user_id
+        resp = self._http.request("POST", f"/apps/{app_name}/provision", json=payload)
+        return AppProvisionResult.from_dict(resp.json())
+
+    def release(self, app_name: str, *, user_id: str | None = None) -> None:
+        """Release a platform-provisioned resource (e.g. a Twilio number).
+
+        Semantic alias of disconnect() for platform-provisioned apps: the resource is
+        released back to the provider and the connection removed.
+        """
+        self.disconnect(app_name, user_id=user_id)
 
     def list_triggers(self, app_name: str) -> builtins.list[AppTriggerType]:
         """List available trigger types for an app (Composio discovery)."""
