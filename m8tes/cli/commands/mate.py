@@ -85,6 +85,15 @@ class CreateCommand(Command):
             ),
         )
         parser.add_argument(
+            "--enable-imessage",
+            action="store_true",
+            help="Enable inbound Apple Messages routing for this teammate",
+        )
+        parser.add_argument(
+            "--imessage-chat-guid",
+            help="BlueBubbles chat GUID used for inbound iMessage routing and replies",
+        )
+        parser.add_argument(
             "--non-interactive",
             action="store_true",
             help="Skip interactive prompts and use provided flags",
@@ -112,6 +121,8 @@ class CreateCommand(Command):
                 role = getattr(args, "role", None)
                 goals_str = getattr(args, "goals", None)
                 integration_ids = getattr(args, "integrations", None)
+                inbound_imessage_enabled = getattr(args, "enable_imessage", False)
+                imessage_chat_guid = getattr(args, "imessage_chat_guid", None)
 
                 if not name:
                     print("❌ --name is required for non-interactive mode")
@@ -134,6 +145,8 @@ class CreateCommand(Command):
                     role=role.strip() if role else None,
                     goals=goals,
                     integration_ids=integration_ids,
+                    inbound_imessage_enabled=inbound_imessage_enabled,
+                    imessage_chat_guid=imessage_chat_guid,
                 )
             else:
                 # Interactive mode
@@ -452,6 +465,20 @@ class UpdateCommand(Command):
             "--instructions", help="New teammate instructions (for non-interactive mode)"
         )
         parser.add_argument(
+            "--enable-imessage",
+            action="store_true",
+            help="Enable inbound Apple Messages routing for this teammate",
+        )
+        parser.add_argument(
+            "--disable-imessage",
+            action="store_true",
+            help="Disable inbound Apple Messages routing for this teammate",
+        )
+        parser.add_argument(
+            "--imessage-chat-guid",
+            help="Updated BlueBubbles chat GUID for this teammate",
+        )
+        parser.add_argument(
             "--non-interactive",
             action="store_true",
             help="Skip interactive prompts and use provided flags",
@@ -475,16 +502,38 @@ class UpdateCommand(Command):
             if non_interactive:
                 name = getattr(args, "name", None)
                 instructions = getattr(args, "instructions", None)
+                enable_imessage = getattr(args, "enable_imessage", False)
+                disable_imessage = getattr(args, "disable_imessage", False)
+                imessage_chat_guid = getattr(args, "imessage_chat_guid", None)
 
-                if not name and not instructions:
+                if enable_imessage and disable_imessage:
+                    print("❌ Use either --enable-imessage or --disable-imessage, not both")
+                    return 1
+
+                inbound_imessage_enabled = (
+                    True if enable_imessage else False if disable_imessage else None
+                )
+
+                no_update_fields = (
+                    not name
+                    and not instructions
+                    and inbound_imessage_enabled is None
+                    and not imessage_chat_guid
+                )
+                if no_update_fields:
                     print(
-                        "❌ At least one of --name or --instructions is required "
+                        "❌ At least one of --name, --instructions, --enable-imessage, "
+                        "--disable-imessage, or --imessage-chat-guid is required "
                         "for non-interactive mode"
                     )
                     return 1
 
                 mate_cli.update_non_interactive(
-                    mate_id=mate_id, name=name, instructions=instructions
+                    mate_id=mate_id,
+                    name=name,
+                    instructions=instructions,
+                    inbound_imessage_enabled=inbound_imessage_enabled,
+                    imessage_chat_guid=imessage_chat_guid,
                 )
             else:
                 # Interactive mode

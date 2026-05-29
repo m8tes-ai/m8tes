@@ -202,6 +202,8 @@ class MateCLI:
         role: str | None = None,
         goals: str | None = None,
         integration_ids: list[int] | None = None,
+        inbound_imessage_enabled: bool = False,
+        imessage_chat_guid: str | None = None,
     ) -> None:
         """
         Non-interactive teammate creation.
@@ -213,6 +215,8 @@ class MateCLI:
             role: Optional teammate role/identity
             goals: Optional goals and metrics payload (plain text)
             integration_ids: Optional list of AppIntegration IDs (catalog references)
+            inbound_imessage_enabled: Enable inbound Apple Messages routing
+            imessage_chat_guid: BlueBubbles chat GUID used for inbound routing and replies
         """
         try:
             role = role.strip() if isinstance(role, str) else role
@@ -221,6 +225,8 @@ class MateCLI:
             goals = goals.strip() if isinstance(goals, str) else goals
             if goals is not None and not goals:
                 goals = None
+            if inbound_imessage_enabled and not imessage_chat_guid:
+                raise ValueError("--imessage-chat-guid is required when --enable-imessage is set")
             instance = self.client.instances.create(
                 name=name,
                 tools=tools,
@@ -228,6 +234,8 @@ class MateCLI:
                 role=role,
                 goals=goals,
                 integration_ids=integration_ids,
+                inbound_imessage_enabled=inbound_imessage_enabled,
+                imessage_chat_guid=imessage_chat_guid,
             )
 
             print("✅ Teammate created successfully!")
@@ -874,7 +882,13 @@ class MateCLI:
             print(f"❌ Failed to update teammate: {e}")
 
     def update_non_interactive(
-        self, mate_id: str, name: str | None = None, instructions: str | None = None
+        self,
+        mate_id: str,
+        name: str | None = None,
+        instructions: str | None = None,
+        *,
+        inbound_imessage_enabled: bool | None = None,
+        imessage_chat_guid: str | None = None,
     ) -> None:
         """
         Non-interactive teammate update.
@@ -883,13 +897,20 @@ class MateCLI:
             mate_id: Teammate ID to update
             name: New name (optional)
             instructions: New instructions (optional)
+            inbound_imessage_enabled: Enable or disable Apple Messages routing
+            imessage_chat_guid: Updated BlueBubbles chat GUID
         """
         try:
             # Get current teammate
             instance = self.client.instances.get(int(mate_id))
 
             # Update instance
-            instance.update(name=name, instructions=instructions)
+            instance.update(
+                name=name,
+                instructions=instructions,
+                inbound_imessage_enabled=inbound_imessage_enabled,
+                imessage_chat_guid=imessage_chat_guid,
+            )
 
             print("✅ Teammate updated successfully!")
             print(f"   ID: {instance.id}")

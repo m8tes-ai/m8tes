@@ -9,6 +9,7 @@ from m8tes._exceptions import NotFoundError
 from m8tes._http import HTTPClient
 from m8tes._resources.apps import Apps
 from m8tes._resources.audit_logs import AuditLogs
+from m8tes._resources.bridges import Bridges
 from m8tes._resources.memories import Memories
 from m8tes._resources.permissions import Permissions
 from m8tes._resources.runs import Runs
@@ -87,6 +88,30 @@ class TestTeammates:
         assert body["default_permission_mode"] == "approval"
 
     @responses.activate
+    def test_create_with_imessage_fields(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/teammates",
+            json={
+                "id": 3,
+                "name": "Messages Bot",
+                "inbound_imessage_enabled": True,
+                "imessage_chat_guid": "iMessage;-;+15551231234",
+            },
+            status=201,
+        )
+        teammate = Teammates(http).create(
+            name="Messages Bot",
+            inbound_imessage_enabled=True,
+            imessage_chat_guid="iMessage;-;+15551231234",
+        )
+        body = json.loads(responses.calls[0].request.body)
+        assert body["inbound_imessage_enabled"] is True
+        assert body["imessage_chat_guid"] == "iMessage;-;+15551231234"
+        assert teammate.inbound_imessage_enabled is True
+        assert teammate.imessage_chat_guid == "iMessage;-;+15551231234"
+
+    @responses.activate
     def test_list(self, http):
         responses.add(
             responses.GET,
@@ -134,6 +159,31 @@ class TestTeammates:
             "allowed_senders": ["@a.com"],
             "default_permission_mode": "plan",
         }
+
+    @responses.activate
+    def test_update_can_set_imessage_fields(self, http):
+        responses.add(
+            responses.PATCH,
+            f"{BASE}/teammates/1",
+            json={
+                "id": 1,
+                "name": "Bot",
+                "inbound_imessage_enabled": True,
+                "imessage_chat_guid": "iMessage;-;+15551231234",
+            },
+        )
+        teammate = Teammates(http).update(
+            1,
+            inbound_imessage_enabled=True,
+            imessage_chat_guid="iMessage;-;+15551231234",
+        )
+        body = json.loads(responses.calls[0].request.body)
+        assert body == {
+            "inbound_imessage_enabled": True,
+            "imessage_chat_guid": "iMessage;-;+15551231234",
+        }
+        assert teammate.inbound_imessage_enabled is True
+        assert teammate.imessage_chat_guid == "iMessage;-;+15551231234"
 
     @responses.activate
     def test_delete(self, http):
@@ -1019,3 +1069,123 @@ class TestPermissions:
         assert items[0].tool_name == "bash"
         assert items[1].tool_name == "gmail"
         assert "starting_after=10" in responses.calls[1].request.url
+
+
+class TestBridges:
+    @responses.activate
+    def test_create_returns_secret_once_never_password(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/bridges",
+            json={
+                "id": 5,
+                "name": "my mac",
+                "server_url": "https://bb.example.com",
+                "status": "active",
+                "created_at": "2026-05-29T00:00:00Z",
+                "webhook_secret": "whsec_once",
+            },
+            status=201,
+        )
+        bridge = Bridges(http).create(
+            server_url="https://bb.example.com", password="pw", name="my mac"
+        )
+        body = json.loads(responses.calls[0].request.body)
+        assert body == {"name": "my mac", "server_url": "https://bb.example.com", "password": "pw"}
+        assert bridge.id == 5
+        assert bridge.webhook_secret == "whsec_once"
+        # password is never present on the returned object
+        assert not hasattr(bridge, "password")
+
+    @responses.activate
+    def test_list(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/bridges",
+            json={
+                "data": [
+                    {
+                        "id": 1,
+                        "name": "a",
+                        "server_url": "https://a",
+                        "status": "active",
+                        "created_at": "2026-05-29T00:00:00Z",
+                    }
+                ]
+            },
+            status=200,
+        )
+        bridges = Bridges(http).list()
+        assert len(bridges) == 1
+        assert bridges[0].id == 1
+        assert bridges[0].webhook_secret is None  # not returned on list
+
+    @responses.activate
+    def test_rotate_secret_returns_new_secret(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/bridges/5/rotate-secret",
+            json={
+                "id": 5,
+                "name": "m",
+                "server_url": "https://a",
+                "status": "active",
+                "created_at": "2026-05-29T00:00:00Z",
+                "webhook_secret": "whsec_new",
+            },
+            status=200,
+        )
+        bridge = Bridges(http).rotate_secret(5)
+        assert bridge.webhook_secret == "whsec_new"
+
+    @responses.activate
+    def test_update_sends_only_provided(self, http):
+        responses.add(
+            responses.PATCH,
+            f"{BASE}/bridges/5",
+            json={
+                "id": 5,
+                "name": "renamed",
+                "server_url": "https://a",
+                "status": "disabled",
+                "created_at": "2026-05-29T00:00:00Z",
+            },
+            status=200,
+        )
+        Bridges(http).update(5, name="renamed", status="disabled")
+        body = json.loads(responses.calls[0].request.body)
+        assert body == {"name": "renamed", "status": "disabled"}
+
+    @responses.activate
+    def test_delete(self, http):
+        responses.add(responses.DELETE, f"{BASE}/bridges/5", status=204)
+        Bridges(http).delete(5)
+        assert responses.calls[0].request.method == "DELETE"
+
+    @responses.activate
+    def test_teammate_create_includes_bridge_fields(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/teammates",
+            json={
+                "id": 9,
+                "name": "bot",
+                "inbound_imessage_enabled": True,
+                "imessage_chat_guid": "g",
+                "bridge_id": 5,
+                "allowed_imessage_senders": ["+15551231234"],
+            },
+            status=201,
+        )
+        tm = Teammates(http).create(
+            name="bot",
+            inbound_imessage_enabled=True,
+            imessage_chat_guid="g",
+            bridge_id=5,
+            allowed_imessage_senders=["+15551231234"],
+        )
+        body = json.loads(responses.calls[0].request.body)
+        assert body["bridge_id"] == 5
+        assert body["allowed_imessage_senders"] == ["+15551231234"]
+        assert tm.bridge_id == 5
+        assert tm.allowed_imessage_senders == ["+15551231234"]

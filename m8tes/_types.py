@@ -65,6 +65,10 @@ class Teammate:
     updated_at: str | None = None
     inbound_email_enabled: bool = False
     email_address: str | None = None
+    inbound_imessage_enabled: bool = False
+    imessage_chat_guid: str | None = None
+    bridge_id: int | None = None
+    allowed_imessage_senders: list[str] | None = None
     fetchmail_enabled: bool = False
     fetchmail_address: str | None = None
     webhook_enabled: bool = False
@@ -85,6 +89,10 @@ class Teammate:
             default_permission_mode=data.get("default_permission_mode", "autonomous"),
             inbound_email_enabled=data.get("inbound_email_enabled", False),
             email_address=data.get("email_address"),
+            inbound_imessage_enabled=data.get("inbound_imessage_enabled", False),
+            imessage_chat_guid=data.get("imessage_chat_guid"),
+            bridge_id=data.get("bridge_id"),
+            allowed_imessage_senders=data.get("allowed_imessage_senders"),
             fetchmail_enabled=data.get("fetchmail_enabled", False),
             fetchmail_address=data.get("fetchmail_address"),
             webhook_enabled=data.get("webhook_enabled", False),
@@ -92,6 +100,37 @@ class Teammate:
             status=data.get("status", "enabled"),
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at"),
+        )
+
+
+@dataclass
+class Bridge:
+    """A per-account BlueBubbles bridge (customer's own iMessage server connection).
+
+    The password is write-only (never returned). ``webhook_secret`` is populated
+    ONLY on create / rotate_secret and is shown once — store it immediately.
+    """
+
+    id: int
+    name: str
+    server_url: str
+    status: str
+    created_at: str
+    last_seen_at: str | None = None
+    last_outbound_ok_at: str | None = None
+    webhook_secret: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Bridge:
+        return cls(
+            id=data["id"],
+            name=data["name"],
+            server_url=data["server_url"],
+            status=data.get("status", "active"),
+            created_at=data.get("created_at", ""),
+            last_seen_at=data.get("last_seen_at"),
+            last_outbound_ok_at=data.get("last_outbound_ok_at"),
+            webhook_secret=data.get("webhook_secret"),
         )
 
 

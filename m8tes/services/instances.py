@@ -32,6 +32,8 @@ class InstanceService:
         role: str | None = None,
         goals: str | None = None,
         integration_ids: list[int] | None = None,
+        inbound_imessage_enabled: bool = False,
+        imessage_chat_guid: str | None = None,
     ) -> "AgentInstance":
         """
         Create a new agent instance.
@@ -47,6 +49,8 @@ class InstanceService:
             integration_ids: Optional list of AppIntegration IDs (catalog references)
                 to enable for this agent. Use client.integrations.list_available()
                 to see available integrations.
+            inbound_imessage_enabled: Enable Apple Messages routing for this agent
+            imessage_chat_guid: BlueBubbles chat GUID used for inbound routing and replies
 
         Returns:
             AgentInstance instance
@@ -71,6 +75,10 @@ class InstanceService:
             request_data["goals"] = goals
         if integration_ids is not None:
             request_data["integration_ids"] = integration_ids
+        if inbound_imessage_enabled:
+            request_data["inbound_imessage_enabled"] = True
+        if imessage_chat_guid is not None:
+            request_data["imessage_chat_guid"] = imessage_chat_guid
 
         # Make API call
         response_data = self.http.request(
@@ -139,6 +147,8 @@ class InstanceService:
         instance_id: int,
         name: str | None = None,
         instructions: str | None = None,
+        inbound_imessage_enabled: bool | None = None,
+        imessage_chat_guid: str | None = None,
     ) -> "AgentInstance":
         """
         Update an existing instance.
@@ -147,16 +157,22 @@ class InstanceService:
             instance_id: Instance ID to update
             name: New name (optional)
             instructions: New instructions (optional)
+            inbound_imessage_enabled: Enable or disable Apple Messages routing
+            imessage_chat_guid: Updated BlueBubbles chat GUID
 
         Returns:
             Updated AgentInstance instance
         """
         # Prepare update data
-        update_data = {}
+        update_data: dict[str, object] = {}
         if name is not None:
             update_data["name"] = name
         if instructions is not None:
             update_data["instructions"] = instructions
+        if inbound_imessage_enabled is not None:
+            update_data["inbound_imessage_enabled"] = inbound_imessage_enabled
+        if imessage_chat_guid is not None:
+            update_data["imessage_chat_guid"] = imessage_chat_guid
 
         if not update_data:
             raise ValueError("At least one field must be provided for update")

@@ -2,6 +2,15 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [1.8.0] - 2026-05-28
+
+### Added
+- Apple Messages (BlueBubbles) channel via per-account bridges. Configure a `BlueBubblesBridge` for the account (server URL, password, webhook secret), bind a teammate to a chat with `inbound_imessage_enabled=True` + `imessage_chat_guid="..."`, and the teammate auto-replies after each run.
+- `teammates.update(teammate_id, inbound_imessage_enabled=..., imessage_chat_guid=..., allowed_imessage_senders=[...])` — enable or reconfigure iMessage on an existing teammate, including a sender allowlist.
+- `Teammate.inbound_imessage_enabled`, `Teammate.imessage_chat_guid`, `Teammate.allowed_imessage_senders` fields on the `Teammate` dataclass
+- CLI: `m8tes mate task` now shows iMessage channel indicator; `m8tes mate config` supports `--imessage-chat-guid` flag
+- New example [`imessage-bluebubbles.py`](./examples/imessage-bluebubbles.py) — full end-to-end setup walkthrough
+
 ## [1.7.0] - 2026-05-28
 
 ### Added

@@ -6,7 +6,7 @@
 
 **Build agents. Skip the infrastructure.**
 
-Hosted runtime, 150+ integrations, scheduling, memory, and optional email inboxes. Ship autonomous agents to production in minutes.
+Hosted runtime, 150+ integrations, scheduling, memory, and optional email or iMessage inboxes. Ship autonomous agents to production in minutes.
 
 ## Install
 
@@ -46,6 +46,8 @@ Check current plan, run usage, and cost limits with `client.auth.get_usage()` or
 
 Need email-triggered runs? Opt in with `email_inbox=True` on `client.teammates.create(...)` or call `client.teammates.enable_email_inbox(teammate_id)` later.
 
+Need iMessage-triggered runs? Configure BlueBubbles on your account, then set `inbound_imessage_enabled=True` and `imessage_chat_guid="..."` on `client.teammates.create(...)` or `client.teammates.update(...)`. Use a dedicated 1:1 chat unless you intentionally want everyone in that thread to trigger the teammate and receive its replies.
+
 Inspect account request history with `client.audit_logs.list(...)`:
 
 ```python
@@ -60,7 +62,7 @@ for log in page.data:
 |---|---|
 | Sandboxed execution environment | ✅ Hosted runtime, zero infra |
 | OAuth for every app you connect | ✅ 150+ integrations with managed OAuth |
-| Scheduling, webhook, and email triggers | ✅ Built in — set once, runs forever |
+| Scheduling, webhook, email, and iMessage triggers | ✅ Built in — set once, runs forever |
 | Human-in-the-loop approval flows | ✅ Three modes: autonomous, approval, plan |
 | Memory that persists across executions | ✅ Per-user memory out of the box |
 | Real-time streaming to your UI | ✅ SSE events, works today |
@@ -74,7 +76,7 @@ for log in page.data:
 - **Hosted agent runtime** — agents run in isolated sandboxes. You ship the workflow, not the infra.
 - **150+ managed integrations** — Gmail, Slack, Notion, HubSpot, Stripe, Linear, Google Ads. OAuth and token refresh handled.
 - **Human-in-the-loop** — require approval before sensitive actions. Keep the speed without giving up control.
-- **Scheduled runs, webhooks, and email triggers** — set the cadence once. Daily, weekly, or hourly runs happen automatically.
+- **Scheduled runs, webhooks, email, and iMessage triggers** — set the cadence once. Daily, weekly, or hourly runs happen automatically.
 - **Persistent memory** — agents remember past conversations and build on them. Per-user scoping for multi-tenant apps.
 - **Permission modes** — autonomous, approval-required, or plan-then-execute. Start locked down, loosen as you gain confidence.
 - **Per-user isolation** — set `user_id` on any run. Memory, history, and tools are strictly scoped.
@@ -262,6 +264,14 @@ print(task.webhook_url)  # POST here to trigger (shown once)
 mate = client.teammates.create(name="inbox bot", email_inbox=True)
 print(mate.email_address)  # forward emails here
 
+# iMessage — route one BlueBubbles chat to a teammate
+messages_bot = client.teammates.create(
+    name="messages bot",
+    inbound_imessage_enabled=True,
+    imessage_chat_guid="iMessage;-;+15551231234",
+)
+print(messages_bot.imessage_chat_guid)  # use a dedicated 1:1 chat unless group access is intended
+
 # on demand — run a saved task directly
 for event in client.tasks.run(task.id):
     print(event.type, event.raw)
@@ -426,6 +436,7 @@ client = M8tes(api_key="m8_...", timeout=300)  # custom timeout in seconds
 m8tes auth login                    # authenticate
 m8tes auth usage                    # account limits and current usage
 m8tes apps connect-api-key gemini KEY
+m8tes mate create --non-interactive --name "messages bot" --tools gmail --instructions "Help via iMessage" --enable-imessage --imessage-chat-guid "iMessage;-;+15551231234"
 m8tes run set-permission-mode 42 approval
 m8tes mate task ID "message"        # run a task
 m8tes mate chat ID                  # interactive chat

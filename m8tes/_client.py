@@ -10,6 +10,7 @@ from ._resources import (
     Apps,
     AuditLogs,
     Auth,
+    Bridges,
     Memories,
     Permissions,
     Runs,
@@ -48,6 +49,7 @@ class M8tes:
         self.auth = Auth(self._http)
         self.audit_logs = AuditLogs(self._http)
         self.teammates = Teammates(self._http)
+        self.bridges = Bridges(self._http)
         self.runs = Runs(self._http)
         self.tasks = Tasks(self._http)
         self.apps = Apps(self._http)
