@@ -15,6 +15,7 @@ python examples/revenue-report.py
 | [`customer-agent.py`](./customer-agent.py) | Multi-tenant per-user isolation with `user_id` |
 | [`plan-mode.py`](./plan-mode.py) | Human approval before execution with plan review |
 | [`file-report.py`](./file-report.py) | File generation and download via the API |
+| [`imessage-bluebubbles.py`](./imessage-bluebubbles.py) | Configure a teammate to receive Apple Messages via BlueBubbles |
 | [`embed-oauth.py`](./embed-oauth.py) | Embedded OAuth flow for end-user app connections |
 | [`seo-monitor.py`](./seo-monitor.py) | Scheduled SEO monitoring with Search Console |
 

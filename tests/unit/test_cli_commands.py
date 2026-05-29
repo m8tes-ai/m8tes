@@ -533,6 +533,40 @@ class TestMateCommands:
         assert result == 0
         mock_mate_cli.create_interactive.assert_called_once()
 
+    @patch("m8tes.cli.mates.MateCLI")
+    def test_create_command_non_interactive_passes_imessage_flags(self, mock_mate_cli_class):
+        """Non-interactive create forwards iMessage config to MateCLI."""
+        mock_mate_cli = Mock()
+        mock_mate_cli_class.return_value = mock_mate_cli
+        mock_client = Mock()
+
+        cmd = CreateCommand()
+        args = Namespace(
+            name="Messages Bot",
+            tools=["gmail"],
+            instructions="Help via iMessage",
+            role=None,
+            goals=None,
+            integrations=None,
+            non_interactive=True,
+            enable_imessage=True,
+            imessage_chat_guid="iMessage;-;+15551231234",
+        )
+
+        result = cmd.execute(args, mock_client)
+
+        assert result == 0
+        mock_mate_cli.create_non_interactive.assert_called_once_with(
+            name="Messages Bot",
+            tools=["gmail"],
+            instructions="Help via iMessage",
+            role=None,
+            goals=None,
+            integration_ids=None,
+            inbound_imessage_enabled=True,
+            imessage_chat_guid="iMessage;-;+15551231234",
+        )
+
     @patch("m8tes.cli.mates.confirm_prompt", return_value=True)
     @patch("m8tes.cli.mates.prompt")
     @patch("builtins.input")
@@ -599,6 +633,35 @@ class TestMateCommands:
 
         assert result == 0
         mock_mate_cli.get_interactive.assert_called_once_with("mate-123")
+
+    @patch("m8tes.cli.mates.MateCLI")
+    def test_update_command_non_interactive_passes_imessage_fields(self, mock_mate_cli_class):
+        """Non-interactive update forwards iMessage config to MateCLI."""
+        mock_mate_cli = Mock()
+        mock_mate_cli_class.return_value = mock_mate_cli
+        mock_client = Mock()
+
+        cmd = UpdateCommand()
+        args = Namespace(
+            mate_id="123",
+            name=None,
+            instructions=None,
+            non_interactive=True,
+            enable_imessage=True,
+            disable_imessage=False,
+            imessage_chat_guid="iMessage;-;+15551231234",
+        )
+
+        result = cmd.execute(args, mock_client)
+
+        assert result == 0
+        mock_mate_cli.update_non_interactive.assert_called_once_with(
+            mate_id="123",
+            name=None,
+            instructions=None,
+            inbound_imessage_enabled=True,
+            imessage_chat_guid="iMessage;-;+15551231234",
+        )
 
     def test_task_command_attributes(self):
         """Test task command has correct attributes."""

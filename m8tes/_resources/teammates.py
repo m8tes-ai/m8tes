@@ -30,6 +30,10 @@ class Teammates:
         user_id: str | None = None,
         metadata: dict | None = None,
         allowed_senders: list[str] | None = None,
+        inbound_imessage_enabled: bool = False,
+        imessage_chat_guid: str | None = None,
+        bridge_id: int | None = None,
+        allowed_imessage_senders: list[str] | None = None,
         email_inbox: bool = False,
         webhook: bool = False,
         default_permission_mode: str | None = None,
@@ -63,6 +67,14 @@ class Teammates:
             body["metadata"] = metadata
         if allowed_senders is not None:
             body["allowed_senders"] = allowed_senders
+        if inbound_imessage_enabled:
+            body["inbound_imessage_enabled"] = True
+        if imessage_chat_guid is not None:
+            body["imessage_chat_guid"] = imessage_chat_guid
+        if bridge_id is not None:
+            body["bridge_id"] = bridge_id
+        if allowed_imessage_senders is not None:
+            body["allowed_imessage_senders"] = allowed_imessage_senders
         if email_inbox:
             body["email_inbox"] = True
         if webhook:
@@ -109,6 +121,10 @@ class Teammates:
         goals: str | None = None,
         metadata: dict | None = None,
         allowed_senders: _list[str] | None = None,
+        inbound_imessage_enabled: bool | None = None,
+        imessage_chat_guid: str | None = None,
+        bridge_id: int | None = None,
+        allowed_imessage_senders: _list[str] | None = None,
         default_permission_mode: str | None = None,
     ) -> Teammate:
         body: dict = {}
@@ -126,6 +142,14 @@ class Teammates:
             body["metadata"] = metadata
         if allowed_senders is not None:
             body["allowed_senders"] = allowed_senders
+        if inbound_imessage_enabled is not None:
+            body["inbound_imessage_enabled"] = inbound_imessage_enabled
+        if imessage_chat_guid is not None:
+            body["imessage_chat_guid"] = imessage_chat_guid
+        if bridge_id is not None:
+            body["bridge_id"] = bridge_id
+        if allowed_imessage_senders is not None:
+            body["allowed_imessage_senders"] = allowed_imessage_senders
         if default_permission_mode is not None:
             body["default_permission_mode"] = default_permission_mode
         resp = self._http.request("PATCH", f"/teammates/{teammate_id}", json=body)
