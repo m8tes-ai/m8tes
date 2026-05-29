@@ -52,6 +52,11 @@ def _uid() -> str:
     return f"user-{uuid.uuid4().hex[:8]}"
 
 
+def _chat_guid() -> str:
+    """Generate a unique iMessage chat GUID for integration tests."""
+    return f"iMessage;-;+1555{uuid.uuid4().hex[:10]}"
+
+
 def _strict_test_catalog() -> bool:
     """True when integration tests should fail instead of skip on missing seeded apps."""
     return os.getenv("E2E_REQUIRE_TEST_CATALOG") == "1"
@@ -286,6 +291,71 @@ class TestTeammatesCRUD:
             assert fetched.metadata == meta
         finally:
             v2_client.teammates.delete(t.id)
+
+    def test_imessage_roundtrip(self, v2_client):
+        """Create and update iMessage config through the public V2 SDK surface.
+
+        iMessage now routes through a per-account bridge, so we register one first
+        (example.com resolves to a public IP and passes the SSRF egress check) and
+        bind the teammate to it via bridge_id.
+        """
+        original_guid = _chat_guid()
+        updated_guid = _chat_guid()
+        bridge = v2_client.bridges.create(
+            name="it-bridge", server_url="https://example.com", password="bb-pw"
+        )
+        assert bridge.webhook_secret  # returned once on create
+        t = v2_client.teammates.create(
+            name="messages-bot",
+            inbound_imessage_enabled=True,
+            bridge_id=bridge.id,
+            imessage_chat_guid=original_guid,
+        )
+        try:
+            assert t.inbound_imessage_enabled is True
+            assert t.imessage_chat_guid == original_guid
+            assert t.bridge_id == bridge.id
+
+            fetched = v2_client.teammates.get(t.id)
+            assert fetched.inbound_imessage_enabled is True
+            assert fetched.imessage_chat_guid == original_guid
+
+            updated = v2_client.teammates.update(
+                t.id,
+                inbound_imessage_enabled=True,
+                imessage_chat_guid=updated_guid,
+            )
+            assert updated.inbound_imessage_enabled is True
+            assert updated.imessage_chat_guid == updated_guid
+        finally:
+            v2_client.teammates.delete(t.id)
+            v2_client.bridges.delete(bridge.id)
+
+    def test_imessage_duplicate_conflict(self, v2_client):
+        """Duplicate iMessage chat GUIDs on the SAME bridge raise a conflict."""
+        chat_guid = _chat_guid()
+        bridge = v2_client.bridges.create(
+            name="it-bridge-dup", server_url="https://example.com", password="bb-pw"
+        )
+        first = v2_client.teammates.create(
+            name="messages-owner",
+            inbound_imessage_enabled=True,
+            bridge_id=bridge.id,
+            imessage_chat_guid=chat_guid,
+        )
+        second = v2_client.teammates.create(name="messages-contender")
+        try:
+            with pytest.raises(ConflictError):
+                v2_client.teammates.update(
+                    second.id,
+                    inbound_imessage_enabled=True,
+                    bridge_id=bridge.id,
+                    imessage_chat_guid=chat_guid,
+                )
+        finally:
+            v2_client.teammates.delete(first.id)
+            v2_client.teammates.delete(second.id)
+            v2_client.bridges.delete(bridge.id)
 
 
 # ── Teammate Webhooks ────────────────────────────────────────────────

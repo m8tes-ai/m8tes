@@ -39,6 +39,8 @@ class AgentInstance:
         self.tools = data.get("tools", [])
         self.tool_configs = data.get("tool_configs", {})
         self.goals = data.get("goals")
+        self.inbound_imessage_enabled = data.get("inbound_imessage_enabled", False)
+        self.imessage_chat_guid = data.get("imessage_chat_guid")
         self.status = data.get("status")
         self.is_active = data.get("is_active")
         self.run_count = data.get("run_count", 0)
@@ -277,6 +279,8 @@ class AgentInstance:
         self,
         name: str | None = None,
         instructions: str | None = None,
+        inbound_imessage_enabled: bool | None = None,
+        imessage_chat_guid: str | None = None,
     ) -> "AgentInstance":
         """
         Update instance configuration.
@@ -284,11 +288,19 @@ class AgentInstance:
         Args:
             name: New name
             instructions: New instructions
+            inbound_imessage_enabled: Enable or disable Apple Messages routing
+            imessage_chat_guid: Updated BlueBubbles chat GUID
 
         Returns:
             Updated AgentInstance instance
         """
-        updated = self.service.update(self.id, name=name, instructions=instructions)
+        updated = self.service.update(
+            self.id,
+            name=name,
+            instructions=instructions,
+            inbound_imessage_enabled=inbound_imessage_enabled,
+            imessage_chat_guid=imessage_chat_guid,
+        )
         self.__dict__.update(updated.__dict__)
         return self
 

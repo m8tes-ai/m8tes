@@ -3,6 +3,7 @@
 from .apps import Apps
 from .audit_logs import AuditLogs
 from .auth import Auth
+from .bridges import Bridges
 from .memories import Memories
 from .permissions import Permissions
 from .runs import Runs
@@ -16,6 +17,7 @@ __all__ = [
     "Apps",
     "AuditLogs",
     "Auth",
+    "Bridges",
     "Memories",
     "Permissions",
     "Runs",
