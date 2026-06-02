@@ -121,8 +121,6 @@ The current repo workflows are:
   Runs SDK unit checks plus the deterministic V2 backend and SDK integration lane.
 - `.github/workflows/deploy.yml`
   Handles deploy flow.
-- `.github/workflows/preview-deploy.yml`
-  Handles preview environments.
 - `.github/workflows/sync-sdk.yml`
   Handles SDK sync automation.
 
