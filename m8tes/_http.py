@@ -44,8 +44,12 @@ def _raise_for_status(resp: requests.Response, *, method: str = "", path: str = 
     resp.close()
     exc_cls = STATUS_MAP.get(resp.status_code, APIError)
     raise exc_cls(
-        message, status_code=resp.status_code, request_id=request_id,
-        method=method, path=path, code=code,
+        message,
+        status_code=resp.status_code,
+        request_id=request_id,
+        method=method,
+        path=path,
+        code=code,
     )
 
 
