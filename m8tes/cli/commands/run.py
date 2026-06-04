@@ -34,6 +34,7 @@ class RunCommandGroup(CommandGroup):
         self.add_subcommand(UsageCommand())
         self.add_subcommand(SetPermissionModeCommand())
         self.add_subcommand(ToolsCommand())
+        self.add_subcommand(RetryRunCommand())
         self.add_subcommand(AuditLogsCommand())
 
 
@@ -441,6 +442,46 @@ class SetPermissionModeCommand(Command):
             return 0
         except SDKM8tesError as e:
             print(f"❌ Failed to update permission mode: {e}")
+            return 1
+
+
+class RetryRunCommand(Command):
+    """Retry a failed or cancelled run."""
+
+    name = "retry"
+    aliases: ClassVar[list[str]] = ["rerun"]
+    description = "Retry a failed or cancelled run (creates a new run)"
+    requires_auth = True
+
+    def add_arguments(self, parser: ArgumentParser) -> None:
+        parser.add_argument("run_id", type=int, help="Run ID to retry")
+        parser.add_argument(
+            "--confirm",
+            action="store_true",
+            help="Acknowledge that retrying may repeat actions the run already took",
+        )
+
+    def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
+        if not client:
+            print("❌ Authentication required")
+            return 1
+
+        try:
+            with v2_client_from_args(args, client) as v2_client:
+                run = v2_client.runs.retry(args.run_id, confirm=args.confirm)
+            print("\n✅ Retry started")
+            print(f"   New run: {run.id} (retry of {run.retry_of_run_id})")
+            print(f"   Status: {run.status}")
+            print(f"   Watch:  m8tes run get {run.id}")
+            return 0
+        except SDKM8tesError as e:
+            if getattr(e, "code", None) == "retry_needs_confirmation":
+                print(
+                    "⚠️  This run already performed actions, so retrying may repeat them.\n"
+                    f"   Re-run with --confirm to proceed: m8tes run retry {args.run_id} --confirm"
+                )
+                return 1
+            print(f"❌ Failed to retry run: {e}")
             return 1
 
 

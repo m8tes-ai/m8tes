@@ -739,7 +739,7 @@ class TestRunCommands:
         group = RunCommandGroup()
         subcommands = group.get_subcommands()
 
-        assert len(subcommands) == 8
+        assert len(subcommands) == 9
 
     def test_run_command_group_attributes(self):
         """Test run command group has correct attributes."""

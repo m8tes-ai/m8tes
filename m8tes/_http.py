@@ -22,6 +22,7 @@ def _raise_for_status(resp: requests.Response, *, method: str = "", path: str = 
     # Try to parse structured error from v2 API
     message = f"HTTP {resp.status_code}"
     request_id = None
+    code = None
     try:
         body = resp.json()
         # v2 API returns {"error": {"code", "message", "request_id"}}
@@ -32,6 +33,10 @@ def _raise_for_status(resp: requests.Response, *, method: str = "", path: str = 
         else:
             message = error_obj.get("message", body.get("detail", message))
             request_id = error_obj.get("request_id", body.get("request_id"))
+            # Preserve the app-level string code (e.g. "retry_needs_confirmation").
+            # Ints are HTTP statuses (the envelope's fallback) — not useful to callers.
+            raw_code = error_obj.get("code")
+            code = raw_code if isinstance(raw_code, str) else None
     except (ValueError, KeyError, AttributeError):
         logger.debug("Failed to parse error body: %s", resp.text[:200] if resp.text else "empty")
         message = resp.text or message
@@ -39,7 +44,8 @@ def _raise_for_status(resp: requests.Response, *, method: str = "", path: str = 
     resp.close()
     exc_cls = STATUS_MAP.get(resp.status_code, APIError)
     raise exc_cls(
-        message, status_code=resp.status_code, request_id=request_id, method=method, path=path
+        message, status_code=resp.status_code, request_id=request_id,
+        method=method, path=path, code=code,
     )
 
 

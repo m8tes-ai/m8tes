@@ -421,6 +421,38 @@ class TestRuns:
         assert body["feedback"] is False
 
     @responses.activate
+    def test_retry_returns_new_run(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/42/retry",
+            json={"id": 99, "status": "running", "retry_of_run_id": 42, "retry_count": 1},
+            status=201,
+        )
+        run = Runs(http).retry(42)
+        assert isinstance(run, Run)
+        assert run.id == 99 and run.retry_of_run_id == 42 and run.retry_count == 1
+
+    @responses.activate
+    def test_retry_passes_confirm(self, http):
+        responses.add(responses.POST, f"{BASE}/runs/42/retry", json={"id": 99})
+        Runs(http).retry(42, confirm=True)
+        assert "confirm=true" in responses.calls[0].request.url
+
+    @responses.activate
+    def test_retry_needs_confirmation_surfaces_code(self, http):
+        from m8tes._exceptions import ConflictError
+
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/42/retry",
+            json={"error": {"code": "retry_needs_confirmation", "message": "may repeat"}},
+            status=409,
+        )
+        with pytest.raises(ConflictError) as exc:
+            Runs(http).retry(42)
+        assert exc.value.code == "retry_needs_confirmation"
+
+    @responses.activate
     def test_cancel(self, http):
         responses.add(
             responses.POST, f"{BASE}/runs/1/cancel", json={"id": 1, "status": "cancelled"}

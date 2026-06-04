@@ -2,6 +2,16 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [1.9.0] - 2026-06-04
+
+### Added
+- `client.runs.retry(run_id, confirm=False)` — retry a failed or cancelled run. Creates and returns a NEW run (poll the returned `.id`, not the original) linked to the one it retried. Idempotent while a retry is in flight. If the run already performed actions, raises `ConflictError` (code `retry_needs_confirmation`); pass `confirm=True` to proceed.
+- `Run.retryable`, `Run.error_code`, `Run.retry_of_run_id`, `Run.retry_count` fields on the `Run` dataclass — check `run.retryable` before retrying.
+- CLI: `m8tes run retry <id>` (alias `rerun`), with `--confirm`.
+
+### Fixed
+- SDK exceptions now preserve the v2 envelope's app-level string `code` (e.g. `run_not_retryable`) on `error.code`, instead of dropping it.
+
 ## [1.8.0] - 2026-05-28
 
 ### Added

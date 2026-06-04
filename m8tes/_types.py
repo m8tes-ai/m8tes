@@ -149,6 +149,13 @@ class Run:
     updated_at: str | None
     permission_mode: str | None = None
     email_address: str | None = None
+    # Failure / retry metadata. A retry creates a NEW run; `retry_of_run_id` links
+    # it to the one it retried. `retryable` says whether runs.retry() will be
+    # accepted; `error_code` is the machine-readable failure class when known.
+    error_code: str | None = None
+    retryable: bool = False
+    retry_of_run_id: int | None = None
+    retry_count: int = 0
 
     @classmethod
     def from_dict(cls, data: dict) -> Run:
@@ -164,6 +171,10 @@ class Run:
             updated_at=data.get("updated_at"),
             permission_mode=data.get("permission_mode"),
             email_address=data.get("email_address"),
+            error_code=data.get("error_code"),
+            retryable=data.get("retryable", False),
+            retry_of_run_id=data.get("retry_of_run_id"),
+            retry_count=data.get("retry_count", 0),
         )
 
 
