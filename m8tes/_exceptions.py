@@ -11,6 +11,7 @@ class M8tesError(Exception):
         request_id: str | None = None,
         method: str | None = None,
         path: str | None = None,
+        code: str | None = None,
     ):
         super().__init__(message)
         self.message = message
@@ -18,6 +19,9 @@ class M8tesError(Exception):
         self.request_id = request_id
         self.method = method
         self.path = path
+        # App-level error code from the v2 envelope (e.g. "run_not_retryable",
+        # "retry_needs_confirmation"), when the API provides a string code.
+        self.code = code
 
 
 class AuthenticationError(M8tesError):

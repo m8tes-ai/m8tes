@@ -390,6 +390,23 @@ class Runs:
         resp = self._http.request("POST", f"/runs/{run_id}/cancel")
         return Run.from_dict(resp.json())
 
+    def retry(self, run_id: int, *, confirm: bool = False) -> Run:
+        """Retry a failed or cancelled run.
+
+        Creates and returns a NEW run that re-executes the original's task — poll
+        the returned run's `.id`, NOT run_id (the original stays failed). Idempotent:
+        if a retry of this run is already in flight, that run is returned.
+
+        If the run already performed actions (sent a message, changed data),
+        retrying may repeat them, so the API raises ConflictError with code
+        'retry_needs_confirmation'. Pass confirm=True to proceed. Check
+        run.retryable before calling to avoid a guaranteed ConflictError on a
+        non-retryable run.
+        """
+        params = {"confirm": "true"} if confirm else None
+        resp = self._http.request("POST", f"/runs/{run_id}/retry", params=params)
+        return Run.from_dict(resp.json())
+
     def update_permission_mode(
         self,
         run_id: int,
