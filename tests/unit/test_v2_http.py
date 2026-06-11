@@ -137,6 +137,38 @@ class TestErrorMapping:
         assert "Server Error" in exc_info.value.message
 
     @responses.activate
+    def test_html_error_body_hints_base_url(self, http):
+        """An HTML error page (wrong host / SPA fallback) must produce a base_url hint,
+        not dump the raw HTML document into the exception message."""
+        responses.add(
+            responses.GET,
+            "https://api.m8tes.ai/v2/teammates",
+            body="<!DOCTYPE html><html><head><title>m8tes</title></head></html>",
+            status=404,
+            content_type="text/html",
+        )
+        with pytest.raises(NotFoundError) as exc_info:
+            http.request("GET", "/teammates")
+        assert "base_url" in exc_info.value.message
+        assert "https://api.m8tes.ai/api/v2" in exc_info.value.message
+        assert "<!DOCTYPE" not in exc_info.value.message
+
+    @responses.activate
+    def test_html_body_without_content_type_hints_base_url(self, http):
+        """HTML detection must also work when the server omits the text/html content type."""
+        responses.add(
+            responses.GET,
+            "https://api.m8tes.ai/v2/teammates",
+            body="  <html><body>Not Found</body></html>",
+            status=404,
+            content_type="text/plain",
+        )
+        with pytest.raises(NotFoundError) as exc_info:
+            http.request("GET", "/teammates")
+        assert "base_url" in exc_info.value.message
+        assert "<html>" not in exc_info.value.message
+
+    @responses.activate
     def test_string_error_body(self, http):
         """API/proxy returning {"error": "string"} instead of {"error": {...}} must not crash."""
         responses.add(
