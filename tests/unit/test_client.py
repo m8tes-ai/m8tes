@@ -32,15 +32,18 @@ class TestM8tesClient:
 
     @mock_environment_variables(M8TES_API_KEY="env-api-key")
     @patch("m8tes.auth.credentials.CredentialManager.get_api_key")
-    def test_initialization_from_environment(self, mock_get_api_key):
+    def test_initialization_from_environment(self, mock_get_api_key, monkeypatch):
         """Test client initialization using environment variables."""
         # Mock keychain to return None so env var is used
         mock_get_api_key.return_value = None
+        # An M8TES_BASE_URL export in the developer's shell must not leak into
+        # this default-URL assertion.
+        monkeypatch.delenv("M8TES_BASE_URL", raising=False)
 
         client = M8tes()
 
         assert client.api_key == "env-api-key"
-        assert "https://www.m8tes.ai" in client.base_url
+        assert "https://api.m8tes.ai" in client.base_url
 
     @mock_environment_variables(M8TES_API_KEY="env-key", M8TES_BASE_URL="https://custom.api.com")
     @patch("m8tes.auth.credentials.CredentialManager.get_api_key")

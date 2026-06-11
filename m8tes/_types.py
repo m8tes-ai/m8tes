@@ -156,6 +156,10 @@ class Run:
     retryable: bool = False
     retry_of_run_id: int | None = None
     retry_count: int = 0
+    # Scheduled-run auto-retry: how many automatic retries this lineage has used,
+    # and when the next one fires (ISO timestamp, None when none is scheduled).
+    auto_retry_count: int = 0
+    next_retry_at: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> Run:
@@ -175,6 +179,8 @@ class Run:
             retryable=data.get("retryable", False),
             retry_of_run_id=data.get("retry_of_run_id"),
             retry_count=data.get("retry_count", 0),
+            auto_retry_count=data.get("auto_retry_count", 0),
+            next_retry_at=data.get("next_retry_at"),
         )
 
 

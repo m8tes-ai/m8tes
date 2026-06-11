@@ -30,6 +30,7 @@ class TestClientInit:
         assert isinstance(client.tasks, Tasks)
         assert isinstance(client.apps, Apps)
 
-    def test_default_base_url(self):
+    def test_default_base_url(self, monkeypatch):
+        monkeypatch.delenv("M8TES_BASE_URL", raising=False)
         client = M8tes(api_key="m8_test")
-        assert client._http._base_url == "https://m8tes.ai/api/v2"
+        assert client._http._base_url == "https://api.m8tes.ai/api/v2"

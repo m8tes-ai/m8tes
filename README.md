@@ -424,7 +424,7 @@ except AuthenticationError:
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `M8TES_API_KEY` | API key for authentication | — |
-| `M8TES_BASE_URL` | API endpoint | `https://m8tes.ai` |
+| `M8TES_BASE_URL` | API endpoint | `https://api.m8tes.ai/api/v2` |
 
 ```python
 client = M8tes(api_key="m8_...", timeout=300)  # custom timeout in seconds

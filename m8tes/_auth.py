@@ -16,10 +16,8 @@ import os
 
 import requests
 
-from ._http import _raise_for_status
+from ._http import DEFAULT_BASE_URL as _DEFAULT_BASE_URL, _raise_for_status
 from ._types import SignupResult, TokenResult
-
-_DEFAULT_BASE_URL = "https://m8tes.ai/api/v2"
 
 
 def signup(

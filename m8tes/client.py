@@ -20,6 +20,9 @@ from .services.users import UserService
 
 logger = logging.getLogger(__name__)
 
+# Legacy v1 client default — bare host because request paths include /api/v1.
+_DEFAULT_BASE_URL = "https://api.m8tes.ai"
+
 
 class M8tes:
     """Main client for interacting with m8tes.ai."""
@@ -55,7 +58,7 @@ class M8tes:
                     # Try to refresh the token
                     try:
                         refreshed_data = self._refresh_token_at_init(
-                            base_url or os.getenv("M8TES_BASE_URL", "https://www.m8tes.ai"),
+                            base_url or os.getenv("M8TES_BASE_URL", _DEFAULT_BASE_URL),
                             refresh_token,
                         )
                         if refreshed_data:
@@ -74,7 +77,7 @@ class M8tes:
         # Note: api_key can be None for unauthenticated operations (login, register)
         # Protected endpoints will check authentication separately
 
-        base_url = base_url or os.getenv("M8TES_BASE_URL", "https://www.m8tes.ai")
+        base_url = base_url or os.getenv("M8TES_BASE_URL", _DEFAULT_BASE_URL)
 
         # Initialize HTTP client
         self.http = HTTPClient(base_url=base_url, api_key=api_key, timeout=timeout, profile=profile)

@@ -76,6 +76,15 @@ class TestRunFromDict:
         r = Run.from_dict({"id": 1, "status": "failed", "error": "Boom"})
         assert r.error == "Boom"
 
+    def test_auto_retry_fields(self):
+        """Scheduled-run auto-retry fields parse when present and default when absent."""
+        r = Run.from_dict({"id": 1, "auto_retry_count": 2, "next_retry_at": "2026-06-10T08:00:00Z"})
+        assert r.auto_retry_count == 2
+        assert r.next_retry_at == "2026-06-10T08:00:00Z"
+        minimal = Run.from_dict({"id": 2})
+        assert minimal.auto_retry_count == 0
+        assert minimal.next_retry_at is None
+
 
 class TestTaskFromDict:
     def test_minimal(self):
