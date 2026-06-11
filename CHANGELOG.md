@@ -2,6 +2,15 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [1.9.1] - 2026-06-11
+
+### Added
+- `Run.auto_retry_count` and `Run.next_retry_at` fields — observability for scheduled-run auto-retry (the backend has returned these since the auto-retry feature shipped; the dataclass was missing them).
+
+### Fixed
+- Default `base_url` now points at `https://api.m8tes.ai/api/v2` (was `https://m8tes.ai/api/v2`). The apex host redirects to the marketing site, so `M8tes()` without an explicit `base_url` failed every request with a `NotFoundError` containing an HTML page. Same fix for module-level `m8tes.signup()`/`m8tes.get_token()` and the legacy v1 client used by the CLI. If you worked around this with `M8TES_BASE_URL` or `base_url=`, your override still wins.
+- HTML error responses (e.g. a wrong base_url host answering with a web page) now raise a clear "check your base_url" message that names the URL that answered, instead of dumping the raw HTML document into the exception text.
+
 ## [1.9.0] - 2026-06-04
 
 ### Added

@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 
 from ._exceptions import AuthenticationError
-from ._http import HTTPClient
+from ._http import DEFAULT_BASE_URL, HTTPClient
 from ._resources import (
     Apps,
     AuditLogs,
@@ -39,7 +39,7 @@ class M8tes:
         timeout: int = 300,
     ):
         api_key = api_key or os.environ.get("M8TES_API_KEY")
-        base_url = base_url or os.environ.get("M8TES_BASE_URL") or "https://m8tes.ai/api/v2"
+        base_url = base_url or os.environ.get("M8TES_BASE_URL") or DEFAULT_BASE_URL
         if not api_key:
             raise AuthenticationError(
                 "No API key provided. Pass api_key= or set M8TES_API_KEY env var."

@@ -2,6 +2,7 @@
 
 import responses
 
+from m8tes._auth import signup
 from m8tes._http import HTTPClient
 from m8tes._resources.auth import Auth
 from m8tes._types import Usage
@@ -11,6 +12,20 @@ BASE = "https://api.test/v2"
 
 def _http() -> HTTPClient:
     return HTTPClient(api_key="m8_test", base_url=BASE, timeout=5)
+
+
+@responses.activate
+def test_signup_uses_canonical_default_base_url(monkeypatch):
+    """m8tes.signup() without base_url must hit the hosted API, not the marketing host."""
+    monkeypatch.delenv("M8TES_BASE_URL", raising=False)
+    responses.add(
+        responses.POST,
+        "https://api.m8tes.ai/api/v2/signup",
+        json={"api_key": "m8_new", "email": "a@b.co", "message": "Account created."},
+        status=200,
+    )
+    result = signup(email="a@b.co", password="pw12345678", first_name="a")
+    assert result.api_key == "m8_new"
 
 
 @responses.activate

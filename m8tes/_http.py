@@ -16,6 +16,18 @@ _INITIAL_BACKOFF = 0.5  # seconds
 _RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 _SAFE_RETRY_METHODS = {"GET", "HEAD", "PUT", "DELETE", "OPTIONS"}
 
+# Canonical hosted API. Shared by the v2 client, the module-level auth helpers,
+# and error hints so a host change is a one-line edit.
+DEFAULT_BASE_URL = "https://api.m8tes.ai/api/v2"
+
+
+def _looks_like_html(resp: requests.Response) -> bool:
+    """Detect HTML error responses (a web server answering instead of the API)."""
+    if "text/html" in resp.headers.get("Content-Type", ""):
+        return True
+    head = (resp.text or "").lstrip()[:9].lower()
+    return head.startswith("<!doctype") or head.startswith("<html")
+
 
 def _raise_for_status(resp: requests.Response, *, method: str = "", path: str = "") -> None:
     """Map HTTP error responses to typed SDK exceptions."""
@@ -39,7 +51,17 @@ def _raise_for_status(resp: requests.Response, *, method: str = "", path: str = 
             code = raw_code if isinstance(raw_code, str) else None
     except (ValueError, KeyError, AttributeError):
         logger.debug("Failed to parse error body: %s", resp.text[:200] if resp.text else "empty")
-        message = resp.text or message
+        if _looks_like_html(resp):
+            # A web server answered, not the API (e.g. base_url pointing at the
+            # marketing site). Dumping the HTML document into the exception buries
+            # the actual problem; say what is wrong instead.
+            message = (
+                f"Received an HTML page instead of an API response (HTTP {resp.status_code}) "
+                f"from {resp.url}. This usually means the host does not serve the m8tes API; "
+                f"check your base_url (the hosted API is {DEFAULT_BASE_URL})."
+            )
+        else:
+            message = resp.text or message
 
     resp.close()
     exc_cls = STATUS_MAP.get(resp.status_code, APIError)
