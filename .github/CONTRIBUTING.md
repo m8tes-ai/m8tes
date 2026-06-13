@@ -3,8 +3,8 @@
 ## Setup
 
 ```bash
-git clone https://github.com/m8tes/m8tes-python
-cd m8tes-python
+git clone https://github.com/m8tes-ai/m8tes
+cd m8tes
 make install
 ```
 
@@ -27,8 +27,8 @@ make test-integration  # requires backend at localhost:8000
 
 ## Reporting bugs
 
-Use the [bug report template](https://github.com/m8tes/m8tes-python/issues/new?template=bug_report.md).
+Use the [bug report template](https://github.com/m8tes-ai/m8tes/issues/new?template=bug_report.md).
 
 ## Requesting features
 
-Use the [feature request template](https://github.com/m8tes/m8tes-python/issues/new?template=feature_request.md).
+Use the [feature request template](https://github.com/m8tes-ai/m8tes/issues/new?template=feature_request.md).

@@ -63,6 +63,16 @@ def _raise_for_status(resp: requests.Response, *, method: str = "", path: str = 
         else:
             message = resp.text or message
 
+    # Expose Retry-After (delta-seconds form) so callers can back off; the API
+    # sends it on 429s. A non-numeric value (e.g. an HTTP-date) maps to None.
+    retry_after: float | None = None
+    raw_retry = resp.headers.get("Retry-After")
+    if raw_retry:
+        try:
+            retry_after = float(raw_retry)
+        except ValueError:
+            retry_after = None
+
     resp.close()
     exc_cls = STATUS_MAP.get(resp.status_code, APIError)
     raise exc_cls(
@@ -72,6 +82,7 @@ def _raise_for_status(resp: requests.Response, *, method: str = "", path: str = 
         method=method,
         path=path,
         code=code,
+        retry_after=retry_after,
     )
 
 

@@ -99,6 +99,33 @@ class TestErrorMapping:
             http.request("GET", "/x")
 
     @responses.activate
+    def test_rate_limit_exposes_retry_after(self, http):
+        """RateLimitError.retry_after carries the Retry-After header (seconds) for backoff."""
+        responses.add(
+            responses.POST,
+            "https://api.m8tes.ai/v2/runs",
+            json={"error": {"message": "slow down"}},
+            status=429,
+            headers={"Retry-After": "30"},
+        )
+        with pytest.raises(RateLimitError) as exc_info:
+            http.request("POST", "/runs")
+        assert exc_info.value.retry_after == 30.0
+
+    @responses.activate
+    def test_retry_after_absent_is_none(self, http):
+        """Errors without a Retry-After header expose retry_after=None, not a crash."""
+        responses.add(
+            responses.POST,
+            "https://api.m8tes.ai/v2/runs",
+            json={"error": {"message": "bad"}},
+            status=400,
+        )
+        with pytest.raises(ValidationError) as exc_info:
+            http.request("POST", "/runs")
+        assert exc_info.value.retry_after is None
+
+    @responses.activate
     def test_500_raises_api_error(self, http):
         responses.add(
             responses.GET, "https://api.m8tes.ai/v2/x", json={"detail": "Boom"}, status=500
