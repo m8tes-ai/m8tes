@@ -16,6 +16,7 @@ class TestTeammate:
             "metadata": {"env": "prod"},
             "allowed_senders": ["@acme.com"],
             "default_permission_mode": "approval",
+            "model": "sonnet",
             "status": "enabled",
             "created_at": "2026-01-01",
             "updated_at": "2026-01-02",
@@ -26,12 +27,14 @@ class TestTeammate:
         assert t.tools == ["gmail"]
         assert t.allowed_senders == ["@acme.com"]
         assert t.default_permission_mode == "approval"
+        assert t.model == "sonnet"
 
     def test_from_dict_minimal(self):
         t = Teammate.from_dict({"id": 1, "name": "Bot"})
         assert t.instructions is None
         assert t.tools == []
         assert t.default_permission_mode == "autonomous"
+        assert t.model is None
         assert t.status == "enabled"
 
 

@@ -73,6 +73,8 @@ class Teammate:
     fetchmail_address: str | None = None
     webhook_enabled: bool = False
     webhook_url: str | None = None
+    # Claude model alias ("sonnet" | "opus"); None = platform default.
+    model: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> Teammate:
@@ -97,6 +99,7 @@ class Teammate:
             fetchmail_address=data.get("fetchmail_address"),
             webhook_enabled=data.get("webhook_enabled", False),
             webhook_url=data.get("webhook_url"),
+            model=data.get("model"),
             status=data.get("status", "enabled"),
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at"),
