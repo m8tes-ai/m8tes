@@ -12,6 +12,7 @@ class M8tesError(Exception):
         method: str | None = None,
         path: str | None = None,
         code: str | None = None,
+        retry_after: float | None = None,
     ):
         super().__init__(message)
         self.message = message
@@ -22,6 +23,9 @@ class M8tesError(Exception):
         # App-level error code from the v2 envelope (e.g. "run_not_retryable",
         # "retry_needs_confirmation"), when the API provides a string code.
         self.code = code
+        # Seconds to wait before retrying, from the Retry-After header. Set on
+        # RateLimitError (429); None when the response carried no such header.
+        self.retry_after = retry_after
 
 
 class AuthenticationError(M8tesError):
