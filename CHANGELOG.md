@@ -2,6 +2,14 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [1.9.2] - 2026-06-13
+
+### Added
+- `RateLimitError.retry_after` (a field on every `M8tesError`, set on 429s) — the `Retry-After` header parsed to seconds, so you can back off precisely instead of guessing. `None` when the response carried no such header. This also makes the rate-limit example in the README run as written.
+
+### Fixed
+- Packaging and community metadata: added an `Issues` URL to the project metadata (so the PyPI sidebar links to the bug tracker), a `SECURITY.md`, and an issue-template `config.yml`; corrected the `CONTRIBUTING.md` clone URL and bug/feature-request links, which pointed at a repository that does not exist.
+
 ## [1.9.1] - 2026-06-11
 
 ### Added

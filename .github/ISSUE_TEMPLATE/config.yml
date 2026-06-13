@@ -1,0 +1,9 @@
+# Routes non-bug issues to the right channel instead of the tracker.
+blank_issues_enabled: true
+contact_links:
+  - name: Documentation
+    url: https://m8tes.ai/docs
+    about: SDK quickstart, API reference, and guides — most questions are answered here.
+  - name: Account or billing support
+    url: mailto:support@m8tes.ai
+    about: For account, billing, or usage questions (not a code bug), email support.
