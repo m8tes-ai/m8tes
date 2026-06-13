@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from .._types import EmailInbox, FetchmailInbox, SyncPage, Teammate, TeammateWebhook
 from ._utils import _build_params
 
 _list = list  # preserve builtin; shadowed by .list() method
+
+# Sentinel distinguishing "not provided" from an explicit None. Needed for
+# fields where the v2 PATCH contract makes null meaningful (model: null clears
+# the teammate back to the platform default).
+_UNSET: Any = object()
 
 if TYPE_CHECKING:
     from .._http import HTTPClient
@@ -37,6 +42,7 @@ class Teammates:
         email_inbox: bool = False,
         webhook: bool = False,
         default_permission_mode: str | None = None,
+        model: str | None = None,
         from_template: str | None = None,
     ) -> Teammate:
         """Create a teammate.
@@ -81,6 +87,8 @@ class Teammates:
             body["webhook"] = True
         if default_permission_mode is not None:
             body["default_permission_mode"] = default_permission_mode
+        if model is not None:
+            body["model"] = model
         if from_template is not None:
             body["from_template"] = from_template
         resp = self._http.request("POST", "/teammates", json=body)
@@ -126,7 +134,16 @@ class Teammates:
         bridge_id: int | None = None,
         allowed_imessage_senders: _list[str] | None = None,
         default_permission_mode: str | None = None,
+        model: str | None = _UNSET,
     ) -> Teammate:
+        """Update a teammate (PATCH semantics — omitted fields stay unchanged).
+
+        ``model`` is special: passing ``model=None`` explicitly CLEARS the
+        teammate back to the platform default (sends JSON null), while omitting
+        it leaves the model unchanged. This mirrors the v2 contract, where null
+        is a meaningful model state — deliberately unlike
+        ``default_permission_mode``, where None means leave-unchanged.
+        """
         body: dict = {}
         if name is not None:
             body["name"] = name
@@ -152,6 +169,8 @@ class Teammates:
             body["allowed_imessage_senders"] = allowed_imessage_senders
         if default_permission_mode is not None:
             body["default_permission_mode"] = default_permission_mode
+        if model is not _UNSET:
+            body["model"] = model  # explicit None -> JSON null -> clears to default
         resp = self._http.request("PATCH", f"/teammates/{teammate_id}", json=body)
         return Teammate.from_dict(resp.json())
 

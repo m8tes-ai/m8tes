@@ -88,6 +88,13 @@ class TestTeammates:
         assert body["default_permission_mode"] == "approval"
 
     @responses.activate
+    def test_create_with_model(self, http):
+        responses.add(responses.POST, f"{BASE}/teammates", json={"id": 4, "name": "M"}, status=201)
+        Teammates(http).create(name="M", model="sonnet")
+        body = json.loads(responses.calls[0].request.body)
+        assert body["model"] == "sonnet"
+
+    @responses.activate
     def test_create_with_imessage_fields(self, http):
         responses.add(
             responses.POST,
@@ -159,6 +166,32 @@ class TestTeammates:
             "allowed_senders": ["@a.com"],
             "default_permission_mode": "plan",
         }
+
+    @responses.activate
+    def test_update_with_model_sends_only_model(self, http):
+        responses.add(responses.PATCH, f"{BASE}/teammates/1", json={"id": 1, "name": "X"})
+        Teammates(http).update(1, model="sonnet")
+        body = json.loads(responses.calls[0].request.body)
+        assert body == {"model": "sonnet"}
+
+    @responses.activate
+    def test_update_model_explicit_none_sends_null_to_clear(self, http):
+        """model=None must send JSON null — the documented clear-to-platform-default.
+
+        Deliberately unlike other optional fields (omit-if-None): the v2 contract
+        makes null a meaningful model state (D4).
+        """
+        responses.add(responses.PATCH, f"{BASE}/teammates/1", json={"id": 1, "name": "X"})
+        Teammates(http).update(1, model=None)
+        body = json.loads(responses.calls[0].request.body)
+        assert body == {"model": None}
+
+    @responses.activate
+    def test_update_without_model_omits_the_key(self, http):
+        responses.add(responses.PATCH, f"{BASE}/teammates/1", json={"id": 1, "name": "X"})
+        Teammates(http).update(1, name="X")
+        body = json.loads(responses.calls[0].request.body)
+        assert "model" not in body
 
     @responses.activate
     def test_update_can_set_imessage_fields(self, http):
@@ -355,6 +388,15 @@ class TestRuns:
         Runs(http).create(message="Do X", stream=False, feedback=False)
         body = json.loads(responses.calls[0].request.body)
         assert body["feedback"] is False
+
+    @responses.activate
+    def test_create_with_model(self, http):
+        responses.add(responses.POST, f"{BASE}/runs", json={"id": 1, "status": "running"})
+        responses.add(responses.POST, f"{BASE}/runs", json={"id": 2, "status": "running"})
+        Runs(http).create(message="Do X", stream=False, model="opus")
+        assert json.loads(responses.calls[0].request.body)["model"] == "opus"
+        Runs(http).create(message="Do X", stream=False)
+        assert "model" not in json.loads(responses.calls[1].request.body)
 
     @responses.activate
     def test_create_accepts_permission_mode_enum(self, http):
@@ -878,6 +920,24 @@ class TestTasks:
         Tasks(http).run(10, stream=False, permission_mode="autonomous")
         body = json.loads(responses.calls[0].request.body)
         assert body["permission_mode"] == "autonomous"
+
+    @responses.activate
+    def test_run_with_model(self, http):
+        """model is a per-run override: sent when provided, omitted otherwise."""
+        responses.add(
+            responses.POST,
+            f"{BASE}/tasks/10/runs",
+            json={"id": 1, "status": "running", "created_at": "2026-01-01T00:00:00Z"},
+        )
+        responses.add(
+            responses.POST,
+            f"{BASE}/tasks/10/runs",
+            json={"id": 2, "status": "running", "created_at": "2026-01-01T00:00:00Z"},
+        )
+        Tasks(http).run(10, stream=False, model="opus")
+        assert json.loads(responses.calls[0].request.body)["model"] == "opus"
+        Tasks(http).run(10, stream=False)
+        assert "model" not in json.loads(responses.calls[1].request.body)
 
     @responses.activate
     def test_delete(self, http):

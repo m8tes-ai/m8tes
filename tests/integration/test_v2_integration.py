@@ -215,6 +215,35 @@ class TestTeammatesCRUD:
         finally:
             v2_client.teammates.delete(t.id)
 
+    def test_model_roundtrip(self, v2_client):
+        """model persists on create, updates via PATCH, clears via null, survives GET."""
+        t = v2_client.teammates.create(name="ModelBot", model="sonnet")
+        try:
+            assert t.model == "sonnet"
+            updated = v2_client.teammates.update(t.id, model="opus")
+            assert updated.model == "opus"
+            fetched = v2_client.teammates.get(t.id)
+            assert fetched.model == "opus"
+            # model=None sends JSON null → clears back to platform default (D4)
+            cleared = v2_client.teammates.update(t.id, model=None)
+            assert cleared.model is None
+            assert v2_client.teammates.get(t.id).model is None
+        finally:
+            v2_client.teammates.delete(t.id)
+
+    def test_model_defaults_to_none(self, v2_client):
+        """Omitting model leaves it None (platform default)."""
+        t = v2_client.teammates.create(name="NoModelBot")
+        try:
+            assert t.model is None
+        finally:
+            v2_client.teammates.delete(t.id)
+
+    def test_invalid_model_rejected(self, v2_client):
+        """model outside sonnet|opus is rejected with 422."""
+        with pytest.raises(ValidationError):
+            v2_client.teammates.create(name="BadModelBot", model="gpt-5")
+
     def test_create_minimal(self, v2_client):
         """Create with only required field (name)."""
         t = v2_client.teammates.create(name="Minimal")
@@ -2064,6 +2093,32 @@ class TestRunCreation:
             )
             assert isinstance(run, Run)
             assert run.metadata == {"env": "test", "version": 2}
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_create_run_with_model_override(self, v2_client):
+        """Per-run model override is accepted (resolution happens server-side)."""
+        tm = v2_client.teammates.create(name="ModelRunHost")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=tm.id,
+                message="With model",
+                stream=False,
+                model="sonnet",
+            )
+            assert isinstance(run, Run)
+            assert run.status == "running"
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_create_run_invalid_model_rejected(self, v2_client):
+        """model outside sonnet|opus is rejected with 422."""
+        tm = v2_client.teammates.create(name="BadModelRunHost")
+        try:
+            with pytest.raises(ValidationError):
+                v2_client.runs.create(
+                    teammate_id=tm.id, message="Bad model", stream=False, model="gpt-5"
+                )
         finally:
             v2_client.teammates.delete(tm.id)
 

@@ -173,6 +173,7 @@ class Tasks:
         feedback: bool = True,
         human_in_the_loop: bool | None = None,
         permission_mode: str | None = None,
+        model: str | None = None,
     ) -> RunStream | Run:
         """Execute a saved task, creating a new run.
 
@@ -201,6 +202,8 @@ class Tasks:
             body["human_in_the_loop"] = human_in_the_loop
         if permission_mode is not None:
             body["permission_mode"] = permission_mode
+        if model is not None:
+            body["model"] = model
 
         if stream:
             resp = self._http.stream("POST", f"/tasks/{task_id}/runs", json=body)
@@ -221,6 +224,7 @@ class Tasks:
         feedback: bool = True,
         human_in_the_loop: bool | None = None,
         permission_mode: str | None = None,
+        model: str | None = None,
         on_approval: Callable[[PermissionRequest], str] | None = None,
         on_question: Callable[[PermissionRequest], dict[str, str]] | None = None,
         poll_interval: float = 2.0,
@@ -241,6 +245,7 @@ class Tasks:
             feedback=feedback,
             human_in_the_loop=human_in_the_loop,
             permission_mode=permission_mode,
+            model=model,
         )
         from .runs import Runs
 
