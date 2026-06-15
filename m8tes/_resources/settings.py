@@ -17,7 +17,7 @@ class Settings:
         self._http = http
 
     def get(self) -> AccountSettings:
-        resp = self._http.request("GET", "/settings")
+        resp = self._http.request("GET", "/settings/")
         return AccountSettings.from_dict(resp.json())
 
     def update(self, *, company_research: bool | None = None) -> AccountSettings:
@@ -25,5 +25,5 @@ class Settings:
         body: dict = {}
         if company_research is not None:
             body["company_research"] = company_research
-        resp = self._http.request("PATCH", "/settings", json=body)
+        resp = self._http.request("PATCH", "/settings/", json=body)
         return AccountSettings.from_dict(resp.json())

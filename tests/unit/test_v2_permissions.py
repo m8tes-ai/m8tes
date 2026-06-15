@@ -15,7 +15,7 @@ BASE = "https://api.test/v2"
 def test_create_permission():
     responses.add(
         responses.POST,
-        f"{BASE}/permissions",
+        f"{BASE}/permissions/",
         json={"id": 1, "user_id": "u_1", "tool_name": "gmail", "created_at": ""},
         status=201,
     )
@@ -32,7 +32,7 @@ def test_create_permission():
 def test_list_permissions():
     responses.add(
         responses.GET,
-        f"{BASE}/permissions",
+        f"{BASE}/permissions/",
         json={
             "data": [
                 {"id": 1, "user_id": "u_1", "tool_name": "gmail", "created_at": ""},

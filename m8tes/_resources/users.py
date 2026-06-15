@@ -37,7 +37,7 @@ class Users:
             body["company"] = company
         if metadata is not None:
             body["metadata"] = metadata
-        resp = self._http.request("POST", "/users", json=body)
+        resp = self._http.request("POST", "/users/", json=body)
         return EndUser.from_dict(resp.json())
 
     def list(
@@ -47,7 +47,7 @@ class Users:
         starting_after: int | None = None,
     ) -> SyncPage[EndUser]:
         params = _build_params(limit=limit, starting_after=starting_after)
-        resp = self._http.request("GET", "/users", params=params)
+        resp = self._http.request("GET", "/users/", params=params)
         body = resp.json()
 
         def _fetch_next(**kw: object) -> SyncPage[EndUser]:

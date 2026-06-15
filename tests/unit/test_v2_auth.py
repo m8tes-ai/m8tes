@@ -32,7 +32,7 @@ def test_signup_uses_canonical_default_base_url(monkeypatch):
 def test_get_usage():
     responses.add(
         responses.GET,
-        f"{BASE}/usage",
+        f"{BASE}/usage/",
         json={
             "plan": "free",
             "runs_used": 1,

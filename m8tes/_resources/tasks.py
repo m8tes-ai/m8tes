@@ -6,7 +6,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, cast
 
 from .._streaming import RunStream
-from .._types import PermissionRequest, Run, SyncPage, Task, Trigger
+from .._types import LessonList, PermissionRequest, Run, SyncPage, Task, Trigger
 from ._utils import _build_params
 
 _list = list  # preserve builtin; shadowed by .list() method
@@ -50,11 +50,11 @@ class TaskTriggers:
             body["user_id"] = user_id
         if allowed_senders is not None:
             body["allowed_senders"] = allowed_senders
-        resp = self._http.request("POST", f"/tasks/{task_id}/triggers", json=body)
+        resp = self._http.request("POST", f"/tasks/{task_id}/triggers/", json=body)
         return Trigger.from_dict(resp.json())
 
     def list(self, task_id: int) -> list[Trigger]:
-        resp = self._http.request("GET", f"/tasks/{task_id}/triggers")
+        resp = self._http.request("GET", f"/tasks/{task_id}/triggers/")
         body = resp.json()
         items = body["data"] if isinstance(body, dict) and "data" in body else body
         return [Trigger.from_dict(d) for d in items]
@@ -103,7 +103,7 @@ class Tasks:
         if schedule is not None:
             body["schedule"] = schedule
             body["schedule_timezone"] = schedule_timezone
-        resp = self._http.request("POST", "/tasks", json=body)
+        resp = self._http.request("POST", "/tasks/", json=body)
         return Task.from_dict(resp.json())
 
     def list(
@@ -117,7 +117,7 @@ class Tasks:
         params = _build_params(
             teammate_id=teammate_id, user_id=user_id, limit=limit, starting_after=starting_after
         )
-        resp = self._http.request("GET", "/tasks", params=params)
+        resp = self._http.request("GET", "/tasks/", params=params)
         body = resp.json()
 
         def _fetch_next(**kw: object) -> SyncPage[Task]:
@@ -259,3 +259,22 @@ class Tasks:
 
     def delete(self, task_id: int) -> None:
         self._http.request("DELETE", f"/tasks/{task_id}")
+
+    # ── Lessons (what the task's teammate has learned) ──────────────────────
+
+    def lessons(self, task_id: int) -> LessonList:
+        """List the lessons this task's teammate has saved for future runs."""
+        resp = self._http.request("GET", f"/tasks/{task_id}/lessons")
+        return LessonList.from_dict(resp.json())
+
+    def delete_lesson(self, task_id: int, lesson_id: str) -> LessonList:
+        """Delete one saved lesson; returns the remaining lessons."""
+        resp = self._http.request("DELETE", f"/tasks/{task_id}/lessons/{lesson_id}")
+        return LessonList.from_dict(resp.json())
+
+    def clear_lessons(self, task_id: int) -> LessonList:
+        """Clear all saved lessons for a task. Returns the now-empty list."""
+        resp = self._http.request(
+            "POST", f"/tasks/{task_id}/lessons:clear", params={"confirm": "true"}
+        )
+        return LessonList.from_dict(resp.json())

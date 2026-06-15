@@ -2,6 +2,20 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [1.10.0] - 2026-06-14
+
+### Added
+- `client.teammate_templates.list()` — the pre-built teammate template catalog (slug, name, role, required integrations, default tasks). Use a returned `.slug` with `teammates.create(from_template=...)` instead of hardcoding it. New `TeammateTemplate` type.
+- Task lesson curation on the Tasks resource: `tasks.lessons(task_id)`, `tasks.delete_lesson(task_id, lesson_id)`, and `tasks.clear_lessons(task_id)` — read, prune, and reset what a task's teammate has learned across runs. New `Lesson` and `LessonList` types. (`clear_lessons` sends the backend's required `confirm=true`.)
+
+### Fixed
+- Collection calls (`runs`, `tasks`, `teammates`, `memories`, `permissions`, `users`, `webhooks`, `apps`, `audit-logs`, `usage`, `settings`, and task `triggers`) now request the canonical trailing-slash URL directly. Previously every list/create hit a `307` redirect — an extra round-trip, and a latent failure mode where a proxy that dropped the request body or `Authorization` header on the redirect would break `POST` creates.
+- Examples `revenue-report.py`, `seo-monitor.py`, and `support-triage.py` called `tasks.create()` without the required `instructions=` (an immediate `TypeError`). `file-report.py` passed a non-existent `stream=` kwarg to `create_and_wait` and read `event.tool_input` off `tool-call-start`, which doesn't carry it — both now fixed.
+
+### Docs
+- README resource table now lists previously-undocumented shipped methods: the `client.bridges` resource, `apps.provision`/`release`/`list_triggers`, `runs.retry`, `teammates.reset`, plus the new `teammate_templates` and task-lessons surfaces.
+- Documented run-level failure detection: a run can return `status="completed"` with an upstream failure in `run.output` and a machine-readable `run.error_code` (e.g. `oauth_revoked`, `subscription_quota_exhausted`, `rate_limited`); check `error_code` before trusting `output`.
+
 ## [1.9.2] - 2026-06-13
 
 ### Added

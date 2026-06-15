@@ -19,7 +19,7 @@ def _http() -> HTTPClient:
 def test_create_user_minimal():
     responses.add(
         responses.POST,
-        f"{BASE}/users",
+        f"{BASE}/users/",
         json={"id": 1, "user_id": "cust_123", "created_at": "2026-02-28T00:00:00Z"},
         status=201,
     )
@@ -35,7 +35,7 @@ def test_create_user_minimal():
 def test_create_user_all_fields():
     responses.add(
         responses.POST,
-        f"{BASE}/users",
+        f"{BASE}/users/",
         json={"id": 1, "user_id": "cust_123", "name": "Alice"},
         status=201,
     )
@@ -61,7 +61,7 @@ def test_create_user_all_fields():
 def test_list_users():
     responses.add(
         responses.GET,
-        f"{BASE}/users",
+        f"{BASE}/users/",
         json={
             "data": [
                 {"id": 1, "user_id": "cust_123"},
@@ -83,13 +83,13 @@ def test_list_users():
 def test_list_users_auto_paging():
     responses.add(
         responses.GET,
-        f"{BASE}/users",
+        f"{BASE}/users/",
         json={"data": [{"id": 1, "user_id": "cust_123"}], "has_more": True},
         status=200,
     )
     responses.add(
         responses.GET,
-        f"{BASE}/users",
+        f"{BASE}/users/",
         json={"data": [{"id": 2, "user_id": "cust_456"}], "has_more": False},
         status=200,
     )

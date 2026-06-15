@@ -27,11 +27,12 @@ reporter = client.teammates.create(
 )
 
 # ── Option A: Stream progress and watch for file writes ───────────────────────
-# Use tool-call-start events to see exactly when each file is written.
+# Stream text and tool activity live. tool-call-start carries only the tool name
+# (the file path streams later as tool-call-delta args), so list_files() after the
+# run is the source of truth for what was actually written.
 
 print("── Streaming run with file tracking ──────────────────────────────────────")
 
-files_written: list[str] = []
 run_id: int | None = None
 
 with client.runs.create(
@@ -46,14 +47,9 @@ with client.runs.create(
         if event.type == "text-delta":
             print(event.delta, end="", flush=True)
         elif event.type == "tool-call-start" and event.tool_name == "Write":
-            filename = (event.tool_input or {}).get("file_path", "").split("/")[-1]
-            if filename:
-                print(f"\n  writing {filename}...")
-                files_written.append(filename)
+            print("\n  writing a file...")
         elif event.type == "done":
             run_id = stream.run_id
-
-print(f"\n\nFiles written during run: {files_written}")
 
 # ── Download generated files ───────────────────────────────────────────────────
 
@@ -72,8 +68,7 @@ print("\n\n── Non-streaming run ──────────────�
 run = client.runs.create_and_wait(
     teammate_id=reporter.id,
     message="Export all VIP customers to vip_customers.json.",
-    stream=False,  # don't need progress output
-)
+)  # create_and_wait is non-streaming by definition — no progress output
 
 for f in client.runs.list_files(run.id):
     content = client.runs.download_file(run.id, f.name)

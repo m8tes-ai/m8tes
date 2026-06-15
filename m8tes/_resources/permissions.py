@@ -19,7 +19,7 @@ class Permissions:
 
     def create(self, *, user_id: str, tool: str) -> PermissionPolicy:
         """Pre-approve a tool. Idempotent."""
-        resp = self._http.request("POST", "/permissions", json={"user_id": user_id, "tool": tool})
+        resp = self._http.request("POST", "/permissions/", json={"user_id": user_id, "tool": tool})
         return PermissionPolicy.from_dict(resp.json())
 
     def list(
@@ -31,7 +31,7 @@ class Permissions:
     ) -> SyncPage[PermissionPolicy]:
         """List tool permission policies for an end-user."""
         params = _build_params(user_id=user_id, limit=limit, starting_after=starting_after)
-        resp = self._http.request("GET", "/permissions", params=params)
+        resp = self._http.request("GET", "/permissions/", params=params)
         body = resp.json()
 
         def _fetch_next(**kw: object) -> SyncPage[PermissionPolicy]:

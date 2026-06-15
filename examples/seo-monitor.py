@@ -29,7 +29,10 @@ teammate = client.teammates.create(
 )
 
 # schedule — every Monday at 7am ET (before the team starts work)
-task = client.tasks.create(teammate_id=teammate.id)
+task = client.tasks.create(
+    teammate_id=teammate.id,
+    instructions="run the weekly seo check and post a priority-flagged summary to #marketing",
+)
 trigger = client.tasks.triggers.create(
     task.id,
     type="schedule",

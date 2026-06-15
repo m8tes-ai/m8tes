@@ -48,7 +48,7 @@ class TestTeammates:
     def test_create(self, http):
         responses.add(
             responses.POST,
-            f"{BASE}/teammates",
+            f"{BASE}/teammates/",
             json={
                 "id": 1,
                 "name": "Bot",
@@ -69,7 +69,7 @@ class TestTeammates:
     @responses.activate
     def test_create_with_all_fields(self, http):
         responses.add(
-            responses.POST, f"{BASE}/teammates", json={"id": 2, "name": "Full"}, status=201
+            responses.POST, f"{BASE}/teammates/", json={"id": 2, "name": "Full"}, status=201
         )
         Teammates(http).create(
             name="Full",
@@ -89,7 +89,7 @@ class TestTeammates:
 
     @responses.activate
     def test_create_with_model(self, http):
-        responses.add(responses.POST, f"{BASE}/teammates", json={"id": 4, "name": "M"}, status=201)
+        responses.add(responses.POST, f"{BASE}/teammates/", json={"id": 4, "name": "M"}, status=201)
         Teammates(http).create(name="M", model="sonnet")
         body = json.loads(responses.calls[0].request.body)
         assert body["model"] == "sonnet"
@@ -98,7 +98,7 @@ class TestTeammates:
     def test_create_with_imessage_fields(self, http):
         responses.add(
             responses.POST,
-            f"{BASE}/teammates",
+            f"{BASE}/teammates/",
             json={
                 "id": 3,
                 "name": "Messages Bot",
@@ -122,7 +122,7 @@ class TestTeammates:
     def test_list(self, http):
         responses.add(
             responses.GET,
-            f"{BASE}/teammates",
+            f"{BASE}/teammates/",
             json={"data": [{"id": 1, "name": "A"}, {"id": 2, "name": "B"}], "has_more": False},
         )
         result = Teammates(http).list()
@@ -133,7 +133,7 @@ class TestTeammates:
 
     @responses.activate
     def test_list_with_user_id(self, http):
-        responses.add(responses.GET, f"{BASE}/teammates", json={"data": [], "has_more": False})
+        responses.add(responses.GET, f"{BASE}/teammates/", json={"data": [], "has_more": False})
         Teammates(http).list(user_id="u_1")
         assert "user_id=u_1" in responses.calls[0].request.url
 
@@ -284,13 +284,13 @@ class TestAuditLogs:
     def test_list(self, http):
         responses.add(
             responses.GET,
-            f"{BASE}/audit-logs",
+            f"{BASE}/audit-logs/",
             json={
                 "data": [
                     {
                         "id": 1,
                         "method": "POST",
-                        "path": "/api/v2/runs/",
+                        "path": "/api/v2/runs",
                         "status_code": 200,
                         "duration_ms": 45,
                         "action": "create",
@@ -313,7 +313,7 @@ class TestAuditLogs:
     def test_list_with_filters(self, http):
         responses.add(
             responses.GET,
-            f"{BASE}/audit-logs",
+            f"{BASE}/audit-logs/",
             json={"data": [], "has_more": False},
         )
         AuditLogs(http).list(
@@ -338,7 +338,7 @@ class TestRuns:
     def test_create_streaming(self, http):
         responses.add(
             responses.POST,
-            f"{BASE}/runs",
+            f"{BASE}/runs/",
             body="data: {}\n\n",
             status=200,
             content_type="text/event-stream",
@@ -351,7 +351,7 @@ class TestRuns:
     def test_create_non_streaming(self, http):
         responses.add(
             responses.POST,
-            f"{BASE}/runs",
+            f"{BASE}/runs/",
             json={"id": 1, "status": "running"},
         )
         result = Runs(http).create(message="Do X", stream=False)
@@ -360,7 +360,7 @@ class TestRuns:
 
     @responses.activate
     def test_create_with_all_fields(self, http):
-        responses.add(responses.POST, f"{BASE}/runs", json={"id": 1})
+        responses.add(responses.POST, f"{BASE}/runs/", json={"id": 1})
         Runs(http).create(
             message="Do",
             teammate_id=1,
@@ -377,22 +377,22 @@ class TestRuns:
 
     @responses.activate
     def test_create_can_disable_task_setup_tools(self, http):
-        responses.add(responses.POST, f"{BASE}/runs", json={"id": 1, "status": "running"})
+        responses.add(responses.POST, f"{BASE}/runs/", json={"id": 1, "status": "running"})
         Runs(http).create(message="Do X", stream=False, task_setup_tools=False)
         body = json.loads(responses.calls[0].request.body)
         assert body["task_setup_tools"] is False
 
     @responses.activate
     def test_create_can_disable_feedback(self, http):
-        responses.add(responses.POST, f"{BASE}/runs", json={"id": 1, "status": "running"})
+        responses.add(responses.POST, f"{BASE}/runs/", json={"id": 1, "status": "running"})
         Runs(http).create(message="Do X", stream=False, feedback=False)
         body = json.loads(responses.calls[0].request.body)
         assert body["feedback"] is False
 
     @responses.activate
     def test_create_with_model(self, http):
-        responses.add(responses.POST, f"{BASE}/runs", json={"id": 1, "status": "running"})
-        responses.add(responses.POST, f"{BASE}/runs", json={"id": 2, "status": "running"})
+        responses.add(responses.POST, f"{BASE}/runs/", json={"id": 1, "status": "running"})
+        responses.add(responses.POST, f"{BASE}/runs/", json={"id": 2, "status": "running"})
         Runs(http).create(message="Do X", stream=False, model="opus")
         assert json.loads(responses.calls[0].request.body)["model"] == "opus"
         Runs(http).create(message="Do X", stream=False)
@@ -400,7 +400,7 @@ class TestRuns:
 
     @responses.activate
     def test_create_accepts_permission_mode_enum(self, http):
-        responses.add(responses.POST, f"{BASE}/runs", json={"id": 1, "status": "running"})
+        responses.add(responses.POST, f"{BASE}/runs/", json={"id": 1, "status": "running"})
         Runs(http).create(
             message="Do X",
             stream=False,
@@ -414,7 +414,7 @@ class TestRuns:
     def test_list(self, http):
         responses.add(
             responses.GET,
-            f"{BASE}/runs",
+            f"{BASE}/runs/",
             json={"data": [{"id": 1}, {"id": 2}], "has_more": False},
         )
         result = Runs(http).list()
@@ -591,7 +591,7 @@ class TestRuns:
     @responses.activate
     def test_create_with_hitl_true(self, http):
         """human_in_the_loop=True is non-default, so it IS sent in body."""
-        responses.add(responses.POST, f"{BASE}/runs", json={"id": 1, "status": "running"})
+        responses.add(responses.POST, f"{BASE}/runs/", json={"id": 1, "status": "running"})
         Runs(http).create(message="Do X", stream=False, human_in_the_loop=True)
         body = json.loads(responses.calls[0].request.body)
         assert body["human_in_the_loop"] is True
@@ -599,7 +599,7 @@ class TestRuns:
     @responses.activate
     def test_create_default_hitl_not_sent(self, http):
         """human_in_the_loop omitted stays omitted in the body."""
-        responses.add(responses.POST, f"{BASE}/runs", json={"id": 1, "status": "running"})
+        responses.add(responses.POST, f"{BASE}/runs/", json={"id": 1, "status": "running"})
         Runs(http).create(message="Do X", stream=False)
         body = json.loads(responses.calls[0].request.body)
         assert "human_in_the_loop" not in body
@@ -607,7 +607,7 @@ class TestRuns:
     @responses.activate
     def test_create_explicit_false_hitl_is_sent(self, http):
         """Explicit human_in_the_loop=False is serialized for override behavior."""
-        responses.add(responses.POST, f"{BASE}/runs", json={"id": 1, "status": "running"})
+        responses.add(responses.POST, f"{BASE}/runs/", json={"id": 1, "status": "running"})
         Runs(http).create(message="Do X", stream=False, human_in_the_loop=False)
         body = json.loads(responses.calls[0].request.body)
         assert body["human_in_the_loop"] is False
@@ -615,7 +615,7 @@ class TestRuns:
     @responses.activate
     def test_create_explicit_autonomous_permission_mode_is_sent(self, http):
         """Explicit autonomous override is serialized."""
-        responses.add(responses.POST, f"{BASE}/runs", json={"id": 1, "status": "running"})
+        responses.add(responses.POST, f"{BASE}/runs/", json={"id": 1, "status": "running"})
         Runs(http).create(message="Do X", stream=False, permission_mode="autonomous")
         body = json.loads(responses.calls[0].request.body)
         assert body["permission_mode"] == "autonomous"
@@ -680,7 +680,7 @@ class TestRunConvenienceHelpers:
     def test_create_and_wait(self, http):
         """create_and_wait calls create(stream=False) then polls until completed."""
         # Mock create (returns running)
-        responses.add(responses.POST, f"{BASE}/runs", json={"id": 1, "status": "running"})
+        responses.add(responses.POST, f"{BASE}/runs/", json={"id": 1, "status": "running"})
         # Mock poll (returns completed)
         responses.add(
             responses.GET, f"{BASE}/runs/1", json={"id": 1, "status": "completed", "output": "done"}
@@ -714,7 +714,7 @@ class TestRunConvenienceHelpers:
         )
         responses.add(
             responses.POST,
-            f"{BASE}/runs",
+            f"{BASE}/runs/",
             body=sse,
             content_type="text/event-stream",
         )
@@ -730,7 +730,7 @@ class TestTasks:
     def test_create(self, http):
         responses.add(
             responses.POST,
-            f"{BASE}/tasks",
+            f"{BASE}/tasks/",
             json={"id": 1, "teammate_id": 2, "instructions": "Do X"},
             status=201,
         )
@@ -742,7 +742,7 @@ class TestTasks:
     def test_create_with_user_id(self, http):
         responses.add(
             responses.POST,
-            f"{BASE}/tasks",
+            f"{BASE}/tasks/",
             json={"id": 1, "teammate_id": 2, "instructions": "Do", "user_id": "cust_1"},
             status=201,
         )
@@ -755,7 +755,7 @@ class TestTasks:
     def test_list(self, http):
         responses.add(
             responses.GET,
-            f"{BASE}/tasks",
+            f"{BASE}/tasks/",
             json={"data": [{"id": 1, "teammate_id": 2, "instructions": "Do"}], "has_more": False},
         )
         result = Tasks(http).list()
@@ -950,7 +950,7 @@ class TestTaskTriggers:
     def test_create_schedule(self, http):
         responses.add(
             responses.POST,
-            f"{BASE}/tasks/1/triggers",
+            f"{BASE}/tasks/1/triggers/",
             json={"id": 10, "type": "schedule", "enabled": True, "cron": "0 9 * * 1"},
             status=201,
         )
@@ -961,7 +961,7 @@ class TestTaskTriggers:
     @responses.activate
     def test_list(self, http):
         responses.add(
-            responses.GET, f"{BASE}/tasks/1/triggers", json=[{"id": 10, "type": "schedule"}]
+            responses.GET, f"{BASE}/tasks/1/triggers/", json=[{"id": 10, "type": "schedule"}]
         )
         result = TaskTriggers(http).list(1)
         assert len(result) == 1
@@ -980,7 +980,7 @@ class TestApps:
     def test_list(self, http):
         responses.add(
             responses.GET,
-            f"{BASE}/apps",
+            f"{BASE}/apps/",
             json={
                 "data": [
                     {
@@ -1003,7 +1003,7 @@ class TestApps:
     def test_list_auto_paging(self, http):
         responses.add(
             responses.GET,
-            f"{BASE}/apps",
+            f"{BASE}/apps/",
             json={
                 "data": [
                     {
@@ -1018,7 +1018,7 @@ class TestApps:
         )
         responses.add(
             responses.GET,
-            f"{BASE}/apps",
+            f"{BASE}/apps/",
             json={
                 "data": [
                     {
@@ -1125,8 +1125,8 @@ class TestMemories:
             "data": [{"id": 2, "content": "b", "user_id": "u1", "source": "api", "created_at": ""}],
             "has_more": False,
         }
-        responses.add(responses.GET, f"{BASE}/memories", json=page1, status=200)
-        responses.add(responses.GET, f"{BASE}/memories", json=page2, status=200)
+        responses.add(responses.GET, f"{BASE}/memories/", json=page1, status=200)
+        responses.add(responses.GET, f"{BASE}/memories/", json=page2, status=200)
 
         page = Memories(http).list(user_id="u1")
         items = list(page.auto_paging_iter())
@@ -1152,8 +1152,8 @@ class TestPermissions:
             "data": [{"id": 11, "user_id": "u1", "tool_name": "gmail", "created_at": ""}],
             "has_more": False,
         }
-        responses.add(responses.GET, f"{BASE}/permissions", json=page1, status=200)
-        responses.add(responses.GET, f"{BASE}/permissions", json=page2, status=200)
+        responses.add(responses.GET, f"{BASE}/permissions/", json=page1, status=200)
+        responses.add(responses.GET, f"{BASE}/permissions/", json=page2, status=200)
 
         page = Permissions(http).list(user_id="u1")
         items = list(page.auto_paging_iter())
@@ -1258,7 +1258,7 @@ class TestBridges:
     def test_teammate_create_includes_bridge_fields(self, http):
         responses.add(
             responses.POST,
-            f"{BASE}/teammates",
+            f"{BASE}/teammates/",
             json={
                 "id": 9,
                 "name": "bot",

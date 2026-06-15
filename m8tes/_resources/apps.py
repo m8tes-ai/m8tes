@@ -36,7 +36,7 @@ class Apps:
         params = _build_params(limit=limit, starting_after=starting_after)
         if user_id:
             params["user_id"] = user_id
-        resp = self._http.request("GET", "/apps", params=params)
+        resp = self._http.request("GET", "/apps/", params=params)
         body = resp.json()
 
         def _fetch_next(**kw: object) -> SyncPage[App]:

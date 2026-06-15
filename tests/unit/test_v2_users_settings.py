@@ -19,7 +19,7 @@ class TestUsers:
         http = HTTPClient(api_key="m8_test", base_url=BASE, timeout=5)
         responses.add(
             responses.POST,
-            f"{BASE}/users",
+            f"{BASE}/users/",
             json={
                 "id": 1,
                 "user_id": "cust_001",
@@ -52,7 +52,7 @@ class TestUsers:
         http = HTTPClient(api_key="m8_test", base_url=BASE, timeout=5)
         responses.add(
             responses.POST,
-            f"{BASE}/users",
+            f"{BASE}/users/",
             json={"id": 2, "user_id": "cust_002", "created_at": "2026-01-01T00:00:00Z"},
         )
         user = Users(http).create(user_id="cust_002")
@@ -65,7 +65,7 @@ class TestUsers:
         http = HTTPClient(api_key="m8_test", base_url=BASE, timeout=5)
         responses.add(
             responses.GET,
-            f"{BASE}/users",
+            f"{BASE}/users/",
             json={
                 "data": [
                     {"id": 1, "user_id": "cust_001", "created_at": "2026-01-01T00:00:00Z"},
@@ -87,7 +87,7 @@ class TestUsers:
         # Page 1
         responses.add(
             responses.GET,
-            f"{BASE}/users",
+            f"{BASE}/users/",
             json={
                 "data": [{"id": 1, "user_id": "cust_001", "created_at": "2026-01-01T00:00:00Z"}],
                 "has_more": True,
@@ -96,7 +96,7 @@ class TestUsers:
         # Page 2
         responses.add(
             responses.GET,
-            f"{BASE}/users",
+            f"{BASE}/users/",
             json={
                 "data": [{"id": 2, "user_id": "cust_002", "created_at": "2026-01-01T00:00:00Z"}],
                 "has_more": False,
@@ -178,7 +178,7 @@ class TestSettings:
         http = HTTPClient(api_key="m8_test", base_url=BASE, timeout=5)
         responses.add(
             responses.GET,
-            f"{BASE}/settings",
+            f"{BASE}/settings/",
             json={"company_research": True},
         )
         settings = Settings(http).get()
@@ -190,7 +190,7 @@ class TestSettings:
         http = HTTPClient(api_key="m8_test", base_url=BASE, timeout=5)
         responses.add(
             responses.PATCH,
-            f"{BASE}/settings",
+            f"{BASE}/settings/",
             json={"company_research": False},
         )
         settings = Settings(http).update(company_research=False)
@@ -205,7 +205,7 @@ class TestSettings:
         http = HTTPClient(api_key="m8_test", base_url=BASE, timeout=5)
         responses.add(
             responses.PATCH,
-            f"{BASE}/settings",
+            f"{BASE}/settings/",
             json={"company_research": True},
         )
         Settings(http).update()

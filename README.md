@@ -348,12 +348,14 @@ client.apps.disconnect("gemini", user_id="cust_123")
 
 | Resource | Key methods | Description |
 |----------|------------|-------------|
-| `client.teammates` | `create` `list` `get` `update` `delete` `enable_webhook` `disable_webhook` `enable_email_inbox` `disable_email_inbox` `enable_fetchmail` `disable_fetchmail` | Agent personas with tools and instructions |
-| `client.runs` | `create` `poll` `wait` `create_and_wait` `reply` `reply_and_wait` `stream_text` `get` `list` `cancel` `permissions` `approve` `answer` `update_permission_mode` `list_files` `download_file` | Execute teammates and stream results |
+| `client.teammates` | `create` `list` `get` `update` `delete` `reset` `enable_webhook` `disable_webhook` `enable_email_inbox` `disable_email_inbox` `enable_fetchmail` `disable_fetchmail` | Agent personas with tools and instructions |
+| `client.teammate_templates` | `list` | Pre-built teammate template catalog (slugs for `teammates.create(from_template=...)`) |
+| `client.runs` | `create` `poll` `wait` `create_and_wait` `reply` `reply_and_wait` `stream_text` `get` `list` `cancel` `retry` `permissions` `approve` `answer` `update_permission_mode` `list_files` `download_file` | Execute teammates and stream results |
 | `client.audit_logs` | `list` | Account-scoped API request history |
-| `client.tasks` | `create` `list` `get` `update` `delete` `run` `run_and_wait` | Reusable task definitions |
+| `client.tasks` | `create` `list` `get` `update` `delete` `run` `run_and_wait` `lessons` `delete_lesson` `clear_lessons` | Reusable task definitions (+ lesson curation) |
 | `client.tasks.triggers` | `create` `list` `delete` | Schedule, webhook, and email triggers |
-| `client.apps` | `list` `is_connected` `connect` `connect_oauth` `connect_api_key` `connect_complete` `disconnect` | Tool catalog and end-user app connections |
+| `client.apps` | `list` `is_connected` `connect` `connect_oauth` `connect_api_key` `connect_complete` `provision` `release` `list_triggers` `disconnect` | Tool catalog and end-user app connections |
+| `client.bridges` | `create` `list` `get` `update` `rotate_secret` `delete` | Per-account BlueBubbles (iMessage) bridges |
 | `client.memories` | `create` `list` `delete` | Per-user persistent memory |
 | `client.permissions` | `create` `list` `delete` | Pre-approve tools for end-users |
 | `client.users` | `create` `list` `get` `update` `delete` | End-user profile management |
@@ -417,6 +419,24 @@ except RateLimitError as e:
     print(f"rate limited, retry after {e.retry_after}s")
 except AuthenticationError:
     print("invalid API key")
+```
+
+### Run-level failures
+
+Exceptions above cover problems *reaching* the API. A run can also fail
+*upstream* — an expired Claude credential, an exhausted plan quota, a model rate
+limit. The HTTP call succeeds, so no exception is raised, but the run carries the
+failure: `status` is `"completed"`, the message is in `run.output`, and
+`run.error_code` holds a machine-readable class (e.g. `oauth_revoked`,
+`subscription_quota_exhausted`, `rate_limited`). Check `error_code` before
+trusting `output`:
+
+```python
+run = client.runs.create_and_wait(teammate_id=mate.id, message="...")
+if run.error_code:
+    print(f"run failed upstream: {run.error_code} — {run.output}")
+else:
+    print(run.output)
 ```
 
 ## Configuration

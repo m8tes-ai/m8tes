@@ -210,7 +210,7 @@ class TestAppsIsConnected:
     def test_connected(self, http):
         responses.add(
             responses.GET,
-            f"{BASE}/apps",
+            f"{BASE}/apps/",
             json={
                 "data": [
                     {
@@ -229,7 +229,7 @@ class TestAppsIsConnected:
     def test_not_connected(self, http):
         responses.add(
             responses.GET,
-            f"{BASE}/apps",
+            f"{BASE}/apps/",
             json={
                 "data": [
                     {
@@ -248,7 +248,7 @@ class TestAppsIsConnected:
     def test_not_in_list(self, http):
         responses.add(
             responses.GET,
-            f"{BASE}/apps",
+            f"{BASE}/apps/",
             json={"data": [], "has_more": False},
         )
         assert Apps(http).is_connected("gmail") is False
@@ -257,7 +257,7 @@ class TestAppsIsConnected:
     def test_passes_user_id(self, http):
         responses.add(
             responses.GET,
-            f"{BASE}/apps",
+            f"{BASE}/apps/",
             json={"data": [], "has_more": False},
         )
         Apps(http).is_connected("gmail", user_id="cust_1")

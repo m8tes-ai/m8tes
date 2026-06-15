@@ -9,6 +9,7 @@ from .permissions import Permissions
 from .runs import Runs
 from .settings import Settings
 from .tasks import Tasks
+from .teammate_templates import TeammateTemplates
 from .teammates import Teammates
 from .users import Users
 from .webhooks import Webhooks
@@ -23,6 +24,7 @@ __all__ = [
     "Runs",
     "Settings",
     "Tasks",
+    "TeammateTemplates",
     "Teammates",
     "Users",
     "Webhooks",

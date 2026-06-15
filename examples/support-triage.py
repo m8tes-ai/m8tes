@@ -28,7 +28,10 @@ teammate = client.teammates.create(
 )
 
 # schedule — every weekday at 8am ET
-task = client.tasks.create(teammate_id=teammate.id)
+task = client.tasks.create(
+    teammate_id=teammate.id,
+    instructions="triage support emails: file bugs in linear, escalate urgent issues to slack",
+)
 trigger = client.tasks.triggers.create(
     task.id,
     type="schedule",
