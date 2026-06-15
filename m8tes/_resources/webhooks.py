@@ -65,7 +65,7 @@ class Webhooks:
         body: dict = {"url": url}
         if events is not None:
             body["events"] = events
-        resp = self._http.request("POST", "/webhooks", json=body)
+        resp = self._http.request("POST", "/webhooks/", json=body)
         return Webhook.from_dict(resp.json())
 
     def get(self, webhook_id: int) -> Webhook:
@@ -81,7 +81,7 @@ class Webhooks:
     ) -> SyncPage[Webhook]:
         """List registered webhook endpoints (secrets masked)."""
         params = _build_params(limit=limit, starting_after=starting_after)
-        resp = self._http.request("GET", "/webhooks", params=params)
+        resp = self._http.request("GET", "/webhooks/", params=params)
         body = resp.json()
 
         def _fetch_next(**kw: object) -> SyncPage[Webhook]:

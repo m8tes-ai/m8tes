@@ -18,7 +18,7 @@ class Auth:
 
     def get_usage(self) -> Usage:
         """Get current billing usage, run counts, and cost limits."""
-        resp = self._http.request("GET", "/usage")
+        resp = self._http.request("GET", "/usage/")
         return Usage.from_dict(resp.json())
 
     def resend_verify(self) -> str:

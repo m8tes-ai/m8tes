@@ -4048,3 +4048,54 @@ class TestTeammateTemplates:
             assert cleared == []
         finally:
             v2_client.teammates.delete(teammate.id)
+
+
+class TestTeammateTemplateCatalog:
+    """client.teammate_templates.list() — the discovery surface for from_template."""
+
+    def test_list_returns_typed_templates(self, v2_client):
+        tpls = v2_client.teammate_templates.list()
+        assert isinstance(tpls, list) and tpls, "catalog should be non-empty"
+        slugs = {t.slug for t in tpls}
+        assert "ppc-manager" in slugs
+        ppc = next(t for t in tpls if t.slug == "ppc-manager")
+        assert ppc.name and ppc.required_integrations
+
+    def test_listed_slug_is_recognized_by_create(self, v2_client):
+        """A catalog slug round-trips into teammates.create(from_template=).
+
+        Pass ONLY from_template (no other fields) so we don't trip the
+        from_template_conflict 400 — that would make the test pass for the wrong
+        reason. With just the slug, create either succeeds or 400s on a missing
+        required integration; both prove the slug was recognized (an *unknown*
+        slug 404s instead).
+        """
+        slug = v2_client.teammate_templates.list()[0].slug
+        try:
+            mate = v2_client.teammates.create(from_template=slug)
+        except ValidationError as e:
+            assert e.status_code == 400  # missing integration — slug WAS recognized
+            return
+        try:
+            assert mate.id
+        finally:
+            v2_client.teammates.delete(mate.id)
+
+
+class TestTaskLessons:
+    """client.tasks lesson curation: view, delete, clear."""
+
+    def test_lessons_view_and_clear(self, v2_client):
+        mate = v2_client.teammates.create(name="LessonsHost")
+        task = v2_client.tasks.create(teammate_id=mate.id, instructions="do the thing")
+        try:
+            ll = v2_client.tasks.lessons(task.id)
+            assert ll.capacity_limit > 0
+            assert ll.capacity_used == 0
+            assert ll.data == []
+            # clear is safe (idempotent) on a task with no lessons
+            cleared = v2_client.tasks.clear_lessons(task.id)
+            assert cleared.capacity_used == 0
+        finally:
+            v2_client.tasks.delete(task.id)
+            v2_client.teammates.delete(mate.id)

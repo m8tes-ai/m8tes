@@ -81,7 +81,7 @@ class CreateCommand(Command):
             help=(
                 "Integration IDs (AppIntegration catalog IDs) space-separated. "
                 "Example: --integrations 1 2. "
-                "Run 'm8tes integrations list' to see available integrations."
+                "Run 'm8tes apps list' to see available integrations."
             ),
         )
         parser.add_argument(

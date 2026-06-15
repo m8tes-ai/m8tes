@@ -20,7 +20,7 @@ class Memories:
     def create(self, *, user_id: str, content: str) -> Memory:
         """Create a memory for an end-user."""
         resp = self._http.request(
-            "POST", "/memories", json={"user_id": user_id, "content": content}
+            "POST", "/memories/", json={"user_id": user_id, "content": content}
         )
         return Memory.from_dict(resp.json())
 
@@ -33,7 +33,7 @@ class Memories:
     ) -> SyncPage[Memory]:
         """List memories for an end-user."""
         params = _build_params(user_id=user_id, limit=limit, starting_after=starting_after)
-        resp = self._http.request("GET", "/memories", params=params)
+        resp = self._http.request("GET", "/memories/", params=params)
         body = resp.json()
 
         def _fetch_next(**kw: object) -> SyncPage[Memory]:

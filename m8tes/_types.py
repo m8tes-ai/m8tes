@@ -694,3 +694,80 @@ class Usage:
             period_end=data["period_end"],
             subscription_status=data.get("subscription_status"),
         )
+
+
+@dataclass
+class TeammateTemplate:
+    """A pre-built teammate template from the public catalog.
+
+    Use `slug` with `client.teammates.create(from_template=slug)`. The nested
+    task/question lists are kept as plain dicts (read e.g. `t.default_tasks[0]["slug"]`).
+    """
+
+    slug: str
+    name: str
+    description: str
+    logo_ref: str
+    required_integrations: list[str]
+    role: str | None = None
+    goals: str | None = None
+    default_tasks: list[dict] = field(default_factory=list)
+    bootstrap_tasks: list[dict] = field(default_factory=list)
+    questions: list[dict] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> TeammateTemplate:
+        return cls(
+            slug=data["slug"],
+            name=data["name"],
+            description=data.get("description", ""),
+            logo_ref=data.get("logo_ref", ""),
+            required_integrations=data.get("required_integrations", []),
+            role=data.get("role"),
+            goals=data.get("goals"),
+            default_tasks=data.get("default_tasks", []),
+            bootstrap_tasks=data.get("bootstrap_tasks", []),
+            questions=data.get("questions", []),
+        )
+
+
+@dataclass
+class Lesson:
+    """A lesson a task's teammate has saved for future runs."""
+
+    id: str
+    text: str
+    when_applicable: str
+    created_at: str
+    last_reaffirmed_at: str
+    source_run_id: int | None = None
+    reaffirm_count: int = 0
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Lesson:
+        return cls(
+            id=data["id"],
+            text=data.get("text", ""),
+            when_applicable=data.get("when_applicable", ""),
+            created_at=data.get("created_at", ""),
+            last_reaffirmed_at=data.get("last_reaffirmed_at", ""),
+            source_run_id=data.get("source_run_id"),
+            reaffirm_count=data.get("reaffirm_count", 0),
+        )
+
+
+@dataclass
+class LessonList:
+    """A task's lessons plus capacity metadata."""
+
+    data: list[Lesson]
+    capacity_used: int
+    capacity_limit: int
+
+    @classmethod
+    def from_dict(cls, data: dict) -> LessonList:
+        return cls(
+            data=[Lesson.from_dict(d) for d in data.get("data", [])],
+            capacity_used=data.get("capacity_used", 0),
+            capacity_limit=data.get("capacity_limit", 0),
+        )

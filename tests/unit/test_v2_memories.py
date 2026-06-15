@@ -15,7 +15,7 @@ BASE = "https://api.test/v2"
 def test_create_memory():
     responses.add(
         responses.POST,
-        f"{BASE}/memories",
+        f"{BASE}/memories/",
         json={
             "id": 1,
             "user_id": "u_1",
@@ -38,7 +38,7 @@ def test_create_memory():
 def test_list_memories():
     responses.add(
         responses.GET,
-        f"{BASE}/memories",
+        f"{BASE}/memories/",
         json={
             "data": [
                 {"id": 1, "user_id": "u_1", "content": "Likes email"},

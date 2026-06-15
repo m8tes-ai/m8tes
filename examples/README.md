@@ -10,6 +10,7 @@ python examples/revenue-report.py
 
 | File | What it shows |
 |------|---------------|
+| [`demo.py`](./demo.py) | Full setup in one script: create a teammate, schedule it, add an email inbox, run it live |
 | [`revenue-report.py`](./revenue-report.py) | Scheduled Stripe → Slack weekly report |
 | [`support-triage.py`](./support-triage.py) | Classify tickets, draft replies, escalate to Slack |
 | [`customer-agent.py`](./customer-agent.py) | Multi-tenant per-user isolation with `user_id` |
@@ -18,5 +19,6 @@ python examples/revenue-report.py
 | [`imessage-bluebubbles.py`](./imessage-bluebubbles.py) | Configure a teammate to receive Apple Messages via BlueBubbles |
 | [`embed-oauth.py`](./embed-oauth.py) | Embedded OAuth flow for end-user app connections |
 | [`seo-monitor.py`](./seo-monitor.py) | Scheduled SEO monitoring with Search Console |
+| [`reddit-outreach.py`](./reddit-outreach.py) | Outreach agent: find relevant posts, comment, log to Google Sheets |
 
 → Full documentation at [m8tes.ai/docs](https://m8tes.ai/docs)

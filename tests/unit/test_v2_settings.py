@@ -19,7 +19,7 @@ def _http() -> HTTPClient:
 def test_get_settings():
     responses.add(
         responses.GET,
-        f"{BASE}/settings",
+        f"{BASE}/settings/",
         json={"company_research": True},
         status=200,
     )
@@ -34,7 +34,7 @@ def test_get_settings():
 def test_update_settings_with_value():
     responses.add(
         responses.PATCH,
-        f"{BASE}/settings",
+        f"{BASE}/settings/",
         json={"company_research": False},
         status=200,
     )
@@ -49,7 +49,7 @@ def test_update_settings_with_value():
 def test_update_settings_without_changes_sends_empty_body():
     responses.add(
         responses.PATCH,
-        f"{BASE}/settings",
+        f"{BASE}/settings/",
         json={"company_research": True},
         status=200,
     )
