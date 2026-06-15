@@ -36,7 +36,7 @@ class AuditLogs:
             limit=limit,
             starting_after=starting_after,
         )
-        resp = self._http.request("GET", "/audit-logs", params=params)
+        resp = self._http.request("GET", "/audit-logs/", params=params)
         body = resp.json()
 
         def _fetch_next(**kw: object) -> SyncPage[AuditLog]:

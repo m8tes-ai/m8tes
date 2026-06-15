@@ -91,7 +91,7 @@ class Teammates:
             body["model"] = model
         if from_template is not None:
             body["from_template"] = from_template
-        resp = self._http.request("POST", "/teammates", json=body)
+        resp = self._http.request("POST", "/teammates/", json=body)
         return Teammate.from_dict(resp.json())
 
     def list(
@@ -102,7 +102,7 @@ class Teammates:
         starting_after: int | None = None,
     ) -> SyncPage[Teammate]:
         params = _build_params(user_id=user_id, limit=limit, starting_after=starting_after)
-        resp = self._http.request("GET", "/teammates", params=params)
+        resp = self._http.request("GET", "/teammates/", params=params)
         body = resp.json()
 
         def _fetch_next(**kw: object) -> SyncPage[Teammate]:

@@ -87,10 +87,10 @@ class Runs:
             body["email_inbox"] = True
 
         if stream:
-            resp = self._http.stream("POST", "/runs", json=body)
+            resp = self._http.stream("POST", "/runs/", json=body)
             return RunStream(resp)
 
-        resp = self._http.request("POST", "/runs", json=body)
+        resp = self._http.request("POST", "/runs/", json=body)
         return Run.from_dict(resp.json())
 
     def poll(self, run_id: int, *, interval: float = 2.0, timeout: float = 300.0) -> Run:
@@ -351,7 +351,7 @@ class Runs:
             limit=limit,
             starting_after=starting_after,
         )
-        resp = self._http.request("GET", "/runs", params=params)
+        resp = self._http.request("GET", "/runs/", params=params)
         body = resp.json()
 
         def _fetch_next(**kw: object) -> SyncPage[Run]:

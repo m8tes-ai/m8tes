@@ -17,6 +17,7 @@ from ._resources import (
     Settings,
     Tasks,
     Teammates,
+    TeammateTemplates,
     Users,
     Webhooks,
 )
@@ -49,6 +50,7 @@ class M8tes:
         self.auth = Auth(self._http)
         self.audit_logs = AuditLogs(self._http)
         self.teammates = Teammates(self._http)
+        self.teammate_templates = TeammateTemplates(self._http)
         self.bridges = Bridges(self._http)
         self.runs = Runs(self._http)
         self.tasks = Tasks(self._http)

@@ -15,7 +15,7 @@ BASE = "https://api.test/v2"
 def test_create_webhook():
     responses.add(
         responses.POST,
-        f"{BASE}/webhooks",
+        f"{BASE}/webhooks/",
         json={
             "id": 1,
             "url": "https://example.com/hook",
@@ -40,7 +40,7 @@ def test_create_webhook():
 def test_create_webhook_minimal():
     responses.add(
         responses.POST,
-        f"{BASE}/webhooks",
+        f"{BASE}/webhooks/",
         json={"id": 2, "url": "https://example.com/hook", "active": True, "created_at": ""},
         status=201,
     )
@@ -76,7 +76,7 @@ def test_get_webhook():
 def test_list_webhooks():
     responses.add(
         responses.GET,
-        f"{BASE}/webhooks",
+        f"{BASE}/webhooks/",
         json={
             "data": [
                 {"id": 1, "url": "https://a.com/hook", "active": True, "created_at": ""},
