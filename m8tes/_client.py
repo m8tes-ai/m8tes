@@ -11,6 +11,7 @@ from ._resources import (
     AuditLogs,
     Auth,
     Bridges,
+    McpServers,
     Memories,
     Permissions,
     Runs,
@@ -55,6 +56,7 @@ class M8tes:
         self.runs = Runs(self._http)
         self.tasks = Tasks(self._http)
         self.apps = Apps(self._http)
+        self.mcp_servers = McpServers(self._http)
         self.memories = Memories(self._http)
         self.permissions = Permissions(self._http)
         self.users = Users(self._http)
