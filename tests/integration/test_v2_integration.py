@@ -35,6 +35,7 @@ from m8tes._types import (
     EmailInbox,
     EndUser,
     FetchmailInbox,
+    McpServer,
     Memory,
     PermissionPolicy,
     Run,
@@ -4099,3 +4100,96 @@ class TestTaskLessons:
         finally:
             v2_client.tasks.delete(task.id)
             v2_client.teammates.delete(mate.id)
+
+
+@pytest.mark.integration
+class TestMcpServersCRUD:
+    """client.mcp_servers — custom-tool server CRUD, write-only secret, slug attach, scope."""
+
+    def test_full_lifecycle(self, v2_client):
+        """create -> list -> get -> update (clear/preserve secret) -> delete -> gone."""
+        srv = v2_client.mcp_servers.create(
+            name="acme billing",
+            url="https://api.acme.com/v1",
+            auth_type="bearer",
+            secret="sk-integ-secret",
+            tool_defs=[{"name": "get_invoice", "method": "GET", "path": "/invoices/{id}"}],
+        )
+        try:
+            assert isinstance(srv, McpServer)
+            assert srv.id is not None
+            assert srv.slug == "acme-billing"
+            assert srv.has_secret is True
+            assert not hasattr(srv, "secret")  # write-only, never returned
+
+            assert any(s.id == srv.id for s in v2_client.mcp_servers.list())
+            assert v2_client.mcp_servers.get(srv.id).name == "acme billing"
+
+            # secret=None clears the stored secret (the _UNSET sentinel distinguishes this
+            # from omission)...
+            assert v2_client.mcp_servers.update(srv.id, secret=None).has_secret is False
+            # ...and omitting secret preserves it across an unrelated patch.
+            v2_client.mcp_servers.update(srv.id, secret="sk-again")
+            renamed = v2_client.mcp_servers.update(srv.id, name="acme v2")
+            assert renamed.name == "acme v2"
+            assert renamed.has_secret is True
+            assert renamed.slug == "acme-billing"  # slug stable across rename
+        finally:
+            v2_client.mcp_servers.delete(srv.id)
+        assert all(s.id != srv.id for s in v2_client.mcp_servers.list())
+
+    def test_attach_to_teammate_by_slug(self, v2_client):
+        srv = v2_client.mcp_servers.create(
+            name="crm sync",
+            url="https://api.acme.com/v1",
+            tool_defs=[{"name": "lookup", "method": "GET", "path": "/lookup"}],
+        )
+        mate = None
+        try:
+            mate = v2_client.teammates.create(name="CrmBot", tools=[srv.slug])
+            assert srv.slug in mate.tools  # custom slug rides the by-name tools=[...] array
+        finally:
+            if mate:
+                v2_client.teammates.delete(mate.id)
+            v2_client.mcp_servers.delete(srv.id)
+
+    def test_end_user_scope_isolation(self, v2_client):
+        uid = _uid()
+        scoped = v2_client.mcp_servers.create(
+            name="scoped",
+            url="https://api.acme.com/v1",
+            tool_defs=[{"name": "x", "method": "GET", "path": "/x"}],
+            user_id=uid,
+        )
+        try:
+            assert v2_client.mcp_servers.get(scoped.id, user_id=uid).id == scoped.id
+            # account-level list/get must NOT reach the end-user-scoped row
+            assert all(s.id != scoped.id for s in v2_client.mcp_servers.list())
+            with pytest.raises(NotFoundError):
+                v2_client.mcp_servers.get(scoped.id)
+            assert any(s.id == scoped.id for s in v2_client.mcp_servers.list(user_id=uid))
+        finally:
+            v2_client.mcp_servers.delete(scoped.id, user_id=uid)
+
+    def test_cross_account_isolation(self, v2_client, backend_url):
+        srv = v2_client.mcp_servers.create(
+            name="private",
+            url="https://api.acme.com/v1",
+            tool_defs=[{"name": "x", "method": "GET", "path": "/x"}],
+        )
+        try:
+            other = _new_v2_client(backend_url, email_prefix="mcp-cross")
+            with pytest.raises(NotFoundError):
+                other.mcp_servers.get(srv.id)
+        finally:
+            v2_client.mcp_servers.delete(srv.id)
+
+    def test_custom_header_requires_config(self, v2_client):
+        """auth_config is validated at create — a custom_header server needs header_name."""
+        with pytest.raises(ValidationError):
+            v2_client.mcp_servers.create(
+                name="bad auth",
+                url="https://api.acme.com/v1",
+                auth_type="custom_header",
+                tool_defs=[{"name": "x", "method": "GET", "path": "/x"}],
+            )
