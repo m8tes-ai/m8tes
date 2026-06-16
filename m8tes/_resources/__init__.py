@@ -1,5 +1,6 @@
 """Resource namespaces for the v2 developer SDK."""
 
+from .account import Account
 from .apps import Apps
 from .audit_logs import AuditLogs
 from .auth import Auth
@@ -16,6 +17,7 @@ from .users import Users
 from .webhooks import Webhooks
 
 __all__ = [
+    "Account",
     "Apps",
     "AuditLogs",
     "Auth",
