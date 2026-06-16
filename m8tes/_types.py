@@ -771,3 +771,45 @@ class LessonList:
             capacity_used=data.get("capacity_used", 0),
             capacity_limit=data.get("capacity_limit", 0),
         )
+
+
+@dataclass
+class McpServer:
+    """A user-defined custom tool server (BYO REST endpoints exposed as agent tools).
+
+    The auth secret is write-only (set on create/update, never returned) — ``has_secret``
+    reports whether one is stored. Attach to a teammate by passing ``slug`` in the
+    teammate's ``tools=[...]`` list.
+    """
+
+    id: int
+    slug: str
+    name: str
+    url: str
+    kind: str
+    auth_type: str
+    status: str
+    description: str | None = None
+    tool_defs: list[dict[str, Any]] = field(default_factory=list)
+    has_secret: bool = False
+    user_id: str | None = None
+    created_at: str = ""
+    updated_at: str = ""
+
+    @classmethod
+    def from_dict(cls, data: dict) -> McpServer:
+        return cls(
+            id=data["id"],
+            slug=data["slug"],
+            name=data["name"],
+            url=data["url"],
+            kind=data.get("kind", "rest_api"),
+            auth_type=data.get("auth_type", "none"),
+            status=data.get("status", "active"),
+            description=data.get("description"),
+            tool_defs=data.get("tool_defs", []),
+            has_secret=data.get("has_secret", False),
+            user_id=data.get("user_id"),
+            created_at=data.get("created_at", ""),
+            updated_at=data.get("updated_at", ""),
+        )

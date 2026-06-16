@@ -2,6 +2,11 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [1.11.0] - 2026-06-16
+
+### Added
+- `client.mcp_servers` — register your own REST endpoints as custom agent tools (BYO tools). `create()` takes `name`, `url`, typed `tool_defs` (name/method/path/arg_schema), an `auth_type` (none/bearer/custom_header/api_key_in_url/oauth_token) and a write-only `secret`; plus `list()`, `get()`, `update()`, `delete()`. New `McpServer` type (the auth secret is never returned — `has_secret` reports whether one is stored). Egress runs server-side, IP-pinned, with the secret injected and never exposed to the agent. Attach a server to a teammate by passing its `.slug` in `teammates.create/update(tools=[...])`.
+
 ## [1.10.0] - 2026-06-14
 
 ### Added
