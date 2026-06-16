@@ -7,6 +7,7 @@ import os
 from ._exceptions import AuthenticationError
 from ._http import DEFAULT_BASE_URL, HTTPClient
 from ._resources import (
+    Account,
     Apps,
     AuditLogs,
     Auth,
@@ -48,6 +49,7 @@ class M8tes:
             )
 
         self._http = HTTPClient(api_key=api_key, base_url=base_url, timeout=timeout)
+        self.account = Account(self._http)
         self.auth = Auth(self._http)
         self.audit_logs = AuditLogs(self._http)
         self.teammates = Teammates(self._http)

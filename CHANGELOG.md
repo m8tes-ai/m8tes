@@ -2,6 +2,12 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [1.12.0] - 2026-06-16
+
+### Added
+- `client.account.delete()` — request deletion of the current account. Soft-delete: the account is deactivated immediately (sessions and API key revoked, billing canceled, automation stopped) and its data is erased after a grace period.
+- `client.account.export()` — export all of the current account's data (GDPR/CCPA right to access): profile, teammates, tasks, runs, documents, memories, and integration metadata. Secrets are never included.
+
 ## [1.11.0] - 2026-06-16
 
 ### Added
