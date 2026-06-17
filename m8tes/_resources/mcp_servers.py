@@ -43,15 +43,19 @@ class McpServers:
         secret: str | None = None,
         description: str | None = None,
         user_id: str | None = None,
+        auto_approve: bool = False,
     ) -> McpServer:
         """Register a custom tool server. ``auth_type`` is one of none/bearer/
-        custom_header/api_key_in_url/oauth_token; ``secret`` is write-only."""
+        custom_header/api_key_in_url/oauth_token; ``secret`` is write-only. Set
+        ``auto_approve=True`` to trust the tool so it runs unattended (skips the per-call
+        approval gate) in scheduled/webhook/API runs."""
         body: dict[str, Any] = {
             "name": name,
             "url": url,
             "tool_defs": tool_defs,
             "auth_type": auth_type,
             "auth_config": auth_config or {},
+            "auto_approve": auto_approve,
         }
         if secret is not None:
             body["secret"] = secret
@@ -84,9 +88,12 @@ class McpServers:
         tool_defs: builtins.list[dict[str, Any]] | None = None,
         description: str | None = None,
         status: str | None = None,
+        auto_approve: bool | None = None,
         user_id: str | None = None,
     ) -> McpServer:
         body: dict[str, Any] = {}
+        if auto_approve is not None:
+            body["auto_approve"] = auto_approve
         if name is not None:
             body["name"] = name
         if url is not None:

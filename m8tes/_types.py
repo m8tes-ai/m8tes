@@ -792,6 +792,7 @@ class McpServer:
     description: str | None = None
     tool_defs: list[dict[str, Any]] = field(default_factory=list)
     has_secret: bool = False
+    auto_approve: bool = False
     user_id: str | None = None
     created_at: str = ""
     updated_at: str = ""
@@ -809,6 +810,7 @@ class McpServer:
             description=data.get("description"),
             tool_defs=data.get("tool_defs", []),
             has_secret=data.get("has_secret", False),
+            auto_approve=data.get("auto_approve", False),
             user_id=data.get("user_id"),
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at", ""),

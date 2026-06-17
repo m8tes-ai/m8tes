@@ -4134,6 +4134,10 @@ class TestMcpServersCRUD:
             assert renamed.name == "acme v2"
             assert renamed.has_secret is True
             assert renamed.slug == "acme-billing"  # slug stable across rename
+
+            # auto_approve ("trusted" → runs unattended): defaults off, toggles via update
+            assert srv.auto_approve is False
+            assert v2_client.mcp_servers.update(srv.id, auto_approve=True).auto_approve is True
         finally:
             v2_client.mcp_servers.delete(srv.id)
         assert all(s.id != srv.id for s in v2_client.mcp_servers.list())
