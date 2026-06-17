@@ -2,6 +2,11 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [1.12.1] - 2026-06-17
+
+### Added
+- `client.mcp_servers.create(..., auto_approve=True)` and `.update(id, auto_approve=...)` — mark a custom tool **trusted** so it runs unattended (skips the per-call approval gate) in scheduled/webhook/API runs. Defaults to `False` (a tool pauses for approval until trusted). `McpServer.auto_approve` is returned on every response.
+
 ## [1.12.0] - 2026-06-16
 
 ### Added
