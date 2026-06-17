@@ -4110,7 +4110,7 @@ class TestMcpServersCRUD:
         """create -> list -> get -> update (clear/preserve secret) -> delete -> gone."""
         srv = v2_client.mcp_servers.create(
             name="acme billing",
-            url="https://api.acme.com/v1",
+            url="https://example.com/v1",
             auth_type="bearer",
             secret="sk-integ-secret",
             tool_defs=[{"name": "get_invoice", "method": "GET", "path": "/invoices/{id}"}],
@@ -4141,7 +4141,7 @@ class TestMcpServersCRUD:
     def test_attach_to_teammate_by_slug(self, v2_client):
         srv = v2_client.mcp_servers.create(
             name="crm sync",
-            url="https://api.acme.com/v1",
+            url="https://example.com/v1",
             tool_defs=[{"name": "lookup", "method": "GET", "path": "/lookup"}],
         )
         mate = None
@@ -4157,7 +4157,7 @@ class TestMcpServersCRUD:
         uid = _uid()
         scoped = v2_client.mcp_servers.create(
             name="scoped",
-            url="https://api.acme.com/v1",
+            url="https://example.com/v1",
             tool_defs=[{"name": "x", "method": "GET", "path": "/x"}],
             user_id=uid,
         )
@@ -4174,7 +4174,7 @@ class TestMcpServersCRUD:
     def test_cross_account_isolation(self, v2_client, backend_url):
         srv = v2_client.mcp_servers.create(
             name="private",
-            url="https://api.acme.com/v1",
+            url="https://example.com/v1",
             tool_defs=[{"name": "x", "method": "GET", "path": "/x"}],
         )
         try:
@@ -4189,7 +4189,7 @@ class TestMcpServersCRUD:
         with pytest.raises(ValidationError):
             v2_client.mcp_servers.create(
                 name="bad auth",
-                url="https://api.acme.com/v1",
+                url="https://example.com/v1",
                 auth_type="custom_header",
                 tool_defs=[{"name": "x", "method": "GET", "path": "/x"}],
             )
