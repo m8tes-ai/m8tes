@@ -13,6 +13,7 @@ class M8tesError(Exception):
         path: str | None = None,
         code: str | None = None,
         retry_after: float | None = None,
+        details: dict | None = None,
     ):
         super().__init__(message)
         self.message = message
@@ -20,12 +21,16 @@ class M8tesError(Exception):
         self.request_id = request_id
         self.method = method
         self.path = path
-        # App-level error code from the v2 envelope (e.g. "run_not_retryable",
-        # "retry_needs_confirmation"), when the API provides a string code.
+        # App-level machine error code from the v2 envelope's error.details.error_code
+        # (e.g. "RUN_LIMIT_REACHED", "OVERAGE_CAP_REACHED", "TRIAL_EXPIRED"). Falls
+        # back to a top-level string code when no nested code is present.
         self.code = code
         # Seconds to wait before retrying, from the Retry-After header. Set on
         # RateLimitError (429); None when the response carried no such header.
         self.retry_after = retry_after
+        # The full error.details object — actionable context for billing errors
+        # (e.g. runs_used, runs_limit, overage_cap_cents, period_end, trial_ends_at).
+        self.details = details or {}
 
 
 class AuthenticationError(M8tesError):

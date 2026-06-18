@@ -673,7 +673,11 @@ class TokenResult:
 
 @dataclass
 class Usage:
-    """Billing usage and limits for the authenticated user."""
+    """Billing usage and limits for the authenticated user.
+
+    Overage fields (opt-in usage overage) and trial_ends_at are optional with
+    safe defaults so older backends that omit them don't break parsing.
+    """
 
     plan: str
     runs_used: int
@@ -682,6 +686,12 @@ class Usage:
     cost_limit: str
     period_end: str
     subscription_status: str | None
+    # Opt-in usage overage — meter your own spend against the per-account cap.
+    overage_enabled: bool = False
+    overage_used_cents: int = 0
+    overage_cap_cents: int = 0
+    overage_rate_cents: int = 0
+    trial_ends_at: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> Usage:
@@ -693,6 +703,34 @@ class Usage:
             cost_limit=data["cost_limit"],
             period_end=data["period_end"],
             subscription_status=data.get("subscription_status"),
+            overage_enabled=data.get("overage_enabled", False),
+            overage_used_cents=data.get("overage_used_cents", 0),
+            overage_cap_cents=data.get("overage_cap_cents", 0),
+            overage_rate_cents=data.get("overage_rate_cents", 0),
+            trial_ends_at=data.get("trial_ends_at"),
+        )
+
+
+@dataclass
+class Plan:
+    """A public (paid) plan from the canonical catalog. Prices are in cents."""
+
+    slug: str
+    display_name: str
+    included_runs: int
+    monthly_price_cents: int
+    annual_price_cents: int
+    overage_rate_cents: int
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Plan:
+        return cls(
+            slug=data["slug"],
+            display_name=data["display_name"],
+            included_runs=data["included_runs"],
+            monthly_price_cents=data["monthly_price_cents"],
+            annual_price_cents=data["annual_price_cents"],
+            overage_rate_cents=data["overage_rate_cents"],
         )
 
 
