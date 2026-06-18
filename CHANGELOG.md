@@ -2,6 +2,15 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [1.13.0] - 2026-06-16
+
+### Added
+- `client.billing` resource for self-metering spend: `billing.usage()` (same as `auth.get_usage()`, now with overage fields), `billing.plans()` (the public plan catalog — `pro`/`max_5x`/`max_20x` with display names, included runs, monthly/annual price, overage rate), and `billing.set_overage(enabled=, monthly_cap_cents=)` to opt in/out of usage overage and set a monthly spend cap. New `Plan` type.
+- `Usage` now carries opt-in overage state: `overage_enabled`, `overage_used_cents`, `overage_cap_cents`, `overage_rate_cents`, and `trial_ends_at` (all backward-compatible defaults; tolerant of older backends that omit them).
+- `BillingError` (and every SDK error) now exposes `.details` — the full `error.details` object with actionable fields like `runs_used`, `runs_limit`, `overage_cap_cents`, `period_end`, and `trial_ends_at`.
+
+### Fixed
+- **`BillingError.code` was always `None`.** The backend nests the machine-readable code in `error.details.error_code` (the top-level `error.code` is the int HTTP status), but the SDK only read the top level. A `402` now correctly surfaces `exc.code == "RUN_LIMIT_REACHED"` / `"OVERAGE_CAP_REACHED"` / `"TRIAL_EXPIRED"`. Top-level string codes (e.g. `retry_needs_confirmation`) still work as a fallback.
 ## [1.12.1] - 2026-06-17
 
 ### Added

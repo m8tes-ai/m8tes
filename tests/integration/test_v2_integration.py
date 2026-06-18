@@ -3886,13 +3886,17 @@ class TestAuthEndpoints:
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert data["plan"] == "free"
+        # New signups default to the time-boxed trial plan (free was removed).
+        assert data["plan"] == "trial"
         assert isinstance(data["runs_used"], int)
-        assert data["runs_limit"] == 1
+        assert data["runs_limit"] == 5
         assert "cost_used" in data
         assert "cost_limit" in data
         assert "period_end" in data
         assert "subscription_status" in data
+        # Overage read fields are present on the usage payload.
+        assert "overage_enabled" in data
+        assert "overage_rate_cents" in data
 
     def test_usage_without_auth_returns_401(self, backend_url):
         """GET /api/v2/usage without auth returns 401."""
@@ -3968,7 +3972,8 @@ class TestAuthSDK:
 
         usage = v2_client.auth.get_usage()
         assert isinstance(usage, Usage)
-        assert usage.plan in ("free", "pro", "max5", "max20")
+        # New signups land on the time-boxed trial plan (free is retired).
+        assert usage.plan in ("trial", "pro", "max_5x", "max_20x", "inactive")
         assert usage.runs_used >= 0
         assert usage.runs_limit > 0
         assert usage.cost_used
@@ -3979,6 +3984,51 @@ class TestAuthSDK:
         msg = v2_client.auth.resend_verify()
         assert isinstance(msg, str)
         assert msg
+
+
+@pytest.mark.integration
+class TestV2Billing:
+    """client.billing — usage overage fields, plan catalog, and set_overage."""
+
+    def test_usage_carries_overage_fields(self, v2_client):
+        from m8tes._types import Usage
+
+        usage = v2_client.billing.usage()
+        assert isinstance(usage, Usage)
+        # Overage fields are present with safe defaults (off by default).
+        assert isinstance(usage.overage_enabled, bool)
+        assert isinstance(usage.overage_used_cents, int)
+        assert isinstance(usage.overage_cap_cents, int)
+        assert usage.overage_rate_cents == 1000  # platform $10/run rate
+
+    def test_plans_returns_catalog(self, v2_client):
+        from m8tes._types import Plan
+
+        plans = v2_client.billing.plans()
+        assert all(isinstance(p, Plan) for p in plans)
+        slugs = {p.slug for p in plans}
+        assert {"pro", "max_5x", "max_20x"} <= slugs
+        pro = next(p for p in plans if p.slug == "pro")
+        assert pro.display_name == "Pro"
+        assert pro.included_runs == 100
+        assert pro.annual_price_cents == pro.monthly_price_cents * 10
+
+    def test_set_overage_round_trips(self, v2_client):
+        # Enable with a cap, confirm it persists, then disable to clean up.
+        enabled = v2_client.billing.set_overage(enabled=True, monthly_cap_cents=2500)
+        assert enabled.overage_enabled is True
+        assert enabled.overage_cap_cents == 2500
+
+        fetched = v2_client.billing.usage()
+        assert fetched.overage_enabled is True
+        assert fetched.overage_cap_cents == 2500
+
+        disabled = v2_client.billing.set_overage(enabled=False, monthly_cap_cents=2500)
+        assert disabled.overage_enabled is False
+
+    def test_set_overage_rejects_cap_over_max(self, v2_client):
+        with pytest.raises(ValidationError):
+            v2_client.billing.set_overage(enabled=True, monthly_cap_cents=10_000_01)
 
 
 @pytest.mark.integration

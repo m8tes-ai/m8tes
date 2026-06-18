@@ -11,6 +11,7 @@ from ._resources import (
     Apps,
     AuditLogs,
     Auth,
+    Billing,
     Bridges,
     McpServers,
     Memories,
@@ -51,6 +52,7 @@ class M8tes:
         self._http = HTTPClient(api_key=api_key, base_url=base_url, timeout=timeout)
         self.account = Account(self._http)
         self.auth = Auth(self._http)
+        self.billing = Billing(self._http)
         self.audit_logs = AuditLogs(self._http)
         self.teammates = Teammates(self._http)
         self.teammate_templates = TeammateTemplates(self._http)
