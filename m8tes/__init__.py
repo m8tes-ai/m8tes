@@ -26,6 +26,7 @@ from ._exceptions import (
     ValidationError,
 )
 from ._resources.auth import Auth
+from ._resources.billing import Billing
 from ._resources.webhooks import Webhooks
 from ._streaming import RunStream
 from ._types import (
@@ -48,6 +49,7 @@ from ._types import (
     PermissionModeResponse,
     PermissionPolicy,
     PermissionRequest,
+    Plan,
     Run,
     RunFile,
     SignupResult,
@@ -99,6 +101,7 @@ __all__ = [
     "AuditLog",
     "Auth",
     "AuthenticationError",
+    "Billing",
     "BillingError",
     "Bridge",
     "ConflictError",
@@ -124,6 +127,7 @@ __all__ = [
     "PermissionModeResponse",
     "PermissionPolicy",
     "PermissionRequest",
+    "Plan",
     "RateLimitError",
     "Run",
     "RunFile",

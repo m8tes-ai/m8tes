@@ -35,9 +35,14 @@ def _raise_for_status(resp: requests.Response, *, method: str = "", path: str = 
     message = f"HTTP {resp.status_code}"
     request_id = None
     code = None
+    details: dict | None = None
     try:
         body = resp.json()
-        # v2 API returns {"error": {"code", "message", "request_id"}}
+        # v2 API returns {"error": {"type", "message", "code", "request_id",
+        # "details": {"error_code", ...extra}}}. The machine-readable app code
+        # lives in error.details.error_code (see fastapi/app/exceptions.py) — the
+        # top-level error.code is the int HTTP status. Surfacing the nested code
+        # is what makes exc.code == "RUN_LIMIT_REACHED" instead of None.
         error_obj = body.get("error", {})
         if isinstance(error_obj, str):
             # Proxy/gateway may return {"error": "plain string"} instead of dict
@@ -45,10 +50,17 @@ def _raise_for_status(resp: requests.Response, *, method: str = "", path: str = 
         else:
             message = error_obj.get("message", body.get("detail", message))
             request_id = error_obj.get("request_id", body.get("request_id"))
-            # Preserve the app-level string code (e.g. "retry_needs_confirmation").
-            # Ints are HTTP statuses (the envelope's fallback) — not useful to callers.
+            raw_details = error_obj.get("details")
+            details = raw_details if isinstance(raw_details, dict) else None
+            # Prefer the nested machine code (RUN_LIMIT_REACHED, OVERAGE_CAP_REACHED,
+            # TRIAL_EXPIRED, ...). Fall back to a top-level string code for codes
+            # that aren't nested. Ints are HTTP statuses — not useful to callers.
+            nested_code = details.get("error_code") if details else None
             raw_code = error_obj.get("code")
-            code = raw_code if isinstance(raw_code, str) else None
+            if isinstance(nested_code, str):
+                code = nested_code
+            elif isinstance(raw_code, str):
+                code = raw_code
     except (ValueError, KeyError, AttributeError):
         logger.debug("Failed to parse error body: %s", resp.text[:200] if resp.text else "empty")
         if _looks_like_html(resp):
@@ -83,6 +95,7 @@ def _raise_for_status(resp: requests.Response, *, method: str = "", path: str = 
         path=path,
         code=code,
         retry_after=retry_after,
+        details=details,
     )
 
 

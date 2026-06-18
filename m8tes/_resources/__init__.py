@@ -4,6 +4,7 @@ from .account import Account
 from .apps import Apps
 from .audit_logs import AuditLogs
 from .auth import Auth
+from .billing import Billing
 from .bridges import Bridges
 from .mcp_servers import McpServers
 from .memories import Memories
@@ -21,6 +22,7 @@ __all__ = [
     "Apps",
     "AuditLogs",
     "Auth",
+    "Billing",
     "Bridges",
     "McpServers",
     "Memories",

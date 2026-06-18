@@ -6,6 +6,7 @@ import responses
 from m8tes._exceptions import (
     APIError,
     AuthenticationError,
+    BillingError,
     ConflictError,
     NotFoundError,
     PermissionDeniedError,
@@ -207,6 +208,90 @@ class TestErrorMapping:
         with pytest.raises(ValidationError) as exc_info:
             http.request("POST", "/runs")
         assert "something went wrong" in exc_info.value.message
+
+
+class TestNestedBillingCode:
+    """The machine code lives in error.details.error_code, not error.code.
+
+    Regression for the bug where BillingError.code was always None because the
+    SDK read the top-level int HTTP status as the code.
+    """
+
+    @responses.activate
+    def test_402_run_limit_reached_surfaces_code(self, http):
+        responses.add(
+            responses.POST,
+            "https://api.m8tes.ai/v2/runs",
+            json={
+                "error": {
+                    "type": "billing_error",
+                    "message": "Run limit reached (100/month).",
+                    "code": 402,  # int HTTP status — must NOT become exc.code
+                    "request_id": "req_x",
+                    "details": {
+                        "error_code": "RUN_LIMIT_REACHED",
+                        "plan": "pro",
+                        "runs_used": 100,
+                        "runs_limit": 100,
+                        "overage_available": True,
+                    },
+                }
+            },
+            status=402,
+        )
+        with pytest.raises(BillingError) as exc_info:
+            http.request("POST", "/runs")
+        exc = exc_info.value
+        assert exc.code == "RUN_LIMIT_REACHED"  # not None, not 402
+        assert exc.details["runs_limit"] == 100
+        assert exc.details["overage_available"] is True
+
+    @responses.activate
+    def test_402_overage_cap_reached_surfaces_code(self, http):
+        responses.add(
+            responses.POST,
+            "https://api.m8tes.ai/v2/runs",
+            json={
+                "error": {
+                    "type": "billing_error",
+                    "message": "Overage cap reached ($50).",
+                    "code": 402,
+                    "details": {
+                        "error_code": "OVERAGE_CAP_REACHED",
+                        "overage_used_cents": 5000,
+                        "overage_cap_cents": 5000,
+                    },
+                }
+            },
+            status=402,
+        )
+        with pytest.raises(BillingError) as exc_info:
+            http.request("POST", "/runs")
+        assert exc_info.value.code == "OVERAGE_CAP_REACHED"
+        assert exc_info.value.details["overage_cap_cents"] == 5000
+
+    @responses.activate
+    def test_falls_back_to_top_level_string_code(self, http):
+        """Codes not nested in details still surface from a top-level string code."""
+        responses.add(
+            responses.POST,
+            "https://api.m8tes.ai/v2/runs/1/retry",
+            json={"error": {"message": "Confirm retry", "code": "retry_needs_confirmation"}},
+            status=409,
+        )
+        with pytest.raises(ConflictError) as exc_info:
+            http.request("POST", "/runs/1/retry")
+        assert exc_info.value.code == "retry_needs_confirmation"
+
+    @responses.activate
+    def test_no_code_is_none_with_empty_details(self, http):
+        responses.add(
+            responses.GET, "https://api.m8tes.ai/v2/x", json={"detail": "boom"}, status=404
+        )
+        with pytest.raises(NotFoundError) as exc_info:
+            http.request("GET", "/x")
+        assert exc_info.value.code is None
+        assert exc_info.value.details == {}
 
 
 class TestRetryLogic:

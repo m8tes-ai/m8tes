@@ -42,7 +42,21 @@ When you pass `user_id`, the run is scoped to that end user. If you target an ex
 
 Rotate your API key with `POST /api/v2/token`. That endpoint returns a new API key and invalidates the previous one.
 
-Check current plan, run usage, and cost limits with `client.auth.get_usage()` or `m8tes auth usage`.
+Check current plan, run usage, and cost limits with `client.billing.usage()` (or `client.auth.get_usage()`). A billable run is one execution that completes with output — manual, scheduled, webhook, email, reply, or retry. Self-meter spend and control overage:
+
+```python
+usage = client.billing.usage()
+print(usage.plan, usage.runs_used, usage.runs_limit, usage.overage_used_cents)
+
+# Browse the plan catalog (pro / max_5x / max_20x)
+for plan in client.billing.plans():
+    print(plan.slug, plan.display_name, plan.included_runs, plan.monthly_price_cents)
+
+# Opt in to usage overage with a monthly spend cap so runs keep going past the plan limit
+client.billing.set_overage(enabled=True, monthly_cap_cents=5000)  # $50 cap
+```
+
+New accounts start on a time-boxed `trial` (no free tier); upgrade to a paid plan to raise run limits.
 
 Need email-triggered runs? Opt in with `email_inbox=True` on `client.teammates.create(...)` or call `client.teammates.enable_email_inbox(teammate_id)` later.
 
@@ -342,6 +356,12 @@ client.apps.connect_complete("gmail", start.connection_id, user_id="cust_123")
 # API key app
 client.apps.connect_api_key("gemini", api_key="sk_live_...", user_id="cust_123")
 client.apps.disconnect("gemini", user_id="cust_123")
+
+# Platform-provisioned app (auth_type "platform_provisioned", e.g. twilio):
+# the platform allocates a dedicated resource (a phone number) for you.
+result = client.apps.provision("twilio", user_id="cust_123")
+print(result.phone_number)              # "+15551234567"
+client.apps.release("twilio", user_id="cust_123")  # release it back
 ```
 
 ## Resources
@@ -361,6 +381,7 @@ client.apps.disconnect("gemini", user_id="cust_123")
 | `client.users` | `create` `list` `get` `update` `delete` | End-user profile management |
 | `client.webhooks` | `create` `list` `get` `update` `delete` `list_deliveries` `verify_signature` | Webhook endpoints and delivery tracking |
 | `client.settings` | `get` `update` | Account configuration |
+| `client.billing` | `usage` `plans` `set_overage` | Run usage, plan catalog, and opt-in overage controls |
 | `client.auth` | `get_usage` `resend_verify` | Account usage and verification helpers |
 
 ## Pagination
