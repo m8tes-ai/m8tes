@@ -735,6 +735,52 @@ class Plan:
 
 
 @dataclass
+class TokenTransaction:
+    """One prepaid token-balance ledger entry (micro-USD; debits are negative)."""
+
+    type: str
+    amount_micros: int
+    balance_after_micros: int
+    run_id: int | None
+    description: str | None
+    created_at: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> TokenTransaction:
+        return cls(
+            type=data["type"],
+            amount_micros=data["amount_micros"],
+            balance_after_micros=data["balance_after_micros"],
+            run_id=data.get("run_id"),
+            description=data.get("description"),
+            created_at=data["created_at"],
+        )
+
+
+@dataclass
+class Balance:
+    """Prepaid token balance + recent ledger (for accounts on prepaid billing).
+
+    Balances are micro-USD (1e-6 USD); `balance_usd` is a rounded display string. Runs
+    debit this balance at official provider prices.
+    """
+
+    balance_micros: int
+    balance_usd: str
+    currency: str
+    transactions: list[TokenTransaction]
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Balance:
+        return cls(
+            balance_micros=data["balance_micros"],
+            balance_usd=data["balance_usd"],
+            currency=data["currency"],
+            transactions=[TokenTransaction.from_dict(t) for t in data.get("transactions", [])],
+        )
+
+
+@dataclass
 class TeammateTemplate:
     """A pre-built teammate template from the public catalog.
 

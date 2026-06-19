@@ -4030,6 +4030,20 @@ class TestV2Billing:
         with pytest.raises(ValidationError):
             v2_client.billing.set_overage(enabled=True, monthly_cap_cents=10_000_01)
 
+    def test_balance_returns_prepaid_state(self, v2_client):
+        from m8tes._types import Balance
+
+        balance = v2_client.billing.balance()
+        assert isinstance(balance, Balance)
+        assert isinstance(balance.balance_micros, int)
+        assert balance.currency == "usd"
+        assert isinstance(balance.transactions, list)
+
+    def test_topup_rejects_below_minimum(self, v2_client):
+        # The $5 minimum is enforced server-side before any Stripe call.
+        with pytest.raises(ValidationError):
+            v2_client.billing.topup(amount_cents=100)
+
 
 @pytest.mark.integration
 class TestTeammateTemplates:
