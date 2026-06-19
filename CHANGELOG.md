@@ -2,6 +2,11 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [1.14.0] - 2026-06-19
+
+### Added
+- Prepaid token balance for the API/developer product: `client.billing.balance()` returns your `Balance` (micro-USD `balance_micros`, a rounded `balance_usd`, currency, and recent `TokenTransaction` ledger entries), and `client.billing.topup(amount_cents=...)` starts a Stripe Checkout and returns a URL to send the buyer to (the balance is credited once payment completes). New `Balance` and `TokenTransaction` types. Backend-gated by `prepaid_billing_enabled` (off until prepaid billing is enabled).
+
 ## [1.13.0] - 2026-06-16
 
 ### Added

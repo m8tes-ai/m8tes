@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .._types import Plan, Usage
+from .._types import Balance, Plan, Usage
 
 if TYPE_CHECKING:
     from .._http import HTTPClient
@@ -43,3 +43,18 @@ class Billing:
             json={"enabled": enabled, "monthly_cap_cents": monthly_cap_cents},
         )
         return Usage.from_dict(resp.json())
+
+    def balance(self) -> Balance:
+        """Get your prepaid token balance + recent ledger (for prepaid-billed accounts).
+
+        Balance is micro-USD; `balance_usd` is a rounded display string. Runs debit this
+        balance at official provider prices.
+        """
+        resp = self._http.request("GET", "/billing/balance")
+        return Balance.from_dict(resp.json())
+
+    def topup(self, *, amount_cents: int) -> str:
+        """Start a Stripe Checkout to add token credit. Returns a URL to send the buyer to;
+        the balance is credited once payment completes ($5 min, $1M max)."""
+        resp = self._http.request("POST", "/billing/topup", json={"amount_cents": amount_cents})
+        return str(resp.json()["checkout_url"])
