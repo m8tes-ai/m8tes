@@ -780,6 +780,9 @@ class Balance:
     balance_micros: int
     balance_usd: str
     currency: str
+    # Warning thresholds (micro-USD): low is configurable; critical is 20% of it; depleted is 0.
+    low_balance_threshold_micros: int
+    critical_balance_threshold_micros: int
     transactions: list[TokenTransaction]
 
     @classmethod
@@ -788,6 +791,8 @@ class Balance:
             balance_micros=data["balance_micros"],
             balance_usd=data["balance_usd"],
             currency=data["currency"],
+            low_balance_threshold_micros=data.get("low_balance_threshold_micros", 0),
+            critical_balance_threshold_micros=data.get("critical_balance_threshold_micros", 0),
             transactions=[TokenTransaction.from_dict(t) for t in data.get("transactions", [])],
         )
 

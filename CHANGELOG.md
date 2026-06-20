@@ -2,6 +2,11 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [1.17.0] - 2026-06-20
+
+### Added
+- Configurable prepaid low-balance warnings: `client.billing.set_alert_threshold(low_balance_threshold_cents=...)` sets the balance at which the low-balance warning fires (the critical tier is 20% of it; 0 warns only on depletion) and returns the refreshed `Balance`. `Balance` now exposes `low_balance_threshold_micros` and `critical_balance_threshold_micros`. Warnings are delivered both by email and as new `balance.low` / `balance.critical` / `balance.depleted` webhook events, so a developer's production systems can react before runs start failing. Backend-gated by `prepaid_billing_enabled`.
+
 ## [1.16.0] - 2026-06-20
 
 ### Added
