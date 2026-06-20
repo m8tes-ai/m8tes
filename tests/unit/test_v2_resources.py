@@ -1190,6 +1190,45 @@ class TestBridges:
         assert not hasattr(bridge, "password")
 
     @responses.activate
+    def test_create_with_owner_handle_and_connection_result(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/bridges",
+            json={
+                "id": 6,
+                "name": "my mac",
+                "server_url": "https://bb.example.com",
+                "status": "active",
+                "created_at": "2026-05-29T00:00:00Z",
+                "owner_handle": "+15550001111",
+                "webhook_secret": "whsec_once",
+                "connection_ok": True,
+                "connection_error": None,
+            },
+            status=201,
+        )
+        bridge = Bridges(http).create(
+            server_url="https://bb.example.com", password="pw", owner_handle="+15550001111"
+        )
+        body = json.loads(responses.calls[0].request.body)
+        assert body["owner_handle"] == "+15550001111"
+        assert bridge.owner_handle == "+15550001111"
+        assert bridge.connection_ok is True
+
+    @responses.activate
+    def test_test_endpoint(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/bridges/5/test",
+            json={"ok": False, "detail": "BlueBubbles connection check failed (HTTP 401)"},
+            status=200,
+        )
+        result = Bridges(http).test(5)
+        assert result["ok"] is False
+        assert "401" in result["detail"]
+        assert responses.calls[0].request.method == "POST"
+
+    @responses.activate
     def test_list(self, http):
         responses.add(
             responses.GET,
