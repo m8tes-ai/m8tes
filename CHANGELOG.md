@@ -2,6 +2,16 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [1.15.0] - 2026-06-19
+
+### Added
+- `signup_and_wait(...)` — create an account, then block until the user clicks the one-tap activation link m8tes emails them, and return the `SignupResult`. Onboards a user end to end in one call; raises `TimeoutError` if they don't activate in time.
+- `client.auth.is_verified()` — poll whether the account has verified its email (API accounts can't run until verified). Backed by the new `GET /api/v2/verify/status`.
+- `SignupResult.verification` — `"pending"` until the user activates, then `"verified"`. Backward-compatible default for older backends.
+
+### Security
+- The activation link is emailed to the user and is never returned to the API caller, so a key holder (e.g. a third-party agent onboarding its user) cannot obtain a login-as-the-user link. `signup_and_wait`/`is_verified` only observe activation status.
+
 ## [1.14.0] - 2026-06-19
 
 ### Added
