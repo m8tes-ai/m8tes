@@ -647,15 +647,27 @@ class AccountSettings:
 
 @dataclass
 class SignupResult:
-    """Returned by m8tes.signup() — new account with API key."""
+    """Returned by m8tes.signup() — new account with API key.
+
+    `verification` is "pending" until the user clicks the one-tap activation link
+    emailed to them, then "verified". The link itself is never returned here: an API
+    key holder must not also hold a login-as-the-user link. Poll client.auth.is_verified()
+    (or use signup_and_wait) to learn when the user has activated.
+    """
 
     api_key: str
     email: str
     message: str
+    verification: str = "pending"
 
     @classmethod
     def from_dict(cls, data: dict) -> SignupResult:
-        return cls(api_key=data["api_key"], email=data["email"], message=data["message"])
+        return cls(
+            api_key=data["api_key"],
+            email=data["email"],
+            message=data["message"],
+            verification=data.get("verification", "pending"),
+        )
 
 
 @dataclass

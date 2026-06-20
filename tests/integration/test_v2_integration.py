@@ -3783,6 +3783,39 @@ class TestAuthEndpoints:
         assert data["email"] == email
         assert "message" in data
 
+    def test_signup_returns_pending_verification_without_link(self, backend_url):
+        """Signup reports verification='pending' and never returns an activation/login link."""
+        import requests
+
+        email = f"signup-pending-{uuid.uuid4().hex[:8]}@test.m8tes.ai"
+        resp = requests.post(
+            f"{backend_url}/api/v2/signup",
+            json={"email": email, "password": "TestPassword123!", "first_name": "SDKTest"},
+        )
+        assert resp.status_code == 201
+        data = resp.json()
+        assert data["verification"] == "pending"
+        # Security: the activation link is emailed to the user, never returned to the caller.
+        assert "http" not in data["message"].lower()
+        assert "token" not in data
+
+    def test_sdk_signup_exposes_verification_and_is_verified_poll(self, backend_url):
+        """SDK signup() carries verification status; client.auth.is_verified() polls it."""
+        from m8tes import M8tes, signup
+
+        email = f"sdk-signup-{uuid.uuid4().hex[:8]}@test.m8tes.ai"
+        result = signup(
+            email=email,
+            password="TestPassword123!",
+            first_name="SDKTest",
+            base_url=f"{backend_url}/api/v2",
+        )
+        assert result.api_key.startswith("m8_")
+        assert result.verification == "pending"
+
+        client = M8tes(api_key=result.api_key, base_url=f"{backend_url}/api/v2")
+        assert client.auth.is_verified() is False  # fresh account, user hasn't clicked yet
+
     def test_signup_key_is_usable_immediately(self, backend_url):
         """API key from signup works on authenticated V2 endpoints."""
         import requests
