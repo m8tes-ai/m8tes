@@ -4085,11 +4085,18 @@ class TestV2Billing:
         assert isinstance(balance.balance_micros, int)
         assert balance.currency == "usd"
         assert isinstance(balance.transactions, list)
+        assert isinstance(balance.low_balance_threshold_micros, int)
+        assert isinstance(balance.critical_balance_threshold_micros, int)
 
     def test_topup_rejects_below_minimum(self, v2_client):
         # The $5 minimum is enforced server-side before any Stripe call.
         with pytest.raises(ValidationError):
             v2_client.billing.topup(amount_cents=100)
+
+    def test_set_alert_threshold_rejects_over_max(self, v2_client):
+        # The $100k ceiling on the low-balance warning threshold is enforced server-side.
+        with pytest.raises(ValidationError):
+            v2_client.billing.set_alert_threshold(low_balance_threshold_cents=100_000_01)
 
 
 @pytest.mark.integration

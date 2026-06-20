@@ -60,3 +60,16 @@ class Billing:
         the balance is credited once payment completes ($5 min, $1M max)."""
         resp = self._http.request("POST", "/billing/topup", json={"amount_cents": amount_cents})
         return str(resp.json()["checkout_url"])
+
+    def set_alert_threshold(self, *, low_balance_threshold_cents: int) -> Balance:
+        """Set the balance at which the low-balance warning fires (cents; the critical tier is
+        20% of it). Warnings are delivered by email AND as `balance.low`/`balance.critical`/
+        `balance.depleted` webhook events. 0 warns only on depletion. Returns the refreshed
+        balance with the new thresholds.
+        """
+        resp = self._http.request(
+            "PATCH",
+            "/billing/alert-settings",
+            json={"low_balance_threshold_cents": low_balance_threshold_cents},
+        )
+        return Balance.from_dict(resp.json())
