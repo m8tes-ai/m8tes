@@ -1,7 +1,9 @@
-"""Billing resource — usage, plan catalog, and opt-in overage controls.
+"""Billing resource — usage, plan catalog, opt-in overage controls, and prepaid token balance.
 
 Lets developers self-meter spend: read current usage (including accrued overage),
-fetch the public plan catalog, and toggle usage overage with a monthly cap.
+fetch the public plan catalog, and toggle usage overage with a monthly cap. For
+prepaid-billed accounts, also read the prepaid token balance and add credit via a
+Stripe Checkout top-up.
 """
 
 from __future__ import annotations
