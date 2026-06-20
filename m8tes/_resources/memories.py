@@ -28,16 +28,24 @@ class Memories:
         self,
         *,
         user_id: str,
+        query: str | None = None,
         limit: int = 20,
         starting_after: int | None = None,
     ) -> SyncPage[Memory]:
-        """List memories for an end-user."""
-        params = _build_params(user_id=user_id, limit=limit, starting_after=starting_after)
+        """List memories for an end-user.
+
+        Pass ``query`` to keyword-filter by content (case-insensitive substring);
+        the filter is scoped to this end-user and pagination applies to the
+        filtered set.
+        """
+        params = _build_params(
+            user_id=user_id, query=query, limit=limit, starting_after=starting_after
+        )
         resp = self._http.request("GET", "/memories/", params=params)
         body = resp.json()
 
         def _fetch_next(**kw: object) -> SyncPage[Memory]:
-            return self.list(user_id=user_id, **kw)  # type: ignore[arg-type]
+            return self.list(user_id=user_id, query=query, **kw)  # type: ignore[arg-type]
 
         return SyncPage(
             data=[Memory.from_dict(d) for d in body["data"]],

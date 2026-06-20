@@ -1098,6 +1098,20 @@ class TestMemoriesCRUD:
             for m in mems:
                 v2_client.memories.delete(m.id, user_id=user_id)
 
+    def test_search_by_query(self, v2_client):
+        """list(query=...) keyword-filters the end-user's memories (case-insensitive)."""
+        user_id = _uid()
+        match = v2_client.memories.create(user_id=user_id, content="Prefers email over Slack")
+        other = v2_client.memories.create(user_id=user_id, content="Budget is 5000 DKK")
+        try:
+            page = v2_client.memories.list(user_id=user_id, query="EMAIL")
+            ids = {m.id for m in page.data}
+            assert match.id in ids
+            assert other.id not in ids
+        finally:
+            v2_client.memories.delete(match.id, user_id=user_id)
+            v2_client.memories.delete(other.id, user_id=user_id)
+
     def test_user_id_isolation(self, v2_client):
         """Memories for user A are not visible to user B."""
         uid_a, uid_b = _uid(), _uid()
