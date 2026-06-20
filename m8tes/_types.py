@@ -119,9 +119,13 @@ class Bridge:
     server_url: str
     status: str
     created_at: str
+    owner_handle: str | None = None
     last_seen_at: str | None = None
     last_outbound_ok_at: str | None = None
     webhook_secret: str | None = None
+    # Connection health-check result — populated only on create.
+    connection_ok: bool | None = None
+    connection_error: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> Bridge:
@@ -131,9 +135,12 @@ class Bridge:
             server_url=data["server_url"],
             status=data.get("status", "active"),
             created_at=data.get("created_at", ""),
+            owner_handle=data.get("owner_handle"),
             last_seen_at=data.get("last_seen_at"),
             last_outbound_ok_at=data.get("last_outbound_ok_at"),
             webhook_secret=data.get("webhook_secret"),
+            connection_ok=data.get("connection_ok"),
+            connection_error=data.get("connection_error"),
         )
 
 
