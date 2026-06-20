@@ -2,6 +2,11 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [1.16.0] - 2026-06-20
+
+### Added
+- `client.memories.list(user_id=..., query="...")` keyword-filters an end-user's memories by content (case-insensitive substring). The filter is scoped to that end-user and pagination applies to the filtered set; omit `query` for the full list.
+
 ## [1.15.0] - 2026-06-19
 
 ### Added
