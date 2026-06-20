@@ -388,6 +388,29 @@ class TestTeammatesCRUD:
             v2_client.teammates.delete(second.id)
             v2_client.bridges.delete(bridge.id)
 
+    def test_bridge_owner_handle_and_connection_test(self, v2_client):
+        """owner_handle round-trips (normalized) and the /test endpoint returns a verdict."""
+        bridge = v2_client.bridges.create(
+            name="it-bridge-owner",
+            server_url="https://example.com",
+            password="bb-pw",
+            owner_handle="+1 (555) 000-1111",
+        )
+        try:
+            # Stored normalized; create surfaces the registration connection probe result.
+            assert bridge.owner_handle == "+15550001111"
+            # The probe ran (example.com is not a real BlueBubbles server).
+            assert bridge.connection_ok in (True, False)
+
+            fetched = v2_client.bridges.get(bridge.id)
+            assert fetched.owner_handle == "+15550001111"
+
+            # The explicit connection test returns an ok/detail verdict (no message sent).
+            result = v2_client.bridges.test(bridge.id)
+            assert "ok" in result
+        finally:
+            v2_client.bridges.delete(bridge.id)
+
 
 # ── Teammate Webhooks ────────────────────────────────────────────────
 

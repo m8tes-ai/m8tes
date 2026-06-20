@@ -2,6 +2,15 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [1.18.0] - 2026-06-19
+
+### Added
+- iMessage bridges: `client.bridges.create(...)` accepts `owner_handle` (your own iMessage phone/email) so you can text your Company Agent right away without editing an allowlist. `Bridge` now carries `owner_handle`, and the create result carries `connection_ok` / `connection_error` from a one-shot reachability check run at registration.
+- `client.bridges.test(bridge_id)` — pings the bridge's BlueBubbles server (no message sent) and returns `{"ok": bool, "detail": str | None}` to debug a bridge that isn't receiving or sending.
+
+### Notes
+- iMessage 1:1 chats now have bounded-context conversation continuity (a follow-up within 72h resumes the same run; group chats are rejected) — server-side, no SDK change required. See the iMessage Inbox docs.
+
 ## [1.17.0] - 2026-06-20
 
 ### Added

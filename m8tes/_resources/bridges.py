@@ -23,10 +23,22 @@ class Bridges:
     def __init__(self, http: HTTPClient):
         self._http = http
 
-    def create(self, *, server_url: str, password: str, name: str = "BlueBubbles") -> Bridge:
+    def create(
+        self,
+        *,
+        server_url: str,
+        password: str,
+        name: str = "BlueBubbles",
+        owner_handle: str | None = None,
+    ) -> Bridge:
         """Register a bridge. The returned ``bridge.webhook_secret`` is shown once —
-        configure it as the BlueBubbles webhook secret immediately."""
-        body = {"name": name, "server_url": server_url, "password": password}
+        configure it as the BlueBubbles webhook secret immediately.
+
+        Pass ``owner_handle`` (your own iMessage phone/email) to text the Company Agent
+        (your inbound-default teammate) right away, without editing its allowlist."""
+        body: dict = {"name": name, "server_url": server_url, "password": password}
+        if owner_handle is not None:
+            body["owner_handle"] = owner_handle
         resp = self._http.request("POST", "/bridges", json=body)
         return Bridge.from_dict(resp.json())
 
@@ -46,6 +58,7 @@ class Bridges:
         server_url: str | None = None,
         password: str | None = None,
         status: str | None = None,
+        owner_handle: str | None = None,
     ) -> Bridge:
         body: dict = {}
         if name is not None:
@@ -56,6 +69,8 @@ class Bridges:
             body["password"] = password
         if status is not None:
             body["status"] = status
+        if owner_handle is not None:
+            body["owner_handle"] = owner_handle
         resp = self._http.request("PATCH", f"/bridges/{bridge_id}", json=body)
         return Bridge.from_dict(resp.json())
 
@@ -64,6 +79,15 @@ class Bridges:
         next rotation; the new ``bridge.webhook_secret`` is returned once."""
         resp = self._http.request("POST", f"/bridges/{bridge_id}/rotate-secret")
         return Bridge.from_dict(resp.json())
+
+    def test(self, bridge_id: int) -> dict:
+        """Check the bridge's BlueBubbles server is reachable and the password is accepted.
+
+        No message is sent (it pings the server). Returns ``{"ok": bool, "detail": str|None}``
+        — use it to debug a bridge that isn't receiving or sending messages."""
+        resp = self._http.request("POST", f"/bridges/{bridge_id}/test")
+        result: dict = resp.json()
+        return result
 
     def delete(self, bridge_id: int) -> None:
         """Delete a bridge. Fails (409) if teammates are still bound to it."""
