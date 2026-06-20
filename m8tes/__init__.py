@@ -12,7 +12,7 @@ except PackageNotFoundError:
     __version__ = "0.0.0-dev"
 
 # ── v2 Developer SDK (primary) ───────────────────────────────────────
-from ._auth import get_token, signup
+from ._auth import get_token, signup, signup_and_wait
 from ._client import M8tes
 from ._exceptions import (
     APIError,
@@ -158,4 +158,5 @@ __all__ = [
     "Webhooks",
     "get_token",
     "signup",
+    "signup_and_wait",
 ]

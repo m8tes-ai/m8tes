@@ -48,6 +48,57 @@ def signup(
     return SignupResult.from_dict(resp.json())
 
 
+def signup_and_wait(
+    email: str,
+    password: str,
+    first_name: str,
+    last_name: str = "",
+    *,
+    base_url: str | None = None,
+    timeout: float = 300.0,
+    poll_interval: float = 3.0,
+) -> SignupResult:
+    """Create an account, then block until the user activates it, and return the result.
+
+    m8tes emails the user a one-tap activation link; this never receives that link, it
+    only polls verification status (so the caller can't log in as the user). Use this
+    when onboarding a user end to end: create the account, then wait for them to click.
+
+    Raises TimeoutError if the user has not activated within `timeout` seconds. The account
+    still exists when that happens; to survive longer waits, call signup() yourself and poll
+    client.auth.is_verified() so you keep the API key. Requires a backend exposing
+    GET /verify/status (raises RuntimeError against older backends).
+    """
+    import time
+
+    from ._client import M8tes
+    from ._exceptions import NotFoundError
+
+    poll_interval = max(poll_interval, 0.5)  # guard against a busy-loop on poll_interval=0
+    result = signup(email, password, first_name, last_name, base_url=base_url)
+    if result.verification == "verified":
+        return result
+
+    deadline = time.monotonic() + timeout
+    with M8tes(api_key=result.api_key, base_url=base_url) as client:  # close the HTTP session
+        while time.monotonic() < deadline:
+            try:
+                verified = client.auth.is_verified()
+            except NotFoundError as exc:
+                raise RuntimeError(
+                    "signup_and_wait requires a backend exposing GET /verify/status; "
+                    f"the account for {result.email} was created but cannot be polled."
+                ) from exc
+            if verified:
+                result.verification = "verified"  # reflect the observed state, not stale "pending"
+                return result
+            time.sleep(poll_interval)
+    raise TimeoutError(
+        f"Account {result.email} was not verified within {timeout:.0f}s. "
+        "The user must click the one-tap activation link emailed to them."
+    )
+
+
 def get_token(
     email: str,
     password: str,
