@@ -24,6 +24,7 @@ import pytest
 from m8tes import M8tes
 from m8tes._exceptions import (
     AuthenticationError,
+    BillingError,
     ConflictError,
     M8tesError,
     NotFoundError,
@@ -4060,16 +4061,15 @@ class TestV2Billing:
         assert pro.included_runs == 100
         assert pro.annual_price_cents == pro.monthly_price_cents * 10
 
-    def test_set_overage_round_trips(self, v2_client):
-        # Enable with a cap, confirm it persists, then disable to clean up.
-        enabled = v2_client.billing.set_overage(enabled=True, monthly_cap_cents=2500)
-        assert enabled.overage_enabled is True
-        assert enabled.overage_cap_cents == 2500
+    def test_enable_overage_without_subscription_is_rejected(self, v2_client):
+        # Overage can only be enabled on an account that carries the metered Stripe
+        # subscription item; the integration user has none, so enabling 402s
+        # (OVERAGE_UNAVAILABLE) instead of silently accruing cents nothing can bill.
+        with pytest.raises(BillingError) as exc:
+            v2_client.billing.set_overage(enabled=True, monthly_cap_cents=2500)
+        assert exc.value.status_code == 402
 
-        fetched = v2_client.billing.usage()
-        assert fetched.overage_enabled is True
-        assert fetched.overage_cap_cents == 2500
-
+        # Disabling is always allowed (and round-trips) regardless of subscription.
         disabled = v2_client.billing.set_overage(enabled=False, monthly_cap_cents=2500)
         assert disabled.overage_enabled is False
 
