@@ -646,10 +646,44 @@ class AccountSettings:
     """Account-level settings."""
 
     company_research: bool
+    # Per-end-user (multi-tenant) sub-caps; None = no cap.
+    per_end_user_run_limit: int | None = None
+    per_end_user_cost_limit_cents: int | None = None
+    # Data retention: "standard" or "metadata_only" (zero data retention).
+    retention_mode: str = "standard"
 
     @classmethod
     def from_dict(cls, data: dict) -> AccountSettings:
-        return cls(company_research=data["company_research"])
+        return cls(
+            company_research=data["company_research"],
+            per_end_user_run_limit=data.get("per_end_user_run_limit"),
+            per_end_user_cost_limit_cents=data.get("per_end_user_cost_limit_cents"),
+            retention_mode=data.get("retention_mode", "standard"),
+        )
+
+
+@dataclass
+class ApiKeyInfo:
+    """Current API key state (masked — the secret is never returned here)."""
+
+    has_key: bool
+    prefix: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ApiKeyInfo:
+        return cls(has_key=data["has_key"], prefix=data.get("prefix"))
+
+
+@dataclass
+class ApiKeyRotated:
+    """A freshly rotated API key. ``api_key`` is shown ONCE — store it now."""
+
+    api_key: str
+    prefix: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ApiKeyRotated:
+        return cls(api_key=data["api_key"], prefix=data["prefix"])
 
 
 @dataclass

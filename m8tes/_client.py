@@ -13,6 +13,7 @@ from ._resources import (
     Auth,
     Billing,
     Bridges,
+    Keys,
     McpServers,
     Memories,
     Permissions,
@@ -65,6 +66,7 @@ class M8tes:
         self.permissions = Permissions(self._http)
         self.users = Users(self._http)
         self.settings = Settings(self._http)
+        self.keys = Keys(self._http)
         self.webhooks = Webhooks(self._http)
 
     def close(self) -> None:
