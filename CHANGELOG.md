@@ -2,6 +2,13 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [1.19.0] - 2026-06-20
+
+### Added
+- Per-end-user (multi-tenant) sub-caps on `client.settings`: `per_end_user_run_limit` and `per_end_user_cost_limit_cents` cap each end-user's monthly runs / metered cost so one end-user can't drain your account budget (set an int, `None` to clear, or omit). Exceeding a cap fails the run with `402` (`END_USER_RUN_LIMIT_REACHED` / `END_USER_COST_LIMIT_REACHED`). `AccountSettings` exposes both fields.
+- `client.keys` for API key hygiene: `rotate()` (returns a fresh key; the old one dies immediately), `revoke()` (ends API-key access), `info()` (masked prefix). Both mutations are audit-logged. New `ApiKeyInfo` / `ApiKeyRotated` types.
+- Zero data retention: `client.settings.update(retention_mode="metadata_only")` switches the account to a no-store mode — m8tes never persists conversation content, tool I/O, model reasoning, run output, or generated reports; only metadata (token/cost metrics, tool names, status) survives. Surfaced on `AccountSettings.retention_mode`. (Governs what *we* store; upstream Anthropic zero-retention is a separate org-level agreement.)
+
 ## [1.18.0] - 2026-06-19
 
 ### Added

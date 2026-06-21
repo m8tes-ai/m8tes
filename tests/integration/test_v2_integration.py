@@ -3255,6 +3255,37 @@ class TestSettingsCRUD:
         restored = v2_client.settings.update(company_research=True)
         assert restored.company_research is True
 
+    def test_per_end_user_sub_caps(self, v2_client):
+        """Set, read back, and clear the per-end-user multi-tenant sub-caps."""
+        # Default: no caps.
+        assert v2_client.settings.get().per_end_user_run_limit is None
+
+        # Set both caps.
+        updated = v2_client.settings.update(
+            per_end_user_run_limit=25, per_end_user_cost_limit_cents=500
+        )
+        assert updated.per_end_user_run_limit == 25
+        assert updated.per_end_user_cost_limit_cents == 500
+        assert v2_client.settings.get().per_end_user_run_limit == 25
+
+        # Clear the run cap (explicit null); cost cap stays.
+        cleared = v2_client.settings.update(per_end_user_run_limit=None)
+        assert cleared.per_end_user_run_limit is None
+        assert cleared.per_end_user_cost_limit_cents == 500
+
+        # Cleanup.
+        v2_client.settings.update(per_end_user_cost_limit_cents=None)
+
+    def test_retention_mode(self, v2_client):
+        """Toggle zero-data-retention on and back off."""
+        assert v2_client.settings.get().retention_mode == "standard"
+        assert v2_client.settings.update(retention_mode="metadata_only").retention_mode == (
+            "metadata_only"
+        )
+        assert v2_client.settings.get().retention_mode == "metadata_only"
+        # Restore.
+        assert v2_client.settings.update(retention_mode="standard").retention_mode == "standard"
+
 
 # ── Runs: SDK Convenience Methods ────────────────────────────────────
 
@@ -4338,3 +4369,29 @@ class TestMcpServersCRUD:
                 auth_type="custom_header",
                 tool_defs=[{"name": "x", "method": "GET", "path": "/x"}],
             )
+
+
+@pytest.mark.integration
+class TestKeysCRUD:
+    def test_rotate_then_revoke(self, v2_client, backend_url):
+        """Rotate yields a working API key; revoke makes it stop authenticating."""
+        from m8tes import M8tes
+        from m8tes._exceptions import AuthenticationError
+
+        rotated = v2_client.keys.rotate()
+        assert rotated.api_key.startswith("m8_")
+        assert rotated.prefix == rotated.api_key[:12]
+
+        # The rotated key authenticates the API-key path end to end.
+        keyed = M8tes(api_key=rotated.api_key, base_url=f"{backend_url}/api/v2", timeout=30)
+        try:
+            info = keyed.keys.info()
+            assert info.has_key is True
+            assert info.prefix == rotated.prefix
+
+            # Revoke (via the JWT-authed session client) kills the rotated key.
+            assert v2_client.keys.revoke().has_key is False
+            with pytest.raises(AuthenticationError):
+                keyed.keys.info()
+        finally:
+            keyed.close()
