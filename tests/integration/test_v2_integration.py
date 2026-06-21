@@ -4395,3 +4395,42 @@ class TestKeysCRUD:
                 keyed.keys.info()
         finally:
             keyed.close()
+
+    def test_named_key_lifecycle(self, v2_client, backend_url):
+        """A named key authenticates, lists, rotates in place, and revokes — all by id,
+        independently of the account's default key."""
+        from m8tes import M8tes
+        from m8tes._exceptions import AuthenticationError
+
+        created = v2_client.keys.create(name="production", expires_in_days=30)
+        assert created.api_key.startswith("m8_")
+        assert created.name == "production"
+        assert created.expires_at is not None
+
+        keyed = M8tes(api_key=created.api_key, base_url=f"{backend_url}/api/v2", timeout=30)
+        try:
+            # The named key authenticates the API-key path end to end, and the account's
+            # key list (fetched WITH that named key) includes it. We assert auth via
+            # list() not info() — info() reports the legacy *default* key, not this one.
+            listed = keyed.keys.list()
+            assert any(k.id == created.id and k.name == "production" and k.active for k in listed)
+
+            # Rotate in place: same id, fresh secret, old secret dies.
+            rotated = v2_client.keys.rotate(created.id)
+            assert rotated.id == created.id
+            assert rotated.api_key != created.api_key
+            with pytest.raises(AuthenticationError):
+                keyed.keys.list()
+
+            # Revoke by id: the rotated secret stops authenticating too.
+            revoked = v2_client.keys.revoke(created.id)
+            assert revoked.id == created.id
+            assert revoked.active is False
+            rekeyed = M8tes(api_key=rotated.api_key, base_url=f"{backend_url}/api/v2", timeout=30)
+            try:
+                with pytest.raises(AuthenticationError):
+                    rekeyed.keys.list()
+            finally:
+                rekeyed.close()
+        finally:
+            keyed.close()

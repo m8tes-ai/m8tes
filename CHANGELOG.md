@@ -2,6 +2,11 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [1.20.0] - 2026-06-20
+
+### Added
+- Named / multiple API keys on `client.keys`: `create(name=..., expires_in_days=...)` mints a separately-revocable key (the secret is returned ONCE), `list()` returns every managed key (prefix/created/last-used/expiry/active — never the secret), and `rotate(key_id)` / `revoke(key_id)` operate on a single named key by id (the no-arg `rotate()` / `revoke()` still manage the account's default key). New `ApiKeyCreated` / `NamedApiKey` types. Useful for per-environment (prod/staging/CI) keys you can rotate independently without breaking the others.
+
 ## [1.19.0] - 2026-06-20
 
 ### Added
