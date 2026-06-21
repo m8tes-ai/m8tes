@@ -31,6 +31,7 @@ from ._resources.webhooks import Webhooks
 from ._streaming import RunStream
 from ._types import (
     AccountSettings,
+    ApiKeyCreated,
     ApiKeyInfo,
     ApiKeyRotated,
     App,
@@ -48,6 +49,7 @@ from ._types import (
     LessonList,
     McpServer,
     Memory,
+    NamedApiKey,
     PermissionMode,
     PermissionModeResponse,
     PermissionPolicy,
@@ -96,6 +98,7 @@ __all__ = [
     "AccountSettings",
     "Agent",
     "AgentError",
+    "ApiKeyCreated",
     "ApiKeyInfo",
     "ApiKeyRotated",
     "App",
@@ -126,6 +129,7 @@ __all__ = [
     "McpServer",
     "Memory",
     "MetricsEvent",
+    "NamedApiKey",
     "NetworkError",
     "NotFoundError",
     "OAuthError",

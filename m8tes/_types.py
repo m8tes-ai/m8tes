@@ -687,6 +687,52 @@ class ApiKeyRotated:
 
 
 @dataclass
+class ApiKeyCreated:
+    """A newly created or rotated named key. ``api_key`` is shown ONCE — store it now."""
+
+    id: int
+    name: str
+    api_key: str
+    prefix: str
+    expires_at: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ApiKeyCreated:
+        return cls(
+            id=data["id"],
+            name=data["name"],
+            api_key=data["api_key"],
+            prefix=data["prefix"],
+            expires_at=data.get("expires_at"),
+        )
+
+
+@dataclass
+class NamedApiKey:
+    """A managed API key (no secret — the key value is never returned in a list)."""
+
+    id: int
+    name: str
+    prefix: str
+    created_at: str
+    active: bool
+    last_used_at: str | None = None
+    expires_at: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> NamedApiKey:
+        return cls(
+            id=data["id"],
+            name=data["name"],
+            prefix=data["prefix"],
+            created_at=data.get("created_at", ""),
+            active=data.get("active", True),
+            last_used_at=data.get("last_used_at"),
+            expires_at=data.get("expires_at"),
+        )
+
+
+@dataclass
 class SignupResult:
     """Returned by m8tes.signup() — new account with API key.
 
