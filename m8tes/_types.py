@@ -75,6 +75,11 @@ class Teammate:
     webhook_url: str | None = None
     # Claude model alias ("sonnet" | "opus"); None = platform default.
     model: str | None = None
+    # Built-in tool defaults; None = inherit the platform default (enabled).
+    enable_memory: bool | None = None
+    enable_history: bool | None = None
+    enable_task_setup_tools: bool | None = None
+    enable_feedback: bool | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> Teammate:
@@ -100,6 +105,10 @@ class Teammate:
             webhook_enabled=data.get("webhook_enabled", False),
             webhook_url=data.get("webhook_url"),
             model=data.get("model"),
+            enable_memory=data.get("enable_memory"),
+            enable_history=data.get("enable_history"),
+            enable_task_setup_tools=data.get("enable_task_setup_tools"),
+            enable_feedback=data.get("enable_feedback"),
             status=data.get("status", "enabled"),
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at"),
@@ -219,6 +228,11 @@ class Task:
     source_template_task_slug: str | None = None
     is_modified: bool = False
     user_recommends_removal: bool = False
+    # Built-in tool defaults; None = inherit from the teammate (then platform default).
+    enable_memory: bool | None = None
+    enable_history: bool | None = None
+    enable_task_setup_tools: bool | None = None
+    enable_feedback: bool | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> Task:
@@ -241,6 +255,10 @@ class Task:
             source_template_task_slug=data.get("source_template_task_slug"),
             is_modified=data.get("is_modified", False),
             user_recommends_removal=data.get("user_recommends_removal", False),
+            enable_memory=data.get("enable_memory"),
+            enable_history=data.get("enable_history"),
+            enable_task_setup_tools=data.get("enable_task_setup_tools"),
+            enable_feedback=data.get("enable_feedback"),
         )
 
 
@@ -411,6 +429,38 @@ class App:
             category=data.get("category", "general"),
             connected=data.get("connected", False),
             auth_type=data.get("auth_type", ""),
+        )
+
+
+@dataclass
+class BuiltInTool:
+    """A platform built-in tool (memory, task history, task setup, feedback, etc.).
+
+    Built-ins are NOT passed in the ``tools=[...]`` array — that's for integrations
+    and custom MCP servers. The four ``configurable`` ones (memory, history,
+    task_setup_tools, feedback) are toggled via the ``enable_*`` fields on
+    teammates/tasks/runs. ``multi_tenant_safe=False`` means the tool is skipped on
+    end-user (``user_id``-scoped) runs.
+    """
+
+    name: str
+    server_name: str
+    display_name: str
+    description: str
+    enabled: bool
+    multi_tenant_safe: bool
+    configurable: bool
+
+    @classmethod
+    def from_dict(cls, data: dict) -> BuiltInTool:
+        return cls(
+            name=data["name"],
+            server_name=data.get("server_name", ""),
+            display_name=data.get("display_name", data["name"]),
+            description=data.get("description", ""),
+            enabled=data.get("enabled", False),
+            multi_tenant_safe=data.get("multi_tenant_safe", False),
+            configurable=data.get("configurable", False),
         )
 
 

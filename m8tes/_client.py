@@ -13,6 +13,7 @@ from ._resources import (
     Auth,
     Billing,
     Bridges,
+    BuiltInTools,
     Keys,
     McpServers,
     Memories,
@@ -61,6 +62,7 @@ class M8tes:
         self.runs = Runs(self._http)
         self.tasks = Tasks(self._http)
         self.apps = Apps(self._http)
+        self.built_in_tools = BuiltInTools(self._http)
         self.mcp_servers = McpServers(self._http)
         self.memories = Memories(self._http)
         self.permissions = Permissions(self._http)
