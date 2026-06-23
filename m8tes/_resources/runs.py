@@ -39,10 +39,10 @@ class Runs:
         instructions: str | None = None,
         user_id: str | None = None,
         metadata: dict | None = None,
-        memory: bool = True,
-        history: bool = True,
-        task_setup_tools: bool = True,
-        feedback: bool = True,
+        memory: bool | None = None,
+        history: bool | None = None,
+        task_setup_tools: bool | None = None,
+        feedback: bool | None = None,
         human_in_the_loop: bool | None = None,
         permission_mode: str | None = None,
         model: str | None = None,
@@ -57,6 +57,11 @@ class Runs:
 
         Set human_in_the_loop=True to enable interactive features
         (clarifying questions, tool approval, plan mode).
+
+        The four built-in tool toggles (memory, history, task_setup_tools,
+        feedback) are run-level overrides. Leave them None to inherit the
+        teammate default (then the platform default, enabled); pass True/False
+        to force one on/off for this run. See client.built_in_tools.list().
 
         If teammate_id points at an end-user-scoped teammate, omitting user_id
         inherits that scope. Passing a different user_id is rejected.
@@ -74,10 +79,14 @@ class Runs:
             body["user_id"] = user_id
         if metadata is not None:
             body["metadata"] = metadata
-        body["memory"] = memory
-        body["history"] = history
-        body["task_setup_tools"] = task_setup_tools
-        body["feedback"] = feedback
+        if memory is not None:
+            body["memory"] = memory
+        if history is not None:
+            body["history"] = history
+        if task_setup_tools is not None:
+            body["task_setup_tools"] = task_setup_tools
+        if feedback is not None:
+            body["feedback"] = feedback
         if human_in_the_loop is not None:
             body["human_in_the_loop"] = human_in_the_loop
         if permission_mode is not None:

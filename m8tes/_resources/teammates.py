@@ -32,6 +32,10 @@ class Teammates:
         instructions: str | None = None,
         role: str | None = None,
         goals: str | None = None,
+        enable_memory: bool | None = None,
+        enable_history: bool | None = None,
+        enable_task_setup_tools: bool | None = None,
+        enable_feedback: bool | None = None,
         user_id: str | None = None,
         metadata: dict | None = None,
         allowed_senders: list[str] | None = None,
@@ -67,6 +71,14 @@ class Teammates:
             body["role"] = role
         if goals is not None:
             body["goals"] = goals
+        if enable_memory is not None:
+            body["enable_memory"] = enable_memory
+        if enable_history is not None:
+            body["enable_history"] = enable_history
+        if enable_task_setup_tools is not None:
+            body["enable_task_setup_tools"] = enable_task_setup_tools
+        if enable_feedback is not None:
+            body["enable_feedback"] = enable_feedback
         if user_id is not None:
             body["user_id"] = user_id
         if metadata is not None:
@@ -135,6 +147,10 @@ class Teammates:
         allowed_imessage_senders: _list[str] | None = None,
         default_permission_mode: str | None = None,
         model: str | None = _UNSET,
+        enable_memory: bool | None = _UNSET,
+        enable_history: bool | None = _UNSET,
+        enable_task_setup_tools: bool | None = _UNSET,
+        enable_feedback: bool | None = _UNSET,
     ) -> Teammate:
         """Update a teammate (PATCH semantics — omitted fields stay unchanged).
 
@@ -143,6 +159,11 @@ class Teammates:
         it leaves the model unchanged. This mirrors the v2 contract, where null
         is a meaningful model state — deliberately unlike
         ``default_permission_mode``, where None means leave-unchanged.
+
+        The four ``enable_*`` built-in tool defaults follow the same null-is-
+        meaningful rule: pass ``enable_memory=None`` to reset that toggle back to
+        the platform default (inherit), pass True/False to pin it, or omit to
+        leave it unchanged.
         """
         body: dict = {}
         if name is not None:
@@ -171,6 +192,15 @@ class Teammates:
             body["default_permission_mode"] = default_permission_mode
         if model is not _UNSET:
             body["model"] = model  # explicit None -> JSON null -> clears to default
+        # Explicit None -> JSON null -> resets the toggle to the platform default.
+        if enable_memory is not _UNSET:
+            body["enable_memory"] = enable_memory
+        if enable_history is not _UNSET:
+            body["enable_history"] = enable_history
+        if enable_task_setup_tools is not _UNSET:
+            body["enable_task_setup_tools"] = enable_task_setup_tools
+        if enable_feedback is not _UNSET:
+            body["enable_feedback"] = enable_feedback
         resp = self._http.request("PATCH", f"/teammates/{teammate_id}", json=body)
         return Teammate.from_dict(resp.json())
 
