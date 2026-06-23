@@ -4482,3 +4482,50 @@ class TestBuiltInTools:
             assert fetched.enable_history is False
         finally:
             v2_client.teammates.delete(t.id)
+
+
+@pytest.mark.integration
+class TestSlackInboundAndLessons:
+    """Slack inbound enablement + Task.enable_lessons + tasks.update reset."""
+
+    def test_slack_handle_round_trips(self, v2_client):
+        t = v2_client.teammates.create(
+            name="SlackBot", inbound_slack_enabled=True, slack_slug=f"ppc{uuid.uuid4().hex[:6]}"
+        )
+        try:
+            assert t.inbound_slack_enabled is True
+            assert t.slack_slug.startswith("ppc")
+            fetched = v2_client.teammates.get(t.id)
+            assert fetched.inbound_slack_enabled is True
+        finally:
+            v2_client.teammates.delete(t.id)
+
+    def test_enable_slack_without_handle_rejected(self, v2_client):
+        from m8tes._exceptions import ValidationError
+
+        with pytest.raises(ValidationError):
+            v2_client.teammates.create(name="NoHandle", inbound_slack_enabled=True)
+
+    def test_task_enable_lessons_round_trips(self, v2_client):
+        t = v2_client.teammates.create(name="LessonBot")
+        try:
+            task = v2_client.tasks.create(
+                teammate_id=t.id, instructions="weekly", enable_lessons=False
+            )
+            assert task.enable_lessons is False
+            assert v2_client.tasks.get(task.id).enable_lessons is False
+        finally:
+            v2_client.teammates.delete(t.id)
+
+    def test_task_update_reset_enable_to_inherit(self, v2_client):
+        t = v2_client.teammates.create(name="ResetBot")
+        try:
+            task = v2_client.tasks.create(
+                teammate_id=t.id, instructions="x", enable_memory=False
+            )
+            assert task.enable_memory is False
+            # Explicit None resets to inherit (null) — distinct from omitting.
+            updated = v2_client.tasks.update(task.id, enable_memory=None)
+            assert updated.enable_memory is None
+        finally:
+            v2_client.teammates.delete(t.id)
