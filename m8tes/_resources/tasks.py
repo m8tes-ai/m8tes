@@ -3,13 +3,17 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from .._streaming import RunStream
 from .._types import LessonList, PermissionRequest, Run, SyncPage, Task, Trigger
 from ._utils import _build_params
 
 _list = list  # preserve builtin; shadowed by .list() method
+
+# Sentinel distinguishing "not provided" (leave unchanged) from an explicit None
+# (send JSON null → reset the toggle to the platform default). Mirrors teammates.py.
+_UNSET: Any = object()
 
 if TYPE_CHECKING:
     from .._http import HTTPClient
@@ -88,11 +92,14 @@ class Tasks:
         enable_history: bool | None = None,
         enable_task_setup_tools: bool | None = None,
         enable_feedback: bool | None = None,
+        enable_lessons: bool | None = None,
     ) -> Task:
         """Create a reusable task.
 
         The four enable_* fields set this task's default for the built-in tools;
         leave None to inherit the teammate default (then the platform default).
+        enable_lessons toggles whether the teammate accumulates self-improvement
+        lessons across this task's runs (task-level, default on).
         """
         body: dict = {"teammate_id": teammate_id, "instructions": instructions}
         if name is not None:
@@ -113,6 +120,8 @@ class Tasks:
             body["enable_task_setup_tools"] = enable_task_setup_tools
         if enable_feedback is not None:
             body["enable_feedback"] = enable_feedback
+        if enable_lessons is not None:
+            body["enable_lessons"] = enable_lessons
         if not email_notifications:
             body["email_notifications"] = False
         if webhook:
@@ -160,14 +169,18 @@ class Tasks:
         expected_output: str | None = None,
         goals: str | None = None,
         email_notifications: bool | None = None,
-        enable_memory: bool | None = None,
-        enable_history: bool | None = None,
-        enable_task_setup_tools: bool | None = None,
-        enable_feedback: bool | None = None,
+        enable_memory: bool | None = _UNSET,
+        enable_history: bool | None = _UNSET,
+        enable_task_setup_tools: bool | None = _UNSET,
+        enable_feedback: bool | None = _UNSET,
+        enable_lessons: bool | None = None,
     ) -> Task:
         """Update a task (PATCH — omitted fields unchanged).
 
-        Pass an enable_* value to pin this task's default for that built-in tool.
+        For the four ``enable_*`` built-in tool defaults: omit to leave unchanged,
+        pass True/False to pin this task's default, or pass ``None`` to reset that
+        toggle back to inherit-from-teammate (sends JSON null). Mirrors
+        ``teammates.update``.
         """
         body: dict = {}
         if name is not None:
@@ -182,14 +195,18 @@ class Tasks:
             body["goals"] = goals
         if email_notifications is not None:
             body["email_notifications"] = email_notifications
-        if enable_memory is not None:
+        # Explicit None -> JSON null -> resets the toggle to inherit-from-teammate.
+        if enable_memory is not _UNSET:
             body["enable_memory"] = enable_memory
-        if enable_history is not None:
+        if enable_history is not _UNSET:
             body["enable_history"] = enable_history
-        if enable_task_setup_tools is not None:
+        if enable_task_setup_tools is not _UNSET:
             body["enable_task_setup_tools"] = enable_task_setup_tools
-        if enable_feedback is not None:
+        if enable_feedback is not _UNSET:
             body["enable_feedback"] = enable_feedback
+        # enable_lessons is non-null (no reset-to-inherit); send only when set.
+        if enable_lessons is not None:
+            body["enable_lessons"] = enable_lessons
         resp = self._http.request("PATCH", f"/tasks/{task_id}", json=body)
         return Task.from_dict(resp.json())
 

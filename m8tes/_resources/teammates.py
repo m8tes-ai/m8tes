@@ -43,6 +43,9 @@ class Teammates:
         imessage_chat_guid: str | None = None,
         bridge_id: int | None = None,
         allowed_imessage_senders: list[str] | None = None,
+        inbound_slack_enabled: bool = False,
+        slack_slug: str | None = None,
+        allowed_slack_senders: list[str] | None = None,
         email_inbox: bool = False,
         webhook: bool = False,
         default_permission_mode: str | None = None,
@@ -93,6 +96,12 @@ class Teammates:
             body["bridge_id"] = bridge_id
         if allowed_imessage_senders is not None:
             body["allowed_imessage_senders"] = allowed_imessage_senders
+        if inbound_slack_enabled:
+            body["inbound_slack_enabled"] = True
+        if slack_slug is not None:
+            body["slack_slug"] = slack_slug
+        if allowed_slack_senders is not None:
+            body["allowed_slack_senders"] = allowed_slack_senders
         if email_inbox:
             body["email_inbox"] = True
         if webhook:
@@ -145,6 +154,9 @@ class Teammates:
         imessage_chat_guid: str | None = None,
         bridge_id: int | None = None,
         allowed_imessage_senders: _list[str] | None = None,
+        inbound_slack_enabled: bool | None = None,
+        slack_slug: str | None = None,
+        allowed_slack_senders: _list[str] | None = None,
         default_permission_mode: str | None = None,
         model: str | None = _UNSET,
         enable_memory: bool | None = _UNSET,
@@ -188,6 +200,12 @@ class Teammates:
             body["bridge_id"] = bridge_id
         if allowed_imessage_senders is not None:
             body["allowed_imessage_senders"] = allowed_imessage_senders
+        if inbound_slack_enabled is not None:
+            body["inbound_slack_enabled"] = inbound_slack_enabled
+        if slack_slug is not None:
+            body["slack_slug"] = slack_slug
+        if allowed_slack_senders is not None:
+            body["allowed_slack_senders"] = allowed_slack_senders
         if default_permission_mode is not None:
             body["default_permission_mode"] = default_permission_mode
         if model is not _UNSET:
