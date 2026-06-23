@@ -69,6 +69,9 @@ class Teammate:
     imessage_chat_guid: str | None = None
     bridge_id: int | None = None
     allowed_imessage_senders: list[str] | None = None
+    inbound_slack_enabled: bool = False
+    slack_slug: str | None = None
+    allowed_slack_senders: list[str] | None = None
     fetchmail_enabled: bool = False
     fetchmail_address: str | None = None
     webhook_enabled: bool = False
@@ -100,6 +103,9 @@ class Teammate:
             imessage_chat_guid=data.get("imessage_chat_guid"),
             bridge_id=data.get("bridge_id"),
             allowed_imessage_senders=data.get("allowed_imessage_senders"),
+            inbound_slack_enabled=data.get("inbound_slack_enabled", False),
+            slack_slug=data.get("slack_slug"),
+            allowed_slack_senders=data.get("allowed_slack_senders"),
             fetchmail_enabled=data.get("fetchmail_enabled", False),
             fetchmail_address=data.get("fetchmail_address"),
             webhook_enabled=data.get("webhook_enabled", False),
@@ -233,6 +239,8 @@ class Task:
     enable_history: bool | None = None
     enable_task_setup_tools: bool | None = None
     enable_feedback: bool | None = None
+    # Self-improvement lessons toggle (task-level, non-null; default on).
+    enable_lessons: bool = True
 
     @classmethod
     def from_dict(cls, data: dict) -> Task:
@@ -259,6 +267,7 @@ class Task:
             enable_history=data.get("enable_history"),
             enable_task_setup_tools=data.get("enable_task_setup_tools"),
             enable_feedback=data.get("enable_feedback"),
+            enable_lessons=data.get("enable_lessons", True),
         )
 
 

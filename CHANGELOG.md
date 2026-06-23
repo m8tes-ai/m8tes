@@ -2,6 +2,15 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [1.23.0] - 2026-06-23
+
+### Added
+- Slack inbound: `client.teammates.create/update(...)` accept `inbound_slack_enabled`, `slack_slug` (the `@m8tes <handle>` keyword), and `allowed_slack_senders`. Give a teammate a handle and your team triggers it from any Slack channel; replies in-thread continue the run. Enabling without a handle returns `422`; a duplicate handle returns `409`. `Teammate` now exposes all three fields. (Email and iMessage already had this; Slack was the missing inbound channel.)
+- `client.tasks.create/update(...)` accept `enable_lessons` — toggle whether a task's teammate accumulates self-improvement lessons across its runs (task-level, default on).
+
+### Changed
+- `client.tasks.update(...)`: the four `enable_*` built-in tool defaults now reset to inherit-from-teammate when passed `None` (sends JSON null), matching `teammates.update`. Omit to leave unchanged; pass True/False to pin.
+
 ## [1.22.0] - 2026-06-22
 
 ### Added
