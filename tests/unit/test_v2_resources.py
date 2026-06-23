@@ -348,6 +348,21 @@ class TestRuns:
         result._response.close()
 
     @responses.activate
+    def test_stream_join(self, http):
+        """runs.stream(run_id) GETs the join endpoint and returns a RunStream (M4)."""
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/42/stream",
+            body="data: {}\n\n",
+            status=200,
+            content_type="text/event-stream",
+        )
+        result = Runs(http).stream(42)
+        assert isinstance(result, RunStream)
+        assert responses.calls[0].request.url == f"{BASE}/runs/42/stream"
+        result._response.close()
+
+    @responses.activate
     def test_create_non_streaming(self, http):
         responses.add(
             responses.POST,

@@ -185,6 +185,47 @@ with client.runs.create(message="summarize inbox") as stream:
 print(stream.run_id, stream.text)
 ```
 
+### Detect a failed stream
+
+A run can fail mid-stream (expired credential, model rate limit, quota). The default
+`iter_text()` / `stream.text` path drops error events, so either opt into raising or check
+after iterating:
+
+```python
+# Raise RunFailedError if the run fails mid-stream
+for event in client.runs.create(message="...", raise_on_error=True):
+    ...
+
+# Or check without raising
+with client.runs.create(message="...") as stream:
+    for chunk in stream.iter_text():
+        print(chunk, end="")
+    if stream.has_errors:
+        print("run failed:", stream.errors)
+```
+
+### Resume a dropped stream
+
+If the connection drops mid-run (proxy idle-timeout, network blip), rejoin with the
+`run_id` captured from the metadata event. `runs.stream(run_id)` replays the run's full
+history then live deltas, so reset any local accumulation on reconnect:
+
+```python
+stream = client.runs.create(message="long autonomous task")
+run_id = None
+try:
+    for event in stream:
+        run_id = stream.run_id
+        ...
+except Exception:  # connection dropped mid-run
+    if run_id:
+        for event in client.runs.stream(run_id):  # re-attach and replay
+            ...
+```
+
+The server emits a 15s keepalive on the streaming path so a long-silent tool call doesn't
+trip the read timeout; raise it for very long runs with `M8tes(timeout=...)`.
+
 ## Human-in-the-loop
 
 Pass callbacks to `wait()`. Approval pauses are handled inline:
@@ -370,7 +411,7 @@ client.apps.release("twilio", user_id="cust_123")  # release it back
 |----------|------------|-------------|
 | `client.teammates` | `create` `list` `get` `update` `delete` `reset` `enable_webhook` `disable_webhook` `enable_email_inbox` `disable_email_inbox` `enable_fetchmail` `disable_fetchmail` | Agent personas with tools and instructions |
 | `client.teammate_templates` | `list` | Pre-built teammate template catalog (slugs for `teammates.create(from_template=...)`) |
-| `client.runs` | `create` `poll` `wait` `create_and_wait` `reply` `reply_and_wait` `stream_text` `get` `list` `cancel` `retry` `permissions` `approve` `answer` `update_permission_mode` `list_files` `download_file` | Execute teammates and stream results |
+| `client.runs` | `create` `stream` `poll` `wait` `create_and_wait` `reply` `reply_and_wait` `stream_text` `get` `list` `cancel` `retry` `permissions` `approve` `answer` `update_permission_mode` `list_files` `download_file` | Execute teammates and stream results |
 | `client.audit_logs` | `list` | Account-scoped API request history |
 | `client.tasks` | `create` `list` `get` `update` `delete` `run` `run_and_wait` `lessons` `delete_lesson` `clear_lessons` | Reusable task definitions (+ lesson curation) |
 | `client.tasks.triggers` | `create` `list` `delete` | Schedule, webhook, and email triggers |

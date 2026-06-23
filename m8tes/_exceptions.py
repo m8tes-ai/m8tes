@@ -65,6 +65,13 @@ class APIError(M8tesError):
     """500+ — server-side error."""
 
 
+class RunFailedError(M8tesError):
+    """A streaming run emitted one or more error events (e.g. expired credential,
+    model rate limit, quota exhaustion). Raised by RunStream when raise_on_error=True
+    so a failed run is never silently treated as an empty success. `.details["errors"]`
+    holds the raw error messages from the stream."""
+
+
 # Map HTTP status codes to exception classes.
 STATUS_MAP: dict[int, type[M8tesError]] = {
     400: ValidationError,

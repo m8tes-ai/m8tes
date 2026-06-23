@@ -122,10 +122,14 @@ class HTTPClient:
             except (requests.Timeout, requests.ConnectionError) as e:
                 last_exc = e
                 logger.warning("Request failed (attempt %d/%d): %s", attempt + 1, _MAX_RETRIES, e)
-                if attempt < _MAX_RETRIES - 1:
-                    time.sleep(_INITIAL_BACKOFF * (2**attempt))
-                    continue
-                raise APIError(str(e), status_code=None) from e
+                # Only retry idempotent methods. A POST/PATCH that timed out may have already
+                # reached the server (e.g. started a billable run), so re-sending it risks
+                # duplicate runs / charges / side effects — fail immediately and let the caller
+                # decide. Mirrors the status-code retry guard below.
+                if method.upper() not in _SAFE_RETRY_METHODS or attempt >= _MAX_RETRIES - 1:
+                    raise APIError(str(e), status_code=None) from e
+                time.sleep(_INITIAL_BACKOFF * (2**attempt))
+                continue
 
             if resp.ok:
                 return resp

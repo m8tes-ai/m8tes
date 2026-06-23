@@ -21,10 +21,14 @@ class RunStream:
         print(stream.text)  # full accumulated text
     """
 
-    def __init__(self, response: requests.Response):
+    def __init__(self, response: requests.Response, *, raise_on_error: bool = False):
         self._response = response
         self._accumulator = StreamAccumulator()
         self._closed = False
+        # When True, a run that emits error events raises RunFailedError once you finish
+        # iterating the stream — so a mid-run failure is never silently seen as empty
+        # output. No effect until/unless you iterate (the accumulator only fills then).
+        self._raise_on_error = raise_on_error
 
     def _close(self) -> None:
         """Close the underlying response (idempotent)."""
@@ -37,6 +41,11 @@ class RunStream:
             for event in AISDKStreamParser.parse_stream(self._response):
                 self._accumulator.process(event)
                 yield event
+            if self._raise_on_error and self._accumulator.has_errors():
+                from ._exceptions import RunFailedError
+
+                errors = self._accumulator.get_errors()
+                raise RunFailedError(f"Run failed: {'; '.join(errors)}", details={"errors": errors})
         finally:
             self._close()
 
@@ -63,6 +72,20 @@ class RunStream:
         Available after the first metadata event arrives.
         """
         return self._accumulator.run_id
+
+    @property
+    def errors(self) -> list[str]:
+        """Error messages emitted by the run during streaming.
+
+        Check this after iterating (or pass raise_on_error=True) so a run that failed
+        mid-stream isn't mistaken for a successful empty response.
+        """
+        return self._accumulator.get_errors()
+
+    @property
+    def has_errors(self) -> bool:
+        """True if the run emitted any error event during streaming."""
+        return self._accumulator.has_errors()
 
     def iter_text(self) -> Generator[str, None, None]:
         """Yield only text chunks — no event filtering needed.

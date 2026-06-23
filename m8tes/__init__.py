@@ -23,6 +23,7 @@ from ._exceptions import (
     NotFoundError,
     PermissionDeniedError,
     RateLimitError,
+    RunFailedError,
     ValidationError,
 )
 from ._resources.auth import Auth
@@ -141,6 +142,7 @@ __all__ = [
     "Plan",
     "RateLimitError",
     "Run",
+    "RunFailedError",
     "RunFile",
     "RunStream",
     "SignupResult",
