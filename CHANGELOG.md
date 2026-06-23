@@ -2,6 +2,15 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [1.21.0] - 2026-06-22
+
+### Added
+- `RunStream.errors` / `RunStream.has_errors` and a `raise_on_error=True` option on `client.runs.create(...)`: a streaming run that fails mid-flight (expired credential, model rate limit, quota) no longer looks like a successful empty response. With `raise_on_error=True` the stream raises the new `RunFailedError` (carrying `.details["errors"]`) once iteration ends; otherwise check `stream.has_errors` after iterating.
+- `client.runs.stream(run_id)`: join an in-progress run's live SSE stream to reconnect/resume after a dropped connection. Capture `run_id` from a `create(...)` stream's metadata event, then `stream(run_id)` to re-attach — it replays the run's full history then streams live deltas (reset local accumulation on reconnect). 409 if the run is no longer executing — use `get(run_id)` for the result. The server now also emits a 15s keepalive on the streaming path so a long-silent tool call doesn't trip the SDK read timeout.
+
+### Fixed
+- POST requests are no longer retried on a timeout / connection error. A `POST /runs` that times out may have already started a billable run server-side, so the connection-layer retry now honors the same `_SAFE_RETRY_METHODS` guard as the 5xx path and fails fast instead of re-POSTing (which could create duplicate billable runs). GET/HEAD/PUT/DELETE still retry.
+
 ## [1.20.0] - 2026-06-20
 
 ### Added

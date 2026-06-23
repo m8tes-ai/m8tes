@@ -47,6 +47,7 @@ class Runs:
         permission_mode: str | None = None,
         model: str | None = None,
         email_inbox: bool = False,
+        raise_on_error: bool = False,
     ) -> RunStream | Run:
         """Create and execute a run.
 
@@ -88,10 +89,25 @@ class Runs:
 
         if stream:
             resp = self._http.stream("POST", "/runs/", json=body)
-            return RunStream(resp)
+            return RunStream(resp, raise_on_error=raise_on_error)
 
         resp = self._http.request("POST", "/runs/", json=body)
         return Run.from_dict(resp.json())
+
+    def stream(self, run_id: int, *, raise_on_error: bool = False) -> RunStream:
+        """Join an in-progress run's live SSE stream (reconnect / resume).
+
+        Use this to re-attach after a dropped connection: capture ``run_id`` from a
+        ``create(...)`` stream's metadata event, then call ``stream(run_id)`` to rejoin.
+        It replays the run's full history (metadata, prior text/tool events) and then
+        streams live deltas, so reset any local accumulation when you reconnect.
+
+        Raises NotFoundError (404) if the run isn't yours, or a 409 if it is no longer
+        executing — fetch the final result with ``get(run_id)`` instead. GET is safe to
+        retry, so transient network errors are retried automatically.
+        """
+        resp = self._http.stream("GET", f"/runs/{run_id}/stream")
+        return RunStream(resp, raise_on_error=raise_on_error)
 
     def poll(self, run_id: int, *, interval: float = 2.0, timeout: float = 300.0) -> Run:
         """Poll until the run reaches a terminal status. Returns the completed Run.

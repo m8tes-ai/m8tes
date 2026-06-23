@@ -430,6 +430,40 @@ class TestRetrySemantics:
             http.request("POST", "/runs")
         assert http._session.request.call_count == 1
 
+    def test_post_not_retried_on_timeout(self, http):
+        """POST timeout must not be retried — the run may have already started server-side,
+        so re-sending risks a duplicate billable run."""
+        from unittest.mock import MagicMock
+
+        import requests as req_lib
+
+        http._session.request = MagicMock(side_effect=req_lib.Timeout("read timed out"))
+        with pytest.raises(APIError):
+            http.request("POST", "/runs")
+        assert http._session.request.call_count == 1
+
+    def test_post_not_retried_on_connection_error(self, http):
+        """POST connection error must not be retried — risk of duplicate billable run."""
+        from unittest.mock import MagicMock
+
+        import requests as req_lib
+
+        http._session.request = MagicMock(side_effect=req_lib.ConnectionError("reset"))
+        with pytest.raises(APIError):
+            http.request("POST", "/runs")
+        assert http._session.request.call_count == 1
+
+    def test_get_retried_on_timeout(self, http):
+        """GET is idempotent — a timeout should still be retried up to the max."""
+        from unittest.mock import MagicMock
+
+        import requests as req_lib
+
+        http._session.request = MagicMock(side_effect=req_lib.Timeout("read timed out"))
+        with pytest.raises(APIError):
+            http.request("GET", "/x")
+        assert http._session.request.call_count > 1
+
     def test_get_retried_on_500(self, http):
         """GET is idempotent — 500 should be retried."""
         from unittest.mock import MagicMock
