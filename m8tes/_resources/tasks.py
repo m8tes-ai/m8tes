@@ -84,7 +84,16 @@ class Tasks:
         webhook: bool = False,
         schedule: str | None = None,
         schedule_timezone: str = "UTC",
+        enable_memory: bool | None = None,
+        enable_history: bool | None = None,
+        enable_task_setup_tools: bool | None = None,
+        enable_feedback: bool | None = None,
     ) -> Task:
+        """Create a reusable task.
+
+        The four enable_* fields set this task's default for the built-in tools;
+        leave None to inherit the teammate default (then the platform default).
+        """
         body: dict = {"teammate_id": teammate_id, "instructions": instructions}
         if name is not None:
             body["name"] = name
@@ -96,6 +105,14 @@ class Tasks:
             body["goals"] = goals
         if user_id is not None:
             body["user_id"] = user_id
+        if enable_memory is not None:
+            body["enable_memory"] = enable_memory
+        if enable_history is not None:
+            body["enable_history"] = enable_history
+        if enable_task_setup_tools is not None:
+            body["enable_task_setup_tools"] = enable_task_setup_tools
+        if enable_feedback is not None:
+            body["enable_feedback"] = enable_feedback
         if not email_notifications:
             body["email_notifications"] = False
         if webhook:
@@ -143,7 +160,15 @@ class Tasks:
         expected_output: str | None = None,
         goals: str | None = None,
         email_notifications: bool | None = None,
+        enable_memory: bool | None = None,
+        enable_history: bool | None = None,
+        enable_task_setup_tools: bool | None = None,
+        enable_feedback: bool | None = None,
     ) -> Task:
+        """Update a task (PATCH — omitted fields unchanged).
+
+        Pass an enable_* value to pin this task's default for that built-in tool.
+        """
         body: dict = {}
         if name is not None:
             body["name"] = name
@@ -157,6 +182,14 @@ class Tasks:
             body["goals"] = goals
         if email_notifications is not None:
             body["email_notifications"] = email_notifications
+        if enable_memory is not None:
+            body["enable_memory"] = enable_memory
+        if enable_history is not None:
+            body["enable_history"] = enable_history
+        if enable_task_setup_tools is not None:
+            body["enable_task_setup_tools"] = enable_task_setup_tools
+        if enable_feedback is not None:
+            body["enable_feedback"] = enable_feedback
         resp = self._http.request("PATCH", f"/tasks/{task_id}", json=body)
         return Task.from_dict(resp.json())
 
@@ -167,10 +200,10 @@ class Tasks:
         stream: bool = True,
         user_id: str | None = None,
         metadata: dict | None = None,
-        memory: bool = True,
-        history: bool = True,
-        task_setup_tools: bool = True,
-        feedback: bool = True,
+        memory: bool | None = None,
+        history: bool | None = None,
+        task_setup_tools: bool | None = None,
+        feedback: bool | None = None,
         human_in_the_loop: bool | None = None,
         permission_mode: str | None = None,
         model: str | None = None,
@@ -184,16 +217,22 @@ class Tasks:
         Set human_in_the_loop=True to enable interactive features
         (clarifying questions, tool approval, plan mode).
 
+        The four built-in tool toggles (memory, history, task_setup_tools,
+        feedback) are run-level overrides; leave them None to inherit the task
+        then teammate default (then the platform default, enabled).
+
         If the saved task is already scoped to an end user, omitting user_id
         inherits that scope. Passing a different user_id is rejected.
         """
-        body: dict = {
-            "stream": stream,
-            "memory": memory,
-            "history": history,
-            "task_setup_tools": task_setup_tools,
-            "feedback": feedback,
-        }
+        body: dict = {"stream": stream}
+        if memory is not None:
+            body["memory"] = memory
+        if history is not None:
+            body["history"] = history
+        if task_setup_tools is not None:
+            body["task_setup_tools"] = task_setup_tools
+        if feedback is not None:
+            body["feedback"] = feedback
         if user_id is not None:
             body["user_id"] = user_id
         if metadata is not None:

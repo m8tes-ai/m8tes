@@ -2,6 +2,16 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [1.22.0] - 2026-06-22
+
+### Added
+- Built-in tool discovery: `client.built_in_tools.list(teammate_id=..., user_id=...)` enumerates the platform's own tools (memory, task history, task setup, feedback, notify, Slack DM, computer use, and more) with each one's resolved `enabled` state, `multi_tenant_safe` flag, and whether it's `configurable`. These tools are NOT passed in the `tools=[...]` array. New `BuiltInTool` type.
+- Teammate- and task-level defaults for the four configurable built-in tools: `client.teammates.create/update(...)` and `client.tasks.create/update(...)` accept `enable_memory`, `enable_history`, `enable_task_setup_tools`, and `enable_feedback`. A teammate's default now applies to every run of that teammate — including scheduled, webhook, and inbound runs — unless a task or run overrides it. `Teammate` and `Task` expose all four fields.
+
+### Changed
+- The four built-in tool toggles on `runs.create(...)` and `tasks.run(...)` (`memory`, `history`, `task_setup_tools`, `feedback`) now default to `None` (inherit the task/teammate default) instead of `True`. Omitting them previously forced the tools on for that run; they now resolve `run > task > teammate > platform default (enabled)`. Pass `True`/`False` explicitly to force a per-run override. Behavior is unchanged for teammates with no configured default.
+- `client.teammates.update(...)`: passing `enable_memory=None` (or any of the four) now resets that toggle to the platform default (inherit), mirroring how `model=None` clears to the default. Omit the argument to leave it unchanged.
+
 ## [1.21.0] - 2026-06-22
 
 ### Added

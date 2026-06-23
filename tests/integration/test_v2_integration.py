@@ -33,6 +33,7 @@ from m8tes._exceptions import (
 from m8tes._types import (
     AccountSettings,
     AuditLog,
+    BuiltInTool,
     EmailInbox,
     EndUser,
     FetchmailInbox,
@@ -4434,3 +4435,50 @@ class TestKeysCRUD:
                 rekeyed.close()
         finally:
             keyed.close()
+
+
+@pytest.mark.integration
+class TestBuiltInTools:
+    """client.built_in_tools discovery + teammate/task enable_* defaults."""
+
+    def test_list_catalog(self, v2_client):
+        page = v2_client.built_in_tools.list()
+        assert isinstance(page, SyncPage)
+        tools = {t.name: t for t in page.data}
+        assert isinstance(tools["memory"], BuiltInTool)
+        # The four configurable toggles are present and flagged configurable.
+        for name in ("memory", "history", "task_setup_tools", "feedback"):
+            assert tools[name].configurable is True
+        # First-party-only tools are flagged not multi-tenant safe.
+        assert tools["notify"].multi_tenant_safe is False
+
+    def test_teammate_default_reflected_in_discovery(self, v2_client):
+        t = v2_client.teammates.create(name="ToggleBot", enable_feedback=False)
+        try:
+            assert t.enable_feedback is False
+            tools = {x.name: x for x in v2_client.built_in_tools.list(teammate_id=t.id).data}
+            assert tools["feedback"].enabled is False
+            assert tools["memory"].enabled is True
+            # Reset to inherit, then verify it's back to the platform default.
+            reset = v2_client.teammates.update(t.id, enable_feedback=None)
+            assert reset.enable_feedback is None
+        finally:
+            v2_client.teammates.delete(t.id)
+
+    def test_user_id_scope_hides_first_party_only(self, v2_client):
+        tools = {x.name: x for x in v2_client.built_in_tools.list(user_id=_uid()).data}
+        assert tools["notify"].enabled is False
+        assert tools["memory"].enabled is True
+
+    def test_task_default_round_trips(self, v2_client):
+        t = v2_client.teammates.create(name="TaskToggleBot")
+        try:
+            task = v2_client.tasks.create(
+                teammate_id=t.id, instructions="weekly summary", enable_history=False
+            )
+            assert task.enable_history is False
+            assert task.enable_memory is None
+            fetched = v2_client.tasks.get(task.id)
+            assert fetched.enable_history is False
+        finally:
+            v2_client.teammates.delete(t.id)

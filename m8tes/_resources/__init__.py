@@ -6,6 +6,7 @@ from .audit_logs import AuditLogs
 from .auth import Auth
 from .billing import Billing
 from .bridges import Bridges
+from .built_in_tools import BuiltInTools
 from .keys import Keys
 from .mcp_servers import McpServers
 from .memories import Memories
@@ -25,6 +26,7 @@ __all__ = [
     "Auth",
     "Billing",
     "Bridges",
+    "BuiltInTools",
     "Keys",
     "McpServers",
     "Memories",
