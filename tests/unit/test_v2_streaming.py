@@ -3,6 +3,9 @@
 import json
 from unittest.mock import MagicMock
 
+import pytest
+
+from m8tes import RunFailedError
 from m8tes._streaming import RunStream
 from m8tes.streaming import StreamEvent
 
@@ -98,6 +101,41 @@ class TestRunStream:
         # Access accumulator directly to check error was captured
         assert stream._accumulator.has_errors()
         assert "Something went wrong" in stream._accumulator.get_errors()
+
+    def test_errors_exposed_publicly(self):
+        """RunStream surfaces run errors via the public .errors / .has_errors (M1)."""
+        lines = _sse_frame({"type": "error", "error": "Something went wrong"})
+        resp = self._make_response(lines)
+        stream = RunStream(resp)
+        list(stream)
+        assert stream.has_errors is True
+        assert "Something went wrong" in stream.errors
+
+    def test_no_errors_on_clean_stream(self):
+        lines = _sse_frame({"type": "text-delta", "delta": "ok"})
+        resp = self._make_response(lines)
+        stream = RunStream(resp)
+        list(stream)
+        assert stream.has_errors is False
+        assert stream.errors == []
+
+    def test_raise_on_error_raises_run_failed(self):
+        """raise_on_error=True turns a failed run into RunFailedError instead of a
+        silent empty success (M1)."""
+        lines = _sse_frame({"type": "error", "error": "model rate limited"})
+        resp = self._make_response(lines)
+        stream = RunStream(resp, raise_on_error=True)
+        with pytest.raises(RunFailedError) as exc:
+            list(stream)
+        assert "model rate limited" in exc.value.details["errors"]
+        resp.close.assert_called_once()
+
+    def test_raise_on_error_silent_when_no_errors(self):
+        lines = _sse_frame({"type": "text-delta", "delta": "ok"})
+        resp = self._make_response(lines)
+        stream = RunStream(resp, raise_on_error=True)
+        list(stream)  # no raise
+        assert stream.text == "ok"
 
     def test_empty_stream_yields_nothing(self):
         """Empty response yields no events."""
