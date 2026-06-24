@@ -2,6 +2,14 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [1.24.0] - 2026-06-23
+
+### Added
+- `signup(...)` / `signup_and_wait(...)`: `password` is now optional and there's a new `product` arg ("api" or "platform"). Omit `password` for a passwordless, agent-created account — m8tes emails the person a link to set their own password and activate, and the returned key is setup-only until then (revoked on activation). This is the recommended flow when an agent onboards a human: the agent never holds a login credential. `product="platform"` provisions the team product (Company Agent + onboarding); `product="api"` (default) the developer product.
+
+### Changed
+- An unverified account now gets a small preview-run allowance before email verification is required (previously API signups were blocked at 0 runs), so a delegated agent can get started before the human activates. Backward compatible: existing `signup(email, password, first_name)` calls work unchanged.
+
 ## [1.23.0] - 2026-06-23
 
 ### Added

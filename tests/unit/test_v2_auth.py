@@ -30,6 +30,43 @@ def test_signup_uses_canonical_default_base_url(monkeypatch):
 
 
 @responses.activate
+def test_signup_passwordless_omits_password_and_sends_product():
+    """Passwordless signup: no 'password' key in the body; product passes through."""
+    import json as _json
+
+    responses.add(
+        responses.POST,
+        f"{BASE}/signup",
+        json={"api_key": "m8_x", "email": "a@b.co", "verification": "pending", "message": "m"},
+        status=201,
+    )
+    result = signup(email="a@b.co", first_name="Sam", product="platform", base_url=BASE)
+    assert result.api_key == "m8_x"
+    body = _json.loads(responses.calls[0].request.body)
+    assert "password" not in body  # passwordless — agent never sets a credential
+    assert body["product"] == "platform"
+    assert body["email"] == "a@b.co"
+    assert body["first_name"] == "Sam"
+
+
+@responses.activate
+def test_signup_with_password_is_backward_compatible():
+    """Positional password still works and is sent; product defaults to 'api'."""
+    import json as _json
+
+    responses.add(
+        responses.POST,
+        f"{BASE}/signup",
+        json={"api_key": "m8_x", "email": "a@b.co", "message": "m"},
+        status=200,
+    )
+    signup("a@b.co", "pw12345678", "a", base_url=BASE)
+    body = _json.loads(responses.calls[0].request.body)
+    assert body["password"] == "pw12345678"
+    assert body["product"] == "api"
+
+
+@responses.activate
 def test_get_usage():
     responses.add(
         responses.GET,
