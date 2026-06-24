@@ -4520,9 +4520,7 @@ class TestSlackInboundAndLessons:
     def test_task_update_reset_enable_to_inherit(self, v2_client):
         t = v2_client.teammates.create(name="ResetBot")
         try:
-            task = v2_client.tasks.create(
-                teammate_id=t.id, instructions="x", enable_memory=False
-            )
+            task = v2_client.tasks.create(teammate_id=t.id, instructions="x", enable_memory=False)
             assert task.enable_memory is False
             # Explicit None resets to inherit (null) — distinct from omitting.
             updated = v2_client.tasks.update(task.id, enable_memory=None)
