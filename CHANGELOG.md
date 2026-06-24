@@ -5,6 +5,7 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 ## [1.24.0] - 2026-06-23
 
 ### Added
+- `AppTriggerType` (from `client.apps.list_triggers(app)`) now exposes `payload` — the JSON schema of the event data a trigger delivers when it fires — so you can reference event fields when writing task instructions, alongside the existing `config` (the setup schema).
 - Self-improving teammates: `client.teammates.create/update(...)` accept `enable_self_improvement`. When true, the teammate runs a weekly review-and-improve task — it reads its own recent runs and improves itself: rewriting its instructions, refining/creating its tasks, and recording lessons and memory. Reversible self-edits apply autonomously; destructive moves (disabling a task, connecting an integration) are surfaced for human approval. Enabling it implies the task-setup, history, and memory tools. `Teammate` now exposes the field. Multi-tenant safe — the review stays within the teammate's `user_id` scope.
 - `signup(...)` / `signup_and_wait(...)`: `password` is now optional and there's a new `product` arg ("api" or "platform"). Omit `password` for a passwordless, agent-created account — m8tes emails the person a link to set their own password and activate, and the returned key is setup-only until then (revoked on activation). This is the recommended flow when an agent onboards a human: the agent never holds a login credential. `product="platform"` provisions the team product (Company Agent + onboarding); `product="api"` (default) the developer product.
 
