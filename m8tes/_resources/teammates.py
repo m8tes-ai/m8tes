@@ -36,6 +36,7 @@ class Teammates:
         enable_history: bool | None = None,
         enable_task_setup_tools: bool | None = None,
         enable_feedback: bool | None = None,
+        enable_self_improvement: bool | None = None,
         user_id: str | None = None,
         metadata: dict | None = None,
         allowed_senders: list[str] | None = None,
@@ -82,6 +83,8 @@ class Teammates:
             body["enable_task_setup_tools"] = enable_task_setup_tools
         if enable_feedback is not None:
             body["enable_feedback"] = enable_feedback
+        if enable_self_improvement is not None:
+            body["enable_self_improvement"] = enable_self_improvement
         if user_id is not None:
             body["user_id"] = user_id
         if metadata is not None:
@@ -163,6 +166,7 @@ class Teammates:
         enable_history: bool | None = _UNSET,
         enable_task_setup_tools: bool | None = _UNSET,
         enable_feedback: bool | None = _UNSET,
+        enable_self_improvement: bool | None = _UNSET,
     ) -> Teammate:
         """Update a teammate (PATCH semantics — omitted fields stay unchanged).
 
@@ -219,6 +223,8 @@ class Teammates:
             body["enable_task_setup_tools"] = enable_task_setup_tools
         if enable_feedback is not _UNSET:
             body["enable_feedback"] = enable_feedback
+        if enable_self_improvement is not _UNSET:
+            body["enable_self_improvement"] = enable_self_improvement
         resp = self._http.request("PATCH", f"/teammates/{teammate_id}", json=body)
         return Teammate.from_dict(resp.json())
 
