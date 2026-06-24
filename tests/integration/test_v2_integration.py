@@ -4192,7 +4192,7 @@ class TestTeammateTemplates:
             return
 
         try:
-            assert teammate.name == "PPC Manager"
+            assert teammate.name == "PPC specialist"
             assert "google_ads" in (teammate.tools or [])
             # Reset on a freshly enabled teammate with no customizations is
             # a no-op — returns empty list.
