@@ -318,6 +318,7 @@ class AppTriggerType:
     name: str
     description: str | None = None
     config: dict = field(default_factory=dict)
+    payload: dict = field(default_factory=dict)
 
     @classmethod
     def from_dict(cls, data: dict) -> AppTriggerType:
@@ -326,6 +327,7 @@ class AppTriggerType:
             name=data["name"],
             description=data.get("description"),
             config=data.get("config", {}),
+            payload=data.get("payload", {}),
         )
 
 
