@@ -83,6 +83,8 @@ class Teammate:
     enable_history: bool | None = None
     enable_task_setup_tools: bool | None = None
     enable_feedback: bool | None = None
+    # When True, the teammate runs a weekly review-and-improve task over its own runs.
+    enable_self_improvement: bool | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> Teammate:
@@ -115,6 +117,7 @@ class Teammate:
             enable_history=data.get("enable_history"),
             enable_task_setup_tools=data.get("enable_task_setup_tools"),
             enable_feedback=data.get("enable_feedback"),
+            enable_self_improvement=data.get("enable_self_improvement"),
             status=data.get("status", "enabled"),
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at"),
