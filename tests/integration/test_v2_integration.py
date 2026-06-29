@@ -41,6 +41,7 @@ from m8tes._types import (
     Memory,
     PermissionPolicy,
     Run,
+    Skill,
     SyncPage,
     Task,
     Teammate,
@@ -4370,6 +4371,79 @@ class TestMcpServersCRUD:
                 auth_type="custom_header",
                 tool_defs=[{"name": "x", "method": "GET", "path": "/x"}],
             )
+
+
+@pytest.mark.integration
+class TestSkillsCRUD:
+    """client.skills — Agent Skill CRUD, account/teammate scope, end-user isolation.
+
+    Requires the backend to run with custom_skills_enabled=True (same as mcp_servers).
+    """
+
+    def test_full_lifecycle(self, v2_client):
+        skill = v2_client.skills.create(
+            name="acme refund playbook",
+            description="How to process an Acme refund end-to-end.",
+            body="# Steps\n1. Pull the order\n2. Issue the refund",
+        )
+        try:
+            assert isinstance(skill, Skill)
+            assert skill.slug == "acme-refund-playbook"
+            assert skill.scope == "account"
+            assert skill.source == "user"
+
+            assert any(s.id == skill.id for s in v2_client.skills.list())
+            assert v2_client.skills.get(skill.id).name == "acme refund playbook"
+
+            disabled = v2_client.skills.update(skill.id, status="disabled", name="acme v2")
+            assert disabled.status == "disabled"
+            assert disabled.name == "acme v2"
+            assert disabled.slug == "acme-refund-playbook"  # slug stable across rename
+        finally:
+            v2_client.skills.delete(skill.id)
+        assert all(s.id != skill.id for s in v2_client.skills.list())
+
+    def test_teammate_scope(self, v2_client):
+        mate = v2_client.teammates.create(name="SkillBot")
+        try:
+            skill = v2_client.skills.create(
+                name="bot playbook",
+                description="bot-only steps",
+                body="# do",
+                scope="teammate",
+                teammate_id=mate.id,
+            )
+            assert skill.scope == "teammate"
+            assert skill.teammate_id == mate.id
+            v2_client.skills.delete(skill.id)
+        finally:
+            v2_client.teammates.delete(mate.id)
+
+    def test_end_user_scope_isolation(self, v2_client):
+        uid = _uid()
+        scoped = v2_client.skills.create(
+            name="scoped",
+            description="d",
+            body="b",
+            user_id=uid,
+        )
+        try:
+            assert v2_client.skills.get(scoped.id, user_id=uid).id == scoped.id
+            assert all(s.id != scoped.id for s in v2_client.skills.list())
+            with pytest.raises(NotFoundError):
+                v2_client.skills.get(scoped.id)
+            assert any(s.id == scoped.id for s in v2_client.skills.list(user_id=uid))
+        finally:
+            v2_client.skills.delete(scoped.id, user_id=uid)
+
+    def test_cross_account_isolation(self, v2_client, backend_url):
+        skill = v2_client.skills.create(name="private", description="d", body="b")
+        try:
+            other = _new_v2_client(backend_url, email_prefix="skills-cross")
+            with pytest.raises(NotFoundError):
+                other.skills.get(skill.id)
+        finally:
+            v2_client.skills.delete(skill.id)
 
 
 @pytest.mark.integration
