@@ -13,6 +13,7 @@ from .memories import Memories
 from .permissions import Permissions
 from .runs import Runs
 from .settings import Settings
+from .skills import Skills
 from .tasks import Tasks
 from .teammate_templates import TeammateTemplates
 from .teammates import Teammates
@@ -33,6 +34,7 @@ __all__ = [
     "Permissions",
     "Runs",
     "Settings",
+    "Skills",
     "Tasks",
     "TeammateTemplates",
     "Teammates",
