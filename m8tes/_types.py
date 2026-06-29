@@ -1067,3 +1067,40 @@ class McpServer:
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at", ""),
         )
+
+
+@dataclass
+class Skill:
+    """A user/agent-authored Agent Skill (a markdown SKILL.md playbook the agent loads
+    on demand). ``scope`` is "account" (all Mates) or "teammate" (one Mate, ``teammate_id``).
+    ``source`` is "user" or "agent". Skills the agent loads at run start guide its work."""
+
+    id: int
+    slug: str
+    name: str
+    description: str
+    body: str
+    scope: str
+    source: str
+    status: str
+    teammate_id: int | None = None
+    user_id: str | None = None
+    created_at: str = ""
+    updated_at: str = ""
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Skill:
+        return cls(
+            id=data["id"],
+            slug=data["slug"],
+            name=data["name"],
+            description=data["description"],
+            body=data["body"],
+            scope=data.get("scope", "account"),
+            source=data.get("source", "user"),
+            status=data.get("status", "active"),
+            teammate_id=data.get("teammate_id"),
+            user_id=data.get("user_id"),
+            created_at=data.get("created_at", ""),
+            updated_at=data.get("updated_at", ""),
+        )

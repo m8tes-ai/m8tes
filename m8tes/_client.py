@@ -20,6 +20,7 @@ from ._resources import (
     Permissions,
     Runs,
     Settings,
+    Skills,
     Tasks,
     Teammates,
     TeammateTemplates,
@@ -66,6 +67,7 @@ class M8tes:
         self.mcp_servers = McpServers(self._http)
         self.memories = Memories(self._http)
         self.permissions = Permissions(self._http)
+        self.skills = Skills(self._http)
         self.users = Users(self._http)
         self.settings = Settings(self._http)
         self.keys = Keys(self._http)
