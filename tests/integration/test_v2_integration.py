@@ -413,6 +413,26 @@ class TestTeammatesCRUD:
         finally:
             v2_client.bridges.delete(bridge.id)
 
+    def test_hosted_imessage_provision(self, v2_client):
+        """One-click hosted iMessage: provision is idempotent and exposes the handle + link
+        code — or raises 503 when the platform's central server isn't configured."""
+        try:
+            bridge = v2_client.bridges.provision()
+        except M8tesError as e:
+            assert e.status_code == 503  # central server not configured on this backend
+            return
+        try:
+            assert bridge.kind == "hosted"
+            assert bridge.name == "m8tes"
+            assert bridge.link_code
+            assert bridge.webhook_secret is None  # never shown for hosted
+            # Idempotent: a second provision returns the same bridge.
+            assert v2_client.bridges.provision().id == bridge.id
+            # Listing verified handles works (empty until someone texts the code).
+            assert isinstance(v2_client.bridges.list_handles(bridge.id), list)
+        finally:
+            v2_client.bridges.delete(bridge.id)
+
 
 # ── Teammate Webhooks ────────────────────────────────────────────────
 
