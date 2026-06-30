@@ -126,10 +126,13 @@ class Teammate:
 
 @dataclass
 class Bridge:
-    """A per-account BlueBubbles bridge (customer's own iMessage server connection).
+    """A BlueBubbles bridge (Apple Messages connection).
 
-    The password is write-only (never returned). ``webhook_secret`` is populated
-    ONLY on create / rotate_secret and is shown once — store it immediately.
+    Two kinds: ``hosted`` (m8tes-hosted shared server — one-click ``provision()``; creds are
+    platform-managed) and ``self_hosted`` (you run your own BlueBubbles server). For hosted
+    bridges, ``m8tes_handle`` is the number your team texts and ``link_code`` is the code each
+    member texts once to link their phone. The password is write-only (never returned);
+    ``webhook_secret`` is populated ONLY on self-hosted create / rotate_secret (shown once).
     """
 
     id: int
@@ -137,11 +140,16 @@ class Bridge:
     server_url: str
     status: str
     created_at: str
+    kind: str = "self_hosted"
     owner_handle: str | None = None
     last_seen_at: str | None = None
     last_outbound_ok_at: str | None = None
+    # Hosted bridges: the m8tes number/email your team texts + the active link code.
+    m8tes_handle: str | None = None
+    link_code: str | None = None
+    link_code_expires_at: str | None = None
     webhook_secret: str | None = None
-    # Connection health-check result — populated only on create.
+    # Connection health-check result — populated only on self-hosted create.
     connection_ok: bool | None = None
     connection_error: str | None = None
 
@@ -153,12 +161,35 @@ class Bridge:
             server_url=data["server_url"],
             status=data.get("status", "active"),
             created_at=data.get("created_at", ""),
+            kind=data.get("kind", "self_hosted"),
             owner_handle=data.get("owner_handle"),
             last_seen_at=data.get("last_seen_at"),
             last_outbound_ok_at=data.get("last_outbound_ok_at"),
+            m8tes_handle=data.get("m8tes_handle"),
+            link_code=data.get("link_code"),
+            link_code_expires_at=data.get("link_code_expires_at"),
             webhook_secret=data.get("webhook_secret"),
             connection_ok=data.get("connection_ok"),
             connection_error=data.get("connection_error"),
+        )
+
+
+@dataclass
+class HandleLink:
+    """A verified iMessage handle (phone/email) linked to a hosted bridge's account."""
+
+    id: int
+    handle: str
+    verified_at: str
+    label: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> HandleLink:
+        return cls(
+            id=data["id"],
+            handle=data["handle"],
+            verified_at=data.get("verified_at", ""),
+            label=data.get("label"),
         )
 
 
