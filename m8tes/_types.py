@@ -47,6 +47,56 @@ class SyncPage(Generic[T]):
 
 
 @dataclass
+class ModelPricing:
+    """USD price per MILLION tokens (from the same table that bills runs).
+
+    ``cache_read``/``cache_write`` are the prompt-cache rates: on Anthropic models cache_read is
+    discounted and cache_write a premium; on providers without prompt caching both equal the input
+    rate (so an estimate never under-counts).
+    """
+
+    input_per_mtok: float
+    output_per_mtok: float
+    cache_read_per_mtok: float
+    cache_write_per_mtok: float
+    currency: str = "usd"
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ModelPricing:
+        return cls(
+            input_per_mtok=data["input_per_mtok"],
+            output_per_mtok=data["output_per_mtok"],
+            cache_read_per_mtok=data["cache_read_per_mtok"],
+            cache_write_per_mtok=data["cache_write_per_mtok"],
+            currency=data.get("currency", "usd"),
+        )
+
+
+@dataclass
+class Model:
+    """A selectable model. Pass ``id`` as ``model`` on a teammate or a run."""
+
+    id: str
+    name: str
+    description: str
+    provider: str  # "anthropic", "openai", … — who serves it
+    default: bool  # used when ``model`` is omitted / null
+    pricing: ModelPricing | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Model:
+        pricing = data.get("pricing")
+        return cls(
+            id=data["id"],
+            name=data["name"],
+            description=data["description"],
+            provider=data.get("provider", "unknown"),
+            default=data["default"],
+            pricing=ModelPricing.from_dict(pricing) if pricing else None,
+        )
+
+
+@dataclass
 class Teammate:
     """A teammate (agent persona) with tools and instructions."""
 

@@ -39,6 +39,7 @@ from m8tes._types import (
     FetchmailInbox,
     McpServer,
     Memory,
+    Model,
     PermissionPolicy,
     Run,
     Skill,
@@ -4532,6 +4533,33 @@ class TestKeysCRUD:
 
 
 @pytest.mark.integration
+class TestModels:
+    """client.models — discover selectable models + prices."""
+
+    def test_list_models(self, v2_client):
+        page = v2_client.models.list()
+        assert isinstance(page, SyncPage)
+        models = {m.id: m for m in page.data}
+        # Publicly selectable set (not the internal/gateway-only gpt-4o).
+        assert set(models) == {"sonnet", "opus"}
+        assert isinstance(models["opus"], Model)
+        assert models["opus"].default is True
+        assert models["sonnet"].default is False
+        assert models["opus"].provider == "anthropic"
+        # Pricing is populated with real USD-per-MTok numbers (incl. both cache rates).
+        p = models["opus"].pricing
+        assert p is not None
+        assert p.input_per_mtok > 0 and p.output_per_mtok > 0
+        assert p.cache_read_per_mtok > 0 and p.cache_write_per_mtok > 0
+        assert p.currency == "usd"
+        # A returned id is accepted as `model` on a teammate (round-trips, no 422).
+        t = v2_client.teammates.create(name="ModelPick", model=models["sonnet"].id)
+        try:
+            assert t.model == "sonnet"
+        finally:
+            v2_client.teammates.delete(t.id)
+
+
 class TestBuiltInTools:
     """client.built_in_tools discovery + teammate/task enable_* defaults."""
 

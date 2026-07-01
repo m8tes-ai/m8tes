@@ -17,6 +17,7 @@ from ._resources import (
     Keys,
     McpServers,
     Memories,
+    Models,
     Permissions,
     Runs,
     Settings,
@@ -66,6 +67,7 @@ class M8tes:
         self.built_in_tools = BuiltInTools(self._http)
         self.mcp_servers = McpServers(self._http)
         self.memories = Memories(self._http)
+        self.models = Models(self._http)
         self.permissions = Permissions(self._http)
         self.skills = Skills(self._http)
         self.users = Users(self._http)

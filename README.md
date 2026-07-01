@@ -123,6 +123,19 @@ LangChain, CrewAI, and the OpenAI Agents SDK are orchestration frameworks. They 
 
 m8tes is not a framework. It's the hosted runtime layer. The Python SDK is the client on top.
 
+## Models
+
+Pick the model per teammate or per run via `model=`. List what's available (with prices) instead of hardcoding:
+
+```python
+for m in client.models.list().data:
+    print(m.id, m.provider, m.pricing.input_per_mtok, "→", m.pricing.output_per_mtok, "/Mtok")
+
+bot = client.teammates.create(name="Ops", model="sonnet")   # or per run: runs.create(..., model="opus")
+```
+
+Today that's `sonnet` and `opus`; more (non-Anthropic + open-source) appear in `models.list()` as they go live. Omit `model` to use the `default`.
+
 ## Runs
 
 ### Streaming (default)
