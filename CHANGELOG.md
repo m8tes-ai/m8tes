@@ -5,6 +5,7 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 ## [1.25.0] - 2026-06-29
 
 ### Added
+- `client.models.list()` — discover the models you can pass as `model` (on a teammate or a run), with their USD price per million tokens, instead of hardcoding an alias. Each `Model` has `id` (the alias to pass), `name`, `description`, `provider` (`anthropic`/`openai`/…), `default` (used when `model` is omitted), and `pricing` (`input_per_mtok` / `output_per_mtok` / `cache_read_per_mtok` / `cache_write_per_mtok`). **Today the list is `sonnet` + `opus`; more (non-Anthropic + open-source) appear here as they go live** — `model` stays a plain string, so no SDK change is needed.
 - One-click m8tes-hosted iMessage: `client.bridges.provision()` connects Apple Messages without running your own BlueBubbles server — m8tes hosts it. The returned `bridge.m8tes_handle` is the number your users text and `bridge.link_code` is the code each user texts once to link their phone (inbound routes by verified handle). Manage linked handles with `client.bridges.list_handles(bridge_id)` / `remove_handle(bridge_id, handle_id)`, and rotate the code with `regenerate_link_code(bridge_id)`. `Bridge` now exposes `kind` ("hosted" | "self_hosted"), `m8tes_handle`, `link_code`, and `link_code_expires_at`; new `HandleLink` type. The existing `bridges.create(...)` (bring-your-own-server) is unchanged. `provision()` raises if the platform's central server isn't configured (HTTP 503).
 
 ## [1.24.0] - 2026-06-23
