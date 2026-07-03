@@ -2,6 +2,11 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [1.26.2] - 2026-07-03
+
+### Fixed
+- `runs.reply(...)` docstring corrected: a follow-up continues the **same** run (re-opens it, keeps context, no new run-count slot) — it does not create a new run. Docs-only; behavior is unchanged.
+
 ## [1.26.1] - 2026-07-02
 
 ### Added
