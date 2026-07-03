@@ -1104,6 +1104,64 @@ class TestTaskTriggers:
             v2_client.teammates.delete(tm.id)
 
 
+@pytest.mark.integration
+class TestTaskWebhookToggle:
+    """tasks.enable_webhook / disable_webhook — enable, rotate, disable."""
+
+    def test_enable_disable_lifecycle(self, v2_client):
+        tm = v2_client.teammates.create(name="TaskHookHost")
+        try:
+            task = v2_client.tasks.create(teammate_id=tm.id, instructions="hook target")
+            try:
+                hook = v2_client.tasks.enable_webhook(task.id)
+                assert hook.enabled is True
+                assert "/webhooks/tasks/" in hook.url
+
+                # Re-enable rotates the token (old URL invalidated).
+                rotated = v2_client.tasks.enable_webhook(task.id)
+                assert rotated.url != hook.url
+
+                # Disable removes the webhook trigger.
+                v2_client.tasks.disable_webhook(task.id)
+                triggers = v2_client.tasks.triggers.list(task.id)
+                assert not any(tr.type == "webhook" for tr in triggers)
+            finally:
+                v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+
+@pytest.mark.integration
+class TestByIdEndUserScope:
+    """By-id get/update/delete honor the user_id end-user scope (404 on mismatch)."""
+
+    def test_teammate_by_id_scope(self, v2_client):
+        alice = v2_client.teammates.create(name="AliceBot", user_id="alice")
+        try:
+            assert v2_client.teammates.get(alice.id, user_id="alice").id == alice.id
+            with pytest.raises(NotFoundError):
+                v2_client.teammates.get(alice.id, user_id="bob")
+            with pytest.raises(NotFoundError):
+                v2_client.teammates.update(alice.id, user_id="bob", name="hijack")
+        finally:
+            v2_client.teammates.delete(alice.id)
+
+    def test_task_by_id_scope(self, v2_client):
+        alice = v2_client.teammates.create(name="AliceTaskBot", user_id="alice")
+        try:
+            task = v2_client.tasks.create(
+                teammate_id=alice.id, instructions="scoped", user_id="alice"
+            )
+            try:
+                assert v2_client.tasks.get(task.id, user_id="alice").id == task.id
+                with pytest.raises(NotFoundError):
+                    v2_client.tasks.get(task.id, user_id="bob")
+            finally:
+                v2_client.tasks.delete(task.id, user_id="alice")
+        finally:
+            v2_client.teammates.delete(alice.id)
+
+
 # ── Memories ─────────────────────────────────────────────────────────
 
 
