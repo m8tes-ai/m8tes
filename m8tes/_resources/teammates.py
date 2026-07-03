@@ -138,14 +138,18 @@ class Teammates:
             _fetch_next=_fetch_next,
         )
 
-    def get(self, teammate_id: int) -> Teammate:
-        resp = self._http.request("GET", f"/teammates/{teammate_id}")
+    def get(self, teammate_id: int, *, user_id: str | None = None) -> Teammate:
+        """Get a teammate. Pass user_id to scope to one end-user (404 on mismatch)."""
+        resp = self._http.request(
+            "GET", f"/teammates/{teammate_id}", params=_build_params(user_id=user_id)
+        )
         return Teammate.from_dict(resp.json())
 
     def update(
         self,
         teammate_id: int,
         *,
+        user_id: str | None = None,
         name: str | None = None,
         instructions: str | None = None,
         tools: _list[str] | None = None,
@@ -225,11 +229,19 @@ class Teammates:
             body["enable_feedback"] = enable_feedback
         if enable_self_improvement is not _UNSET:
             body["enable_self_improvement"] = enable_self_improvement
-        resp = self._http.request("PATCH", f"/teammates/{teammate_id}", json=body)
+        resp = self._http.request(
+            "PATCH",
+            f"/teammates/{teammate_id}",
+            json=body,
+            params=_build_params(user_id=user_id),
+        )
         return Teammate.from_dict(resp.json())
 
-    def delete(self, teammate_id: int) -> None:
-        self._http.request("DELETE", f"/teammates/{teammate_id}")
+    def delete(self, teammate_id: int, *, user_id: str | None = None) -> None:
+        """Archive a teammate. Pass user_id to scope to one end-user (404 on mismatch)."""
+        self._http.request(
+            "DELETE", f"/teammates/{teammate_id}", params=_build_params(user_id=user_id)
+        )
 
     def reset(self, teammate_id: int, *, fields: _list[str] | None = None) -> _list[str]:
         """Clear customer overrides on a template-linked teammate.

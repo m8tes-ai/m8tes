@@ -2,9 +2,16 @@
 Task management CLI commands.
 
 Provides interactive commands for creating and managing tasks.
+
+Error contract: fatal failures raise (typed SDK exceptions where possible) so
+the command layer maps them to a non-zero exit code. Helpers never swallow a
+fatal error — a swallowed error made `m8tes task list` exit 0 on auth failure.
 """
 
 from typing import TYPE_CHECKING
+
+from ..exceptions import AgentError
+from .util import parse_id as _parse_id
 
 if TYPE_CHECKING:
     from ..client import M8tes
@@ -36,24 +43,20 @@ class TaskCLI:
         print()
 
         # Step 1: Show available teammates and get mate_id
-        try:
-            instances = self.client.instances.list()
-            if not instances:
-                print("❌ No teammates available. Create a teammate first.")
-                print("💡 Run: m8tes mate create")
-                return
-
-            print("Available teammates:")
-            print()
-            for instance in instances:
-                status_emoji = "✅" if instance.status == "enabled" else "⏸️"
-                print(f"  {status_emoji} {instance.id}: {instance.name}")
-                if instance.role:
-                    print(f"     Role: {instance.role}")
-            print()
-        except Exception as e:
-            print(f"❌ Failed to list teammates: {e}")
+        instances = self.client.instances.list()
+        if not instances:
+            print("❌ No teammates available. Create a teammate first.")
+            print("💡 Run: m8tes mate create")
             return
+
+        print("Available teammates:")
+        print()
+        for instance in instances:
+            status_emoji = "✅" if instance.status == "enabled" else "⏸️"
+            print(f"  {status_emoji} {instance.id}: {instance.name}")
+            if instance.role:
+                print(f"     Role: {instance.role}")
+        print()
 
         # Prompt for teammate ID
         mate_id_str = prompt("Teammate ID: ")
@@ -125,26 +128,22 @@ class TaskCLI:
             return
 
         # Create the task
-        try:
-            print("⏳ Creating task...")
-            task = self.client.tasks.create(
-                agent_instance_id=mate_id,
-                name=task_name,
-                instructions=instructions,
-                expected_output=expected_output,
-                goals=goals,
-            )
+        print("⏳ Creating task...")
+        task = self.client.tasks.create(
+            agent_instance_id=mate_id,
+            name=task_name,
+            instructions=instructions,
+            expected_output=expected_output,
+            goals=goals,
+        )
 
-            print("✅ Task created successfully!")
-            print(f"   ID: {task.id}")
-            print(f"   Name: {task.name}")
-            print(f"   Status: {task.status}")
-            print()
-            print("💡 To execute this task:")
-            print(f"   m8tes task execute {task.id}")
-
-        except Exception as e:
-            raise Exception(f"Failed to create task: {e}") from e
+        print("✅ Task created successfully!")
+        print(f"   ID: {task.id}")
+        print(f"   Name: {task.name}")
+        print(f"   Status: {task.status}")
+        print()
+        print("💡 To execute this task:")
+        print(f"   m8tes task execute {task.id}")
 
     def create_non_interactive(
         self,
@@ -164,25 +163,21 @@ class TaskCLI:
             expected_output: Expected output description
             goals: Task goals
         """
-        try:
-            task = self.client.tasks.create(
-                agent_instance_id=int(mate_id),
-                name=name,
-                instructions=instructions,
-                expected_output=expected_output,
-                goals=goals,
-            )
+        task = self.client.tasks.create(
+            agent_instance_id=_parse_id(mate_id, "Teammate ID"),
+            name=name,
+            instructions=instructions,
+            expected_output=expected_output,
+            goals=goals,
+        )
 
-            print("✅ Task created successfully!")
-            print(f"   ID: {task.id}")
-            print(f"   Name: {task.name}")
-            print(f"   Status: {task.status}")
-            print()
-            print("💡 To execute this task:")
-            print(f"   m8tes task execute {task.id}")
-
-        except Exception as e:
-            raise Exception(f"Failed to create task: {e}") from e
+        print("✅ Task created successfully!")
+        print(f"   ID: {task.id}")
+        print(f"   Name: {task.name}")
+        print(f"   Status: {task.status}")
+        print()
+        print("💡 To execute this task:")
+        print(f"   m8tes task execute {task.id}")
 
     def list_interactive(
         self,
@@ -200,56 +195,50 @@ class TaskCLI:
             include_disabled: Include disabled tasks
             include_archived: Include archived tasks
         """
-        try:
-            print("📋 Tasks")
+        print("📋 Tasks")
+        print()
+
+        agent_instance_id = _parse_id(mate_id, "Teammate ID") if mate_id else None
+        tasks = self.client.tasks.list(
+            agent_instance_id=agent_instance_id,
+            status=status,
+            include_disabled=include_disabled,
+            include_archived=include_archived,
+        )
+
+        if not tasks:
+            print("No tasks found.")
+            print("💡 Create a new task with: m8tes task create <mate_id> <name> <instructions>")
+            return
+
+        for task in tasks:
+            # Status emoji
+            if task.status == "enabled":
+                status_emoji = "✅"
+            elif task.status == "disabled":
+                status_emoji = "⏸️"
+            elif task.status == "archived":
+                status_emoji = "🗑️"
+            else:
+                status_emoji = "📋"
+
+            print(f"{status_emoji} {task.name}")
+            print(f"   ID: {task.id}")
+            print(f"   Status: {task.status}")
+            if task.agent_instance_id:
+                print(f"   Teammate: {task.agent_instance_id}")
+
+            # Truncate instructions
+            instructions = (task.instructions or "").strip()
+            if instructions:
+                if len(instructions) > 80:
+                    instructions = instructions[:77] + "..."
+                print(f"   Instructions: {instructions}")
+
+            if task.expected_output:
+                print(f"   Expected output: {task.expected_output[:80]}")
+
             print()
-
-            agent_instance_id = int(mate_id) if mate_id else None
-            tasks = self.client.tasks.list(
-                agent_instance_id=agent_instance_id,
-                status=status,
-                include_disabled=include_disabled,
-                include_archived=include_archived,
-            )
-
-            if not tasks:
-                print("No tasks found.")
-                print(
-                    "💡 Create a new task with: m8tes task create <mate_id> <name> <instructions>"
-                )
-                return
-
-            for task in tasks:
-                # Status emoji
-                if task.status == "enabled":
-                    status_emoji = "✅"
-                elif task.status == "disabled":
-                    status_emoji = "⏸️"
-                elif task.status == "archived":
-                    status_emoji = "🗑️"
-                else:
-                    status_emoji = "📋"
-
-                print(f"{status_emoji} {task.name}")
-                print(f"   ID: {task.id}")
-                print(f"   Status: {task.status}")
-                if task.agent_instance_id:
-                    print(f"   Teammate: {task.agent_instance_id}")
-
-                # Truncate instructions
-                instructions = (task.instructions or "").strip()
-                if instructions:
-                    if len(instructions) > 80:
-                        instructions = instructions[:77] + "..."
-                    print(f"   Instructions: {instructions}")
-
-                if task.expected_output:
-                    print(f"   Expected output: {task.expected_output[:80]}")
-
-                print()
-
-        except Exception as e:
-            print(f"❌ Failed to list tasks: {e}")
 
     def get_interactive(self, task_id: str) -> None:
         """
@@ -258,30 +247,24 @@ class TaskCLI:
         Args:
             task_id: Task ID to retrieve
         """
-        try:
-            task = self.client.tasks.get(int(task_id))
+        task = self.client.tasks.get(_parse_id(task_id, "Task ID"))
 
-            print("📋 Task Details")
-            print()
-            print(f"  ID: {task.id}")
-            print(f"  Name: {task.name}")
-            print(f"  Status: {task.status}")
-            if task.agent_instance_id:
-                print(f"  Teammate: {task.agent_instance_id}")
-            print(f"  Instructions: {task.instructions}")
-            if task.expected_output:
-                print(f"  Expected output: {task.expected_output}")
-            if task.goals:
-                print(f"  Goals: {task.goals}")
-            if task.created_at:
-                print(f"  Created: {task.created_at}")
-            if task.updated_at:
-                print(f"  Updated: {task.updated_at}")
-
-        except ValueError as e:
-            print(f"❌ Invalid task ID: {e}")
-        except Exception as e:
-            print(f"❌ Failed to get task: {e}")
+        print("📋 Task Details")
+        print()
+        print(f"  ID: {task.id}")
+        print(f"  Name: {task.name}")
+        print(f"  Status: {task.status}")
+        if task.agent_instance_id:
+            print(f"  Teammate: {task.agent_instance_id}")
+        print(f"  Instructions: {task.instructions}")
+        if task.expected_output:
+            print(f"  Expected output: {task.expected_output}")
+        if task.goals:
+            print(f"  Goals: {task.goals}")
+        if task.created_at:
+            print(f"  Created: {task.created_at}")
+        if task.updated_at:
+            print(f"  Updated: {task.updated_at}")
 
     def execute_interactive(self, task_id: str) -> None:
         """
@@ -292,38 +275,34 @@ class TaskCLI:
         """
         from .display import create_display
 
+        task = self.client.tasks.get(_parse_id(task_id, "Task ID"))
+
+        print(f"🎯 Executing task: {task.name}")
+        print()
+
+        # Create display renderer
+        display = create_display("verbose")
+        display.start()
+
+        # Stream task execution
         try:
-            task = self.client.tasks.get(int(task_id))
+            for event in task.execute():
+                display.on_event(event)
 
-            print(f"🎯 Executing task: {task.name}")
-            print()
+            display.finish()
 
-            # Create display renderer
-            display = create_display("verbose")
-            display.start()
+            # Check for errors
+            if display.accumulator.has_errors():
+                print("\n❌ Task execution failed:")
+                for error in display.accumulator.get_errors():
+                    print(f"   {error}")
+                raise AgentError("Run finished with errors")
+            print("\n✅ Task completed")
 
-            # Stream task execution
-            try:
-                for event in task.execute():
-                    display.on_event(event)
-
-                display.finish()
-
-                # Check for errors
-                if display.accumulator.has_errors():
-                    print("\n❌ Task execution failed:")
-                    for error in display.accumulator.get_errors():
-                        print(f"   {error}")
-                else:
-                    print("\n✅ Task completed")
-
-            except KeyboardInterrupt:
-                display.finish()
-                print("\n\n⏸️  Task execution interrupted")
-                raise
-
-        except Exception as e:
-            print(f"❌ Failed to execute task: {e}")
+        except KeyboardInterrupt:
+            display.finish()
+            print("\n\n⏸️  Task execution interrupted")
+            raise
 
     def update_interactive(
         self,
@@ -343,28 +322,24 @@ class TaskCLI:
             expected_output: New expected output
             goals: New goals
         """
-        try:
-            task = self.client.tasks.update(
-                int(task_id),
-                name=name,
-                instructions=instructions,
-                expected_output=expected_output,
-                goals=goals,
-            )
+        task = self.client.tasks.update(
+            _parse_id(task_id, "Task ID"),
+            name=name,
+            instructions=instructions,
+            expected_output=expected_output,
+            goals=goals,
+        )
 
-            print("✅ Task updated successfully!")
-            print(f"   ID: {task.id}")
-            if name:
-                print(f"   Name: {task.name}")
-            if instructions:
-                print("   Instructions: Updated")
-            if expected_output:
-                print("   Expected output: Updated")
-            if goals:
-                print("   Goals: Updated")
-
-        except Exception as e:
-            print(f"❌ Failed to update task: {e}")
+        print("✅ Task updated successfully!")
+        print(f"   ID: {task.id}")
+        if name:
+            print(f"   Name: {task.name}")
+        if instructions:
+            print("   Instructions: Updated")
+        if expected_output:
+            print("   Expected output: Updated")
+        if goals:
+            print("   Goals: Updated")
 
     def enable_interactive(self, task_id: str) -> None:
         """
@@ -373,15 +348,11 @@ class TaskCLI:
         Args:
             task_id: Task ID to enable
         """
-        try:
-            task = self.client.tasks.enable(int(task_id))
+        task = self.client.tasks.enable(_parse_id(task_id, "Task ID"))
 
-            print("✅ Task enabled successfully!")
-            print(f"   ID: {task.id}")
-            print(f"   Status: {task.status}")
-
-        except Exception as e:
-            print(f"❌ Failed to enable task: {e}")
+        print("✅ Task enabled successfully!")
+        print(f"   ID: {task.id}")
+        print(f"   Status: {task.status}")
 
     def disable_interactive(self, task_id: str) -> None:
         """
@@ -390,15 +361,11 @@ class TaskCLI:
         Args:
             task_id: Task ID to disable
         """
-        try:
-            task = self.client.tasks.disable(int(task_id))
+        task = self.client.tasks.disable(_parse_id(task_id, "Task ID"))
 
-            print("✅ Task disabled successfully!")
-            print(f"   ID: {task.id}")
-            print(f"   Status: {task.status}")
-
-        except Exception as e:
-            print(f"❌ Failed to disable task: {e}")
+        print("✅ Task disabled successfully!")
+        print(f"   ID: {task.id}")
+        print(f"   Status: {task.status}")
 
     def archive_interactive(self, task_id: str) -> None:
         """
@@ -407,14 +374,10 @@ class TaskCLI:
         Args:
             task_id: Task ID to archive
         """
-        try:
-            success = self.client.tasks.archive(int(task_id))
+        success = self.client.tasks.archive(_parse_id(task_id, "Task ID"))
 
-            if success:
-                print("✅ Task archived successfully!")
-                print(f"   ID: {task_id}")
-            else:
-                print("❌ Failed to archive task")
+        if not success:
+            raise AgentError("Archive operation failed")
 
-        except Exception as e:
-            print(f"❌ Failed to archive task: {e}")
+        print("✅ Task archived successfully!")
+        print(f"   ID: {task_id}")

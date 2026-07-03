@@ -178,7 +178,7 @@ class ListCommand(Command):
             print(f"❌ Authentication failed: {e}")
             show_auth_guidance()
             return 1
-        except (AgentError, NetworkError) as e:
+        except (AgentError, NetworkError, ValidationError) as e:
             print(f"❌ Error listing tasks: {e}")
             return 1
 
@@ -213,7 +213,7 @@ class GetCommand(Command):
             print(f"❌ Authentication failed: {e}")
             show_auth_guidance()
             return 1
-        except (AgentError, NetworkError) as e:
+        except (AgentError, NetworkError, ValidationError) as e:
             print(f"❌ Error getting task: {e}")
             return 1
 
@@ -248,7 +248,7 @@ class ExecuteCommand(Command):
             print(f"❌ Authentication failed: {e}")
             show_auth_guidance()
             return 1
-        except (AgentError, NetworkError) as e:
+        except (AgentError, NetworkError, ValidationError) as e:
             print(f"❌ Task execution failed: {e}")
             return 1
         except KeyboardInterrupt:

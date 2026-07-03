@@ -144,6 +144,21 @@ class TestTeammates:
         assert t.id == 42
 
     @responses.activate
+    def test_get_forwards_user_id(self, http):
+        responses.add(responses.GET, f"{BASE}/teammates/42", json={"id": 42, "name": "Bot"})
+        Teammates(http).get(42, user_id="alice")
+        assert responses.calls[0].request.params.get("user_id") == "alice"
+
+    @responses.activate
+    def test_update_and_delete_forward_user_id(self, http):
+        responses.add(responses.PATCH, f"{BASE}/teammates/1", json={"id": 1, "name": "N"})
+        responses.add(responses.DELETE, f"{BASE}/teammates/1", status=204)
+        Teammates(http).update(1, user_id="alice", name="N")
+        assert responses.calls[0].request.params.get("user_id") == "alice"
+        Teammates(http).delete(1, user_id="alice")
+        assert responses.calls[1].request.params.get("user_id") == "alice"
+
+    @responses.activate
     def test_update(self, http):
         responses.add(responses.PATCH, f"{BASE}/teammates/1", json={"id": 1, "name": "New"})
         t = Teammates(http).update(1, name="New")
@@ -741,6 +756,38 @@ class TestRunConvenienceHelpers:
 
 
 class TestTasks:
+    @responses.activate
+    def test_get_update_delete_forward_user_id(self, http):
+        task_json = {"id": 5, "teammate_id": 2, "instructions": "x"}
+        responses.add(responses.GET, f"{BASE}/tasks/5", json=task_json)
+        responses.add(responses.PATCH, f"{BASE}/tasks/5", json=task_json)
+        responses.add(responses.DELETE, f"{BASE}/tasks/5", status=204)
+        Tasks(http).get(5, user_id="alice")
+        assert responses.calls[0].request.params.get("user_id") == "alice"
+        Tasks(http).update(5, user_id="alice", name="N")
+        assert responses.calls[1].request.params.get("user_id") == "alice"
+        Tasks(http).delete(5, user_id="alice")
+        assert responses.calls[2].request.params.get("user_id") == "alice"
+
+    @responses.activate
+    def test_enable_webhook(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/tasks/1/webhook",
+            json={"enabled": True, "url": "https://api.m8tes.ai/api/v1/webhooks/tasks/1/whk_abc"},
+            status=201,
+        )
+        result = Tasks(http).enable_webhook(1)
+        assert isinstance(result, TeammateWebhook)
+        assert result.enabled is True
+        assert "whk_abc" in result.url
+
+    @responses.activate
+    def test_disable_webhook(self, http):
+        responses.add(responses.DELETE, f"{BASE}/tasks/1/webhook", status=204)
+        Tasks(http).disable_webhook(1)
+        assert responses.calls[0].request.method == "DELETE"
+
     @responses.activate
     def test_create(self, http):
         responses.add(

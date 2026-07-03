@@ -1,7 +1,7 @@
 """
 m8tes - Python SDK for m8tes.ai
 
-Developer SDK for building AI teammates.
+Developer SDK for building autonomous agents.
 """
 
 from importlib.metadata import PackageNotFoundError, version

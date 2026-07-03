@@ -22,7 +22,7 @@ class MateCommandGroup(CommandGroup):
 
     name = "mate"
     aliases: ClassVar[list[str]] = ["teammate", "m"]
-    description = "Manage AI teammates"
+    description = "Manage teammates"
     requires_auth = True
 
     def __init__(self) -> None:
@@ -198,7 +198,7 @@ class ListCommand(Command):
             print(f"❌ Authentication failed: {e}")
             show_auth_guidance()
             return 1
-        except (AgentError, NetworkError) as e:
+        except (AgentError, NetworkError, ValidationError) as e:
             print(f"❌ Error listing teammates: {e}")
             return 1
 
@@ -233,7 +233,7 @@ class GetCommand(Command):
             print(f"❌ Authentication failed: {e}")
             show_auth_guidance()
             return 1
-        except (AgentError, NetworkError) as e:
+        except (AgentError, NetworkError, ValidationError) as e:
             print(f"❌ Error getting teammate: {e}")
             return 1
 
@@ -362,7 +362,7 @@ class TaskCommand(Command):
             print(f"❌ Authentication failed: {e}")
             show_auth_guidance()
             return 1
-        except (AgentError, NetworkError) as e:
+        except (AgentError, NetworkError, ValidationError) as e:
             print(f"❌ Teammate task failed: {e}")
             return 1
         except KeyboardInterrupt:
@@ -440,7 +440,7 @@ class ChatCommand(Command):
             print(f"❌ Authentication failed: {e}")
             show_auth_guidance()
             return 1
-        except (AgentError, NetworkError) as e:
+        except (AgentError, NetworkError, ValidationError) as e:
             print(f"❌ Teammate chat failed: {e}")
             return 1
         except KeyboardInterrupt:
@@ -578,7 +578,10 @@ class EnableCommand(Command):
             print(f"❌ Authentication failed: {e}")
             show_auth_guidance()
             return 1
-        except (AgentError, NetworkError, ValidationError) as e:
+        except (NetworkError, ValidationError):
+            # Message already shown by enable_interactive
+            return 1
+        except Exception as e:
             print(f"❌ Error enabling teammate: {e}")
             return 1
 
@@ -619,14 +622,11 @@ class DisableCommand(Command):
             print(f"❌ Authentication failed: {e}")
             show_auth_guidance()
             return 1
-        except ValidationError:
-            # Specific handling for validation errors (already shown in disable_interactive)
+        except (ValidationError, NetworkError):
+            # Message already shown by disable_interactive
             return 1
-        except (AgentError, NetworkError):
-            # Network/agent errors (already shown in disable_interactive)
-            return 1
-        except Exception:
-            # Catch-all for unexpected errors (already shown in disable_interactive)
+        except Exception as e:
+            print(f"❌ Error disabling teammate: {e}")
             return 1
 
 
@@ -666,12 +666,9 @@ class ArchiveCommand(Command):
             print(f"❌ Authentication failed: {e}")
             show_auth_guidance()
             return 1
-        except ValidationError:
-            # Specific handling for validation errors (already shown in archive_interactive)
+        except (ValidationError, NetworkError):
+            # Message already shown by archive_interactive
             return 1
-        except (AgentError, NetworkError):
-            # Network/agent errors (already shown in archive_interactive)
-            return 1
-        except Exception:
-            # Catch-all for unexpected errors (already shown in archive_interactive)
+        except Exception as e:
+            print(f"❌ Error archiving teammate: {e}")
             return 1

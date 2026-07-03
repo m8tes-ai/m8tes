@@ -51,7 +51,7 @@ def _real_main(argv: list[str]) -> int:
     # Create main parser
     parser = argparse.ArgumentParser(
         prog="m8tes",
-        description="M8tes SDK - AI teammates",
+        description="m8tes SDK - Ship agents. Skip the infrastructure.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
 

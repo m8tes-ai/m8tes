@@ -182,7 +182,8 @@ class UsageCommand(Command):
             print("=" * 30)
             print(f"Plan: {usage.plan}")
             print(f"Runs: {usage.runs_used} / {usage.runs_limit}")
-            print(f"Cost: ${usage.cost_used:.2f} / ${usage.cost_limit:.2f}")
+            # cost_used/cost_limit are decimal STRINGS on the wire (exact money)
+            print(f"Cost: ${float(usage.cost_used):.2f} / ${float(usage.cost_limit):.2f}")
             print(f"Period ends: {usage.period_end}")
             return 0
         except SDKM8tesError as e:

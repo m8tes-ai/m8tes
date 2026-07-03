@@ -2,6 +2,25 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [1.26.1] - 2026-07-02
+
+### Added
+- `client.teammates.get/update/delete(...)` and `client.tasks.get/update/delete(...)` accept `user_id` — scope a by-id operation to one end-user. The server now enforces it: a mismatched or account-level resource 404s (mirroring the list filter), so a multi-tenant integration can't reach another end-user's teammate/task by id. Omit `user_id` for the account-operator view (unchanged).
+
+## [1.26.0] - 2026-07-02
+
+### Added
+- `client.tasks.enable_webhook(task_id)` / `client.tasks.disable_webhook(task_id)` — enable, disable, or rotate a task's webhook trigger (parity with the teammate methods). Previously a task webhook could only be created; a leaked `whk_` URL kept starting billable runs until the task itself was deleted. Calling `enable_webhook` again rotates the token, invalidating the previous URL.
+
+### Changed
+- CLI help copy: `m8tes --help` now reads "m8tes SDK - Ship agents. Skip the infrastructure." and the `mate` group reads "Manage teammates" (dropped the off-voice "AI teammates").
+
+### Fixed
+- `m8tes task ...` and `m8tes run ...` now work with API-key auth. The backend's v1 task/run endpoints (which the CLI uses) were JWT-only and rejected every `m8_` key — `m8tes task list` failed "Invalid API key" with a valid key while `mate list` worked. (Server-side fix; ships with the same release.)
+- `m8tes auth status` no longer reports a valid API key as invalid — and no longer deletes the saved keychain token on that false positive. It probed the JWT-only legacy `/api/v1` user endpoint, which rejects every `m8_` key; it now validates against the v2 API (`GET /verify/status`) and reports the email-verified state. A status command never mutates credentials.
+- `m8tes auth usage` no longer crashes with "Unknown format code 'f'" — `cost_used`/`cost_limit` arrive as decimal strings and are now converted before formatting.
+- CLI failure paths now always exit non-zero. Previously several interactive helpers printed the error and swallowed it, so the command exited 0 — `m8tes mate list && deploy` would proceed on an auth failure. Affected: `mate list/get/create/update/enable/disable/archive/task/chat`, `task list/get/create/execute/update/enable/disable/archive`, and `auth login/register`. A run that finishes with streamed errors (`mate task`, `task execute`) now also exits 1. Non-numeric IDs raise a clear `ValidationError` ("Teammate ID must be a number, got 'abc'") instead of being swallowed after a raw `int()` error message.
+
 ## [1.25.0] - 2026-06-29
 
 ### Added

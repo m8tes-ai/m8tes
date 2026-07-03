@@ -2,6 +2,10 @@
 Teammate management CLI commands.
 
 Provides interactive commands for creating and managing m8tes teammates.
+
+Error contract: fatal failures raise (typed SDK exceptions where possible) so
+the command layer maps them to a non-zero exit code. Helpers never swallow a
+fatal error — a swallowed error made `m8tes mate list` exit 0 on auth failure.
 """
 
 # mypy: disable-error-code="union-attr,arg-type,index,assignment,no-untyped-def"
@@ -11,6 +15,12 @@ from typing import Any
 
 from ..client import M8tes
 from .prompt import confirm_prompt, prompt
+from .util import parse_id
+
+
+def _parse_mate_id(mate_id: str) -> int:
+    return parse_id(mate_id, "Teammate ID")
+
 
 # Available tools with descriptions
 AVAILABLE_TOOLS = [
@@ -218,31 +228,29 @@ class MateCLI:
             inbound_imessage_enabled: Enable inbound Apple Messages routing
             imessage_chat_guid: BlueBubbles chat GUID used for inbound routing and replies
         """
-        try:
-            role = role.strip() if isinstance(role, str) else role
-            if not role:
-                role = None
-            goals = goals.strip() if isinstance(goals, str) else goals
-            if goals is not None and not goals:
-                goals = None
-            if inbound_imessage_enabled and not imessage_chat_guid:
-                raise ValueError("--imessage-chat-guid is required when --enable-imessage is set")
-            instance = self.client.instances.create(
-                name=name,
-                tools=tools,
-                instructions=instructions,
-                role=role,
-                goals=goals,
-                integration_ids=integration_ids,
-                inbound_imessage_enabled=inbound_imessage_enabled,
-                imessage_chat_guid=imessage_chat_guid,
-            )
+        from ..exceptions import ValidationError
 
-            print("✅ Teammate created successfully!")
-            self._show_mate_usage_guide(instance)
+        role = role.strip() if isinstance(role, str) else role
+        if not role:
+            role = None
+        goals = goals.strip() if isinstance(goals, str) else goals
+        if goals is not None and not goals:
+            goals = None
+        if inbound_imessage_enabled and not imessage_chat_guid:
+            raise ValidationError("--imessage-chat-guid is required when --enable-imessage is set")
+        instance = self.client.instances.create(
+            name=name,
+            tools=tools,
+            instructions=instructions,
+            role=role,
+            goals=goals,
+            integration_ids=integration_ids,
+            inbound_imessage_enabled=inbound_imessage_enabled,
+            imessage_chat_guid=imessage_chat_guid,
+        )
 
-        except Exception as e:
-            raise Exception(f"Failed to create teammate: {e}") from e
+        print("✅ Teammate created successfully!")
+        self._show_mate_usage_guide(instance)
 
     def _create_mate(self) -> None:
         """
@@ -371,21 +379,17 @@ class MateCLI:
             return
 
         # Create the teammate instance
-        try:
-            print("⏳ Creating teammate...")
-            instance = self.client.instances.create(
-                name=mate_name,
-                tools=tools,
-                instructions=instructions,
-                role=mate_role,
-                goals=goals,
-            )
+        print("⏳ Creating teammate...")
+        instance = self.client.instances.create(
+            name=mate_name,
+            tools=tools,
+            instructions=instructions,
+            role=mate_role,
+            goals=goals,
+        )
 
-            print("✅ Teammate created successfully!")
-            self._show_mate_usage_guide(instance)
-
-        except Exception as e:
-            print(f"❌ Failed to create teammate: {e}")
+        print("✅ Teammate created successfully!")
+        self._show_mate_usage_guide(instance)
 
     def _parse_tool_selection(self, tool_input: str) -> list[str] | None:
         """
@@ -463,59 +467,56 @@ class MateCLI:
         Args:
             include_disabled: Include disabled teammates in listing
         """
-        try:
-            print("👥 Your Teammates")
-            print()
+        print("👥 Your Teammates")
+        print()
 
-            # Use instances instead of agents (enabled first, then disabled if requested)
-            instances = self.client.instances.list(include_disabled=include_disabled)
+        # Use instances instead of agents (enabled first, then disabled if requested)
+        instances = self.client.instances.list(include_disabled=include_disabled)
 
-            if not instances:
-                print("No teammates found.")
-                print("💡 Create your first teammate with: m8tes mate create")
-                if not include_disabled:
-                    print("💡 To see disabled teammates: m8tes mate list --include-disabled")
-                return
+        if not instances:
+            print("No teammates found.")
+            print("💡 Create your first teammate with: m8tes mate create")
+            if not include_disabled:
+                print("💡 To see disabled teammates: m8tes mate list --include-disabled")
+            return
 
-            for instance in instances:
-                # Status emoji
-                if instance.status == "enabled":
-                    status_emoji = "✅"
-                elif instance.status == "disabled":
-                    status_emoji = "⏸️"
-                else:
-                    status_emoji = "📦"  # archived or other
+        for instance in instances:
+            # Status emoji
+            if instance.status == "enabled":
+                status_emoji = "✅"
+            elif instance.status == "disabled":
+                status_emoji = "⏸️"
+            else:
+                status_emoji = "📦"  # archived or other
 
-                print(f"{status_emoji} {instance.name}")
-                print(f"   ID: {instance.id}")
-                print(f"   Status: {instance.status}")
-                if instance.role:
-                    print(f"   Role: {instance.role}")
-                tools_display = ", ".join(instance.tools) if instance.tools else "None"
-                print(f"   Tools: {tools_display}")
+            print(f"{status_emoji} {instance.name}")
+            print(f"   ID: {instance.id}")
+            print(f"   Status: {instance.status}")
+            if instance.role:
+                print(f"   Role: {instance.role}")
+            tools_display = ", ".join(instance.tools) if instance.tools else "None"
+            print(f"   Tools: {tools_display}")
 
-                # Truncate instructions smartly
-                instructions = (instance.instructions or "").strip()
-                if instructions:
-                    if len(instructions) > 80:
-                        instructions = instructions[:77] + "..."
-                    print(f"   Instructions: {instructions}")
-                else:
-                    print("   Instructions: (none provided)")
+            # Truncate instructions smartly
+            instructions = (instance.instructions or "").strip()
+            if instructions:
+                if len(instructions) > 80:
+                    instructions = instructions[:77] + "..."
+                print(f"   Instructions: {instructions}")
+            else:
+                print("   Instructions: (none provided)")
 
-                if instance.goals:
-                    goals_preview = instance.goals.strip().replace("\n", " / ")
-                    if len(goals_preview) > 80:
-                        goals_preview = goals_preview[:77] + "..."
-                    print(f"   Goals: {goals_preview}")
+            if instance.goals:
+                goals_preview = instance.goals.strip().replace("\n", " / ")
+                if len(goals_preview) > 80:
+                    goals_preview = goals_preview[:77] + "..."
+                print(f"   Goals: {goals_preview}")
 
-                # Show run stats
+            # Show run stats (only when the API provided them)
+            if instance.run_count is not None:
                 print(f"   Runs: {instance.run_count}")
 
-                print()
-
-        except Exception as e:
-            print(f"❌ Failed to list teammates: {e}")
+            print()
 
     def _format_timestamp(self, timestamp: str) -> str:
         """
@@ -566,36 +567,31 @@ class MateCLI:
         Args:
             mate_id: Teammate ID to retrieve
         """
-        try:
-            instance = self.client.instances.get(int(mate_id))
+        instance = self.client.instances.get(_parse_mate_id(mate_id))
 
-            print("🤝 Teammate Details")
-            print()
-            print(f"  ID: {instance.id}")
-            print(f"  Name: {instance.name}")
-            if instance.role:
-                print(f"  Role: {instance.role}")
-            if instance.agent_type:
-                print(f"  Type: {instance.agent_type}")
-            print(f"  Status: {instance.status}")
-            tools_display = ", ".join(instance.tools) if instance.tools else "None"
-            print(f"  Tools: {tools_display}")
-            instructions = instance.instructions or "(none provided)"
-            print(f"  Instructions: {instructions}")
-            if instance.goals:
-                print("  Goals:")
-                for line in instance.goals.splitlines():
-                    print(f"    {line}")
-            else:
-                print("  Goals: None")
-            print()
+        print("🤝 Teammate Details")
+        print()
+        print(f"  ID: {instance.id}")
+        print(f"  Name: {instance.name}")
+        if instance.role:
+            print(f"  Role: {instance.role}")
+        if instance.agent_type:
+            print(f"  Type: {instance.agent_type}")
+        print(f"  Status: {instance.status}")
+        tools_display = ", ".join(instance.tools) if instance.tools else "None"
+        print(f"  Tools: {tools_display}")
+        instructions = instance.instructions or "(none provided)"
+        print(f"  Instructions: {instructions}")
+        if instance.goals:
+            print("  Goals:")
+            for line in instance.goals.splitlines():
+                print(f"    {line}")
+        else:
+            print("  Goals: None")
+        print()
+        if instance.run_count is not None:
             print(f"  Total Runs: {instance.run_count}")
-            print(f"  Created: {instance.created_at}")
-
-        except ValueError as e:
-            print(f"❌ Invalid teammate ID: {e}")
-        except Exception as e:
-            print(f"❌ Failed to get teammate: {e}")
+        print(f"  Created: {instance.created_at}")
 
     def task_interactive(
         self,
@@ -614,79 +610,79 @@ class MateCLI:
             output_format: Display format ("verbose", "compact", or "json")
             debug: Enable debug mode with detailed logging
         """
+        from ..exceptions import AgentError
         from .display import create_display
 
+        # Show task header (unless json mode)
+        if output_format != "json":
+            print(f"🎯 Task: {message}")
+            print()
+
+        instance = self.client.instances.get(_parse_mate_id(mate_id))
+
+        if output_format != "json":
+            print(f"🤝 Using: {instance.name} (ID: {instance.id})")
+            print()
+
+        if debug:
+            print("[DEBUG] Starting task execution...")
+            print()
+
+        # Create display renderer
+        display = create_display(output_format)
+        display.start()
+
+        # Stream task execution
+        event_count = 0
         try:
-            # Show task header (unless json mode)
-            if output_format != "json":
-                print(f"🎯 Task: {message}")
-                print()
+            for event in instance.execute_task(
+                message, stream=True, format="events", task_setup_tools=task_setup_tools
+            ):
+                event_count += 1
+                if debug and output_format != "json":
+                    print(f"[DEBUG] Event #{event_count}: {event.type}")
+                display.on_event(event)
 
-            instance = self.client.instances.get(int(mate_id))
-
-            if output_format != "json":
-                print(f"🤝 Using: {instance.name} (ID: {instance.id})")
-                print()
+            display.finish()
 
             if debug:
-                print("[DEBUG] Starting task execution...")
+                print(f"\n[DEBUG] Received {event_count} events")
+                print(f"[DEBUG] Text accumulated: {len(display.get_final_text())} chars")
+                print(f"[DEBUG] Errors: {len(display.accumulator.get_errors())}")
+
+            # Check for errors or empty response
+            has_errors = display.accumulator.has_errors()
+            has_text = bool(display.get_final_text())
+            has_tool_calls = bool(display.accumulator.get_tool_calls())
+
+            if has_errors and output_format != "json":
+                print("\n❌ Teammate encountered errors:")
+                for error in display.accumulator.get_errors():
+                    print(f"   {error}")
+            elif not has_text and not has_tool_calls and output_format != "json":
+                print("\n⚠️  Warning: Teammate produced no output")
+                if not debug:
+                    print("   This may indicate a configuration or API issue.")
+                    print("   Run with --debug for more details.")
+
+            # Show run summary with results
+            self._show_run_summary(instance, output_format, debug=debug)
+
+            # Show completion (unless json mode)
+            if output_format != "json":
                 print()
+                if has_errors:
+                    print("❌ Task failed")
+                else:
+                    print("✅ Task completed")
 
-            # Create display renderer
-            display = create_display(output_format)
-            display.start()
+            if has_errors:
+                raise AgentError("Run finished with errors")
 
-            # Stream task execution
-            event_count = 0
-            try:
-                for event in instance.execute_task(
-                    message, stream=True, format="events", task_setup_tools=task_setup_tools
-                ):
-                    event_count += 1
-                    if debug and output_format != "json":
-                        print(f"[DEBUG] Event #{event_count}: {event.type}")
-                    display.on_event(event)
-
-                display.finish()
-
-                if debug:
-                    print(f"\n[DEBUG] Received {event_count} events")
-                    print(f"[DEBUG] Text accumulated: {len(display.get_final_text())} chars")
-                    print(f"[DEBUG] Errors: {len(display.accumulator.get_errors())}")
-
-                # Check for errors or empty response
-                has_errors = display.accumulator.has_errors()
-                has_text = bool(display.get_final_text())
-                has_tool_calls = bool(display.accumulator.get_tool_calls())
-
-                if has_errors and output_format != "json":
-                    print("\n❌ Teammate encountered errors:")
-                    for error in display.accumulator.get_errors():
-                        print(f"   {error}")
-                elif not has_text and not has_tool_calls and output_format != "json":
-                    print("\n⚠️  Warning: Teammate produced no output")
-                    if not debug:
-                        print("   This may indicate a configuration or API issue.")
-                        print("   Run with --debug for more details.")
-
-                # Show run summary with results
-                self._show_run_summary(instance, output_format, debug=debug)
-
-                # Show completion (unless json mode)
-                if output_format != "json":
-                    print()
-                    if has_errors:
-                        print("❌ Task failed")
-                    else:
-                        print("✅ Task completed")
-
-            except KeyboardInterrupt:
-                display.finish()
-                print("\n\n⏸️  Task interrupted")
-                raise
-
-        except Exception as e:
-            print(f"❌ Failed to execute run: {e}")
+        except KeyboardInterrupt:
+            display.finish()
+            print("\n\n⏸️  Task interrupted")
+            raise
 
     def chat_interactive(
         self, mate_id: str, resume_run_id: int | None = None, output_format: str = "verbose"
@@ -714,19 +710,15 @@ class MateCLI:
             print()
 
         # Get instance and start chat session
-        try:
-            instance = self.client.instances.get(int(mate_id))
-            chat_session = instance.start_chat_session(resume_run_id=resume_run_id)
-            if output_format != "json":
-                print(f"🤝 Chatting with: {instance.name} (ID: {instance.id})")
-                if resume_run_id:
-                    print(f"🔄 Resumed session from run {chat_session.run.id}")
-                else:
-                    print(f"📝 Session Run ID: {chat_session.run.id}")
-                print()
-        except Exception as e:
-            print(f"❌ Failed to start chat: {e}")
-            return
+        instance = self.client.instances.get(_parse_mate_id(mate_id))
+        chat_session = instance.start_chat_session(resume_run_id=resume_run_id)
+        if output_format != "json":
+            print(f"🤝 Chatting with: {instance.name} (ID: {instance.id})")
+            if resume_run_id:
+                print(f"🔄 Resumed session from run {chat_session.run.id}")
+            else:
+                print(f"📝 Session Run ID: {chat_session.run.id}")
+            print()
 
         try:
             while True:
@@ -817,8 +809,6 @@ class MateCLI:
             chat_session.end()
             if output_format != "json":
                 print("\n\n👋 Chat session ended")
-        except Exception as e:
-            print(f"\n❌ Chat error: {e}")
 
     def update_interactive(self, mate_id: str) -> None:
         """
@@ -827,59 +817,53 @@ class MateCLI:
         Args:
             mate_id: Teammate ID to update
         """
-        try:
-            # Get current teammate
-            instance = self.client.instances.get(int(mate_id))
+        # Get current teammate
+        instance = self.client.instances.get(_parse_mate_id(mate_id))
 
-            print(f"🔧 Update Teammate: {instance.name} (ID: {instance.id})")
-            print()
-            print("Current configuration:")
-            print(f"  Name: {instance.name}")
-            print(f"  Instructions: {instance.instructions}")
-            print()
+        print(f"🔧 Update Teammate: {instance.name} (ID: {instance.id})")
+        print()
+        print("Current configuration:")
+        print(f"  Name: {instance.name}")
+        print(f"  Instructions: {instance.instructions}")
+        print()
 
-            # Prompt for new values
-            print("Enter new values (press Enter to keep current):")
-            print()
+        # Prompt for new values
+        print("Enter new values (press Enter to keep current):")
+        print()
 
-            new_name = prompt(f"Name [{instance.name}]: ", allow_empty=True)
-            if not new_name:
-                new_name = None
+        new_name = prompt(f"Name [{instance.name}]: ", allow_empty=True)
+        if not new_name:
+            new_name = None
 
-            print()
-            print("Instructions (current):")
-            print(f"  {instance.instructions}")
-            print()
-            new_instructions = prompt(
-                "New instructions (or press Enter to keep): ", allow_empty=True
-            )
+        print()
+        print("Instructions (current):")
+        print(f"  {instance.instructions}")
+        print()
+        new_instructions = prompt("New instructions (or press Enter to keep): ", allow_empty=True)
 
-            # Check if anything changed
-            if not new_name and not new_instructions:
-                print("❌ No changes made")
-                return
+        # Check if anything changed
+        if not new_name and not new_instructions:
+            print("❌ No changes made")
+            return
 
-            # Confirm update
-            print()
-            print("📋 Update Summary:")
-            if new_name:
-                print(f"  Name: {instance.name} → {new_name}")
-            if new_instructions:
-                print("  Instructions: Updated")
-            print()
+        # Confirm update
+        print()
+        print("📋 Update Summary:")
+        if new_name:
+            print(f"  Name: {instance.name} → {new_name}")
+        if new_instructions:
+            print("  Instructions: Updated")
+        print()
 
-            if not confirm_prompt("Apply these changes?", default=True):
-                print("❌ Update cancelled")
-                return
+        if not confirm_prompt("Apply these changes?", default=True):
+            print("❌ Update cancelled")
+            return
 
-            # Update instance
-            print("⏳ Updating teammate...")
-            instance.update(name=new_name, instructions=new_instructions)
+        # Update instance
+        print("⏳ Updating teammate...")
+        instance.update(name=new_name, instructions=new_instructions)
 
-            print("✅ Teammate updated successfully!")
-
-        except Exception as e:
-            print(f"❌ Failed to update teammate: {e}")
+        print("✅ Teammate updated successfully!")
 
     def update_non_interactive(
         self,
@@ -900,27 +884,23 @@ class MateCLI:
             inbound_imessage_enabled: Enable or disable Apple Messages routing
             imessage_chat_guid: Updated BlueBubbles chat GUID
         """
-        try:
-            # Get current teammate
-            instance = self.client.instances.get(int(mate_id))
+        # Get current teammate
+        instance = self.client.instances.get(_parse_mate_id(mate_id))
 
-            # Update instance
-            instance.update(
-                name=name,
-                instructions=instructions,
-                inbound_imessage_enabled=inbound_imessage_enabled,
-                imessage_chat_guid=imessage_chat_guid,
-            )
+        # Update instance
+        instance.update(
+            name=name,
+            instructions=instructions,
+            inbound_imessage_enabled=inbound_imessage_enabled,
+            imessage_chat_guid=imessage_chat_guid,
+        )
 
-            print("✅ Teammate updated successfully!")
-            print(f"   ID: {instance.id}")
-            if name:
-                print(f"   New Name: {name}")
-            if instructions:
-                print("   Instructions: Updated")
-
-        except Exception as e:
-            raise Exception(f"Failed to update teammate: {e}") from e
+        print("✅ Teammate updated successfully!")
+        print(f"   ID: {instance.id}")
+        if name:
+            print(f"   New Name: {name}")
+        if instructions:
+            print("   Instructions: Updated")
 
     def enable_interactive(self, mate_id: str) -> None:
         """
@@ -929,11 +909,11 @@ class MateCLI:
         Args:
             mate_id: Teammate ID to enable
         """
-        from ..exceptions import AuthenticationError, NetworkError, ValidationError
+        from ..exceptions import NetworkError, ValidationError
 
         try:
             # Get teammate info
-            instance = self.client.instances.get(int(mate_id))
+            instance = self.client.instances.get(_parse_mate_id(mate_id))
 
             print(f"✅ Enable Teammate: {instance.name} (ID: {instance.id})")
             print()
@@ -951,19 +931,13 @@ class MateCLI:
             print("✅ Teammate enabled successfully!")
             print(f"   Status: {instance.status}")
 
-        except ValueError as e:
-            print(f"❌ Invalid teammate ID: {e}")
-            print("   Please provide a numeric teammate ID")
-        except AuthenticationError as e:
-            print(f"❌ Authentication failed: {e}")
-            print("   Your session may have expired. Try: m8tes auth login")
         except ValidationError as e:
             print(f"❌ Failed to enable teammate: {e}")
+            raise
         except NetworkError as e:
             print(f"❌ Network error: {e}")
             print("   Check your connection and try again")
-        except Exception as e:
-            print(f"❌ Unexpected error occurred: {e}")
+            raise
 
     def disable_interactive(self, mate_id: str, force: bool = False) -> None:
         """
@@ -973,15 +947,16 @@ class MateCLI:
             mate_id: Teammate ID to disable
             force: Skip confirmation prompt
         """
-        from ..exceptions import AuthenticationError, NetworkError, ValidationError
+        from ..exceptions import NetworkError, ValidationError
 
         try:
             # Get teammate info
-            instance = self.client.instances.get(int(mate_id))
+            instance = self.client.instances.get(_parse_mate_id(mate_id))
 
             print(f"⏸️  Disable Teammate: {instance.name} (ID: {instance.id})")
             print()
-            print(f"  Run count: {instance.run_count}")
+            if instance.run_count is not None:
+                print(f"  Run count: {instance.run_count}")
             print(f"  Status: {instance.status}")
             print()
 
@@ -1010,19 +985,13 @@ class MateCLI:
             print("   Run history has been preserved.")
             print(f"💡 To re-enable: m8tes mate enable {instance.id}")
 
-        except ValueError as e:
-            print(f"❌ Invalid teammate ID: {e}")
-            print("   Please provide a numeric teammate ID")
-        except AuthenticationError as e:
-            print(f"❌ Authentication failed: {e}")
-            print("   Your session may have expired. Try: m8tes auth login")
         except ValidationError as e:
             print(f"❌ Failed to disable teammate: {e}")
+            raise
         except NetworkError as e:
             print(f"❌ Network error: {e}")
             print("   Check your connection and try again")
-        except Exception as e:
-            print(f"❌ Unexpected error occurred: {e}")
+            raise
 
     def archive_interactive(self, mate_id: str, force: bool = False) -> None:
         """
@@ -1032,15 +1001,16 @@ class MateCLI:
             mate_id: Teammate ID to archive
             force: Skip confirmation prompt
         """
-        from ..exceptions import AuthenticationError, NetworkError, ValidationError
+        from ..exceptions import AgentError, NetworkError, ValidationError
 
         try:
             # Get teammate info
-            instance = self.client.instances.get(int(mate_id))
+            instance = self.client.instances.get(_parse_mate_id(mate_id))
 
             print(f"🗑️  Archive Teammate: {instance.name} (ID: {instance.id})")
             print()
-            print(f"  Run count: {instance.run_count}")
+            if instance.run_count is not None:
+                print(f"  Run count: {instance.run_count}")
             print(f"  Status: {instance.status}")
             print()
 
@@ -1059,18 +1029,12 @@ class MateCLI:
             print("⏳ Archiving teammate...")
             success = instance.archive()
 
-            if success:
-                print("✅ Teammate archived successfully!")
-                print("   Run history has been preserved.")
-            else:
-                print("❌ Failed to archive teammate: Operation returned false")
+            if not success:
+                raise AgentError("Archive operation failed")
 
-        except ValueError as e:
-            print(f"❌ Invalid teammate ID: {e}")
-            print("   Please provide a numeric teammate ID")
-        except AuthenticationError as e:
-            print(f"❌ Authentication failed: {e}")
-            print("   Your session may have expired. Try: m8tes auth login")
+            print("✅ Teammate archived successfully!")
+            print("   Run history has been preserved.")
+
         except ValidationError as e:
             error_msg = str(e)
             if "not found" in error_msg.lower():
@@ -1087,14 +1051,11 @@ class MateCLI:
                 print("❌ Access denied: You don't have permission to archive this teammate")
             else:
                 print(f"❌ Failed to archive teammate: {error_msg}")
+            raise
         except NetworkError as e:
             print(f"❌ Network error: {e}")
             print("   Check your connection and try again")
-        except Exception as e:
-            print(f"❌ Unexpected error occurred: {e}")
-            print("If the problem persists:")
-            print("  • Use: m8tes --help")
-            print("  • Contact support if needed")
+            raise
 
     def _show_run_summary(
         self, instance, output_format: str = "verbose", debug: bool = False

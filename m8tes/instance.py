@@ -43,7 +43,9 @@ class AgentInstance:
         self.imessage_chat_guid = data.get("imessage_chat_guid")
         self.status = data.get("status")
         self.is_active = data.get("is_active")
-        self.run_count = data.get("run_count", 0)
+        # None when the API omits it — the v1 list serializer does not send run_count,
+        # so a default of 0 would render a made-up "Runs: 0" in the CLI.
+        self.run_count = data.get("run_count")
         self.created_at = data.get("created_at")
         self.updated_at = data.get("updated_at")
         self._data = data

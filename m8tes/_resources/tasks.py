@@ -6,7 +6,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, cast
 
 from .._streaming import RunStream
-from .._types import LessonList, PermissionRequest, Run, SyncPage, Task, Trigger
+from .._types import LessonList, PermissionRequest, Run, SyncPage, Task, TeammateWebhook, Trigger
 from ._utils import _build_params
 
 _list = list  # preserve builtin; shadowed by .list() method
@@ -155,14 +155,16 @@ class Tasks:
             _fetch_next=_fetch_next,
         )
 
-    def get(self, task_id: int) -> Task:
-        resp = self._http.request("GET", f"/tasks/{task_id}")
+    def get(self, task_id: int, *, user_id: str | None = None) -> Task:
+        """Get a task. Pass user_id to scope to one end-user (404 on mismatch)."""
+        resp = self._http.request("GET", f"/tasks/{task_id}", params=_build_params(user_id=user_id))
         return Task.from_dict(resp.json())
 
     def update(
         self,
         task_id: int,
         *,
+        user_id: str | None = None,
         name: str | None = None,
         instructions: str | None = None,
         tools: _list[str] | None = None,
@@ -207,7 +209,9 @@ class Tasks:
         # enable_lessons is non-null (no reset-to-inherit); send only when set.
         if enable_lessons is not None:
             body["enable_lessons"] = enable_lessons
-        resp = self._http.request("PATCH", f"/tasks/{task_id}", json=body)
+        resp = self._http.request(
+            "PATCH", f"/tasks/{task_id}", json=body, params=_build_params(user_id=user_id)
+        )
         return Task.from_dict(resp.json())
 
     def run(
@@ -313,8 +317,22 @@ class Tasks:
             timeout=poll_timeout,
         )
 
-    def delete(self, task_id: int) -> None:
-        self._http.request("DELETE", f"/tasks/{task_id}")
+    def delete(self, task_id: int, *, user_id: str | None = None) -> None:
+        """Archive a task. Pass user_id to scope to one end-user (404 on mismatch)."""
+        self._http.request("DELETE", f"/tasks/{task_id}", params=_build_params(user_id=user_id))
+
+    def enable_webhook(self, task_id: int) -> TeammateWebhook:
+        """Enable (or rotate) the task's webhook trigger. Returns the URL (shown once).
+
+        Calling again generates a fresh token, invalidating the previous URL —
+        use this to rotate a leaked webhook URL.
+        """
+        resp = self._http.request("POST", f"/tasks/{task_id}/webhook")
+        return TeammateWebhook.from_dict(resp.json())
+
+    def disable_webhook(self, task_id: int) -> None:
+        """Disable the task's webhook trigger. POSTs to the old URL stop starting runs."""
+        self._http.request("DELETE", f"/tasks/{task_id}/webhook")
 
     # ── Lessons (what the task's teammate has learned) ──────────────────────
 
