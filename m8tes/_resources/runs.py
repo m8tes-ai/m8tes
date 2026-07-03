@@ -401,7 +401,11 @@ class Runs:
         task_setup_tools: bool | None = None,
         feedback: bool | None = None,
     ) -> RunStream | Run:
-        """Follow-up message on an existing run. Creates a new run ID.
+        """Follow-up message on an existing run.
+
+        Continues the SAME run — it re-opens the run (reusing ``run_id``), keeps
+        the prior context, and does not create a new run or consume a new
+        run-count slot. It only burns tokens.
 
         With stream=True (default): returns iterable RunStream of events.
         With stream=False: returns Run immediately (status="running").
