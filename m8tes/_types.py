@@ -790,7 +790,6 @@ class EndUser:
 class AccountSettings:
     """Account-level settings."""
 
-    company_research: bool
     # Per-end-user (multi-tenant) sub-caps; None = no cap.
     per_end_user_run_limit: int | None = None
     per_end_user_cost_limit_cents: int | None = None
@@ -800,7 +799,6 @@ class AccountSettings:
     @classmethod
     def from_dict(cls, data: dict) -> AccountSettings:
         return cls(
-            company_research=data["company_research"],
             per_end_user_run_limit=data.get("per_end_user_run_limit"),
             per_end_user_cost_limit_cents=data.get("per_end_user_cost_limit_cents"),
             retention_mode=data.get("retention_mode", "standard"),

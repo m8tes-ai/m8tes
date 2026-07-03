@@ -3317,24 +3317,10 @@ class TestEndUsersCRUD:
 @pytest.mark.integration
 class TestSettingsCRUD:
     def test_get_defaults(self, v2_client):
-        """Default settings: company_research enabled."""
+        """Default settings: standard retention, no sub-caps."""
         settings = v2_client.settings.get()
         assert isinstance(settings, AccountSettings)
-        assert settings.company_research is True
-
-    def test_toggle_company_research(self, v2_client):
-        """Disable and re-enable company research."""
-        # Disable
-        updated = v2_client.settings.update(company_research=False)
-        assert updated.company_research is False
-
-        # Verify persisted
-        fetched = v2_client.settings.get()
-        assert fetched.company_research is False
-
-        # Re-enable
-        restored = v2_client.settings.update(company_research=True)
-        assert restored.company_research is True
+        assert settings.retention_mode == "standard"
 
     def test_per_end_user_sub_caps(self, v2_client):
         """Set, read back, and clear the per-end-user multi-tenant sub-caps."""

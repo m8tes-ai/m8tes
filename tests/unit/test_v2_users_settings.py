@@ -179,11 +179,11 @@ class TestSettings:
         responses.add(
             responses.GET,
             f"{BASE}/settings/",
-            json={"company_research": True},
+            json={"retention_mode": "standard"},
         )
         settings = Settings(http).get()
         assert isinstance(settings, AccountSettings)
-        assert settings.company_research is True
+        assert settings.retention_mode == "standard"
 
     @responses.activate
     def test_update(self):
@@ -191,13 +191,13 @@ class TestSettings:
         responses.add(
             responses.PATCH,
             f"{BASE}/settings/",
-            json={"company_research": False},
+            json={"retention_mode": "metadata_only"},
         )
-        settings = Settings(http).update(company_research=False)
-        assert settings.company_research is False
+        settings = Settings(http).update(retention_mode="metadata_only")
+        assert settings.retention_mode == "metadata_only"
 
         body = responses.calls[0].request.body
-        assert b"company_research" in body
+        assert b"retention_mode" in body
 
     @responses.activate
     def test_update_omits_none(self):
@@ -206,7 +206,7 @@ class TestSettings:
         responses.add(
             responses.PATCH,
             f"{BASE}/settings/",
-            json={"company_research": True},
+            json={"retention_mode": "standard"},
         )
         Settings(http).update()
         body = responses.calls[0].request.body

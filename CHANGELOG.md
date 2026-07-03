@@ -2,6 +2,11 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [2.0.0] - 2026-07-03
+
+### Removed
+- **BREAKING**: `client.settings.update(company_research=...)` and `AccountSettings.company_research`. The background company-research pipeline was removed — company context is now researched agentically by the Company Agent (platform product) or set directly on the profile. Remove the kwarg/field from your code; all other settings (`retention_mode`, per-end-user sub-caps) are unchanged.
+
 ## [1.26.2] - 2026-07-03
 
 ### Fixed
