@@ -20,29 +20,14 @@ def test_get_settings():
     responses.add(
         responses.GET,
         f"{BASE}/settings/",
-        json={"company_research": True},
+        json={"retention_mode": "standard"},
         status=200,
     )
 
     settings = Settings(_http()).get()
 
     assert isinstance(settings, AccountSettings)
-    assert settings.company_research is True
-
-
-@responses.activate
-def test_update_settings_with_value():
-    responses.add(
-        responses.PATCH,
-        f"{BASE}/settings/",
-        json={"company_research": False},
-        status=200,
-    )
-
-    settings = Settings(_http()).update(company_research=False)
-
-    assert settings.company_research is False
-    assert json.loads(responses.calls[0].request.body) == {"company_research": False}
+    assert settings.retention_mode == "standard"
 
 
 @responses.activate
@@ -50,7 +35,7 @@ def test_update_settings_without_changes_sends_empty_body():
     responses.add(
         responses.PATCH,
         f"{BASE}/settings/",
-        json={"company_research": True},
+        json={"retention_mode": "standard"},
         status=200,
     )
 
@@ -65,7 +50,6 @@ def test_get_settings_includes_sub_caps():
         responses.GET,
         f"{BASE}/settings/",
         json={
-            "company_research": True,
             "per_end_user_run_limit": 25,
             "per_end_user_cost_limit_cents": 500,
         },
@@ -84,7 +68,6 @@ def test_update_sub_caps_set_value():
         responses.PATCH,
         f"{BASE}/settings/",
         json={
-            "company_research": True,
             "per_end_user_run_limit": 25,
             "per_end_user_cost_limit_cents": None,
         },
@@ -102,7 +85,7 @@ def test_update_retention_mode():
     responses.add(
         responses.PATCH,
         f"{BASE}/settings/",
-        json={"company_research": True, "retention_mode": "metadata_only"},
+        json={"retention_mode": "metadata_only"},
         status=200,
     )
 
@@ -117,7 +100,7 @@ def test_get_defaults_retention_standard():
     responses.add(
         responses.GET,
         f"{BASE}/settings/",
-        json={"company_research": True},  # older backend without the field
+        json={},  # older backend without the field
         status=200,
     )
 
@@ -131,7 +114,6 @@ def test_update_sub_cap_clear_sends_explicit_null():
         responses.PATCH,
         f"{BASE}/settings/",
         json={
-            "company_research": True,
             "per_end_user_run_limit": None,
             "per_end_user_cost_limit_cents": None,
         },
