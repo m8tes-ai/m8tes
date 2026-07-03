@@ -15,6 +15,16 @@ from typing import Any
 CANCELLED_EXIT = 130  # POSIX: 128 + SIGINT (2)
 
 
+def parse_id(value: str, label: str) -> int:
+    """Parse a numeric CLI ID, raising a typed error the command layer maps to exit 1."""
+    from ..exceptions import ValidationError
+
+    try:
+        return int(value)
+    except ValueError as e:
+        raise ValidationError(f"{label} must be a number, got {value!r}") from e
+
+
 def _print_cancelled(msg: str = "✖ Cancelled by user") -> None:
     """Print cancellation message to stderr."""
     sys.stderr.write("\n" + msg + "\n")

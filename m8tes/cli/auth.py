@@ -7,8 +7,9 @@ Provides commands for user registration, login, and token management.
 import os
 from typing import TYPE_CHECKING, Optional
 
+from .._exceptions import AuthenticationError as V2AuthenticationError
 from ..auth.credentials import CredentialManager
-from ..exceptions import AuthenticationError, NetworkError, ValidationError
+from ..exceptions import AuthenticationError
 from .prompt import confirm_prompt, prompt
 from .validation import prompt_email, prompt_password, prompt_password_confirm
 
@@ -42,6 +43,21 @@ class AuthCLI:
         """Get saved API key from keychain."""
         return self.credentials.get_api_key()
 
+    def _probe_v2_key(self, api_key: str) -> bool:
+        """Validate an API key against the v2 API; returns the email-verified state.
+
+        Raises the v2 AuthenticationError for an invalid/revoked key. The legacy
+        /api/v1 user endpoint is JWT-only, so it can never validate an m8_ key.
+        """
+        from .._client import M8tes as V2Client
+        from .v2 import normalize_v2_base_url
+
+        v2 = V2Client(api_key=api_key, base_url=normalize_v2_base_url(self.base_url))
+        try:
+            return v2.auth.is_verified()
+        finally:
+            v2.close()
+
     def get_current_account_info(self) -> dict | None:
         """
         Get current authenticated account information if available.
@@ -57,24 +73,17 @@ class AuthCLI:
             return None
 
         try:
-            # Try to get user info with saved credentials
-            if self.client and self.client.api_key:
-                user_info = self.client.get_current_user()
-            else:
-                from ..client import M8tes
-
-                temp_client = M8tes(api_key=saved_api_key, base_url=self.base_url)
-                user_info = temp_client.get_current_user()
-
+            # Validate against the v2 API (the legacy /api/v1 user endpoint is
+            # JWT-only and would read every m8_ key as invalid).
+            verified = self._probe_v2_key(saved_api_key)
             return {
-                "email": user_info.get("email", profile_info.get("email", "Unknown")),
+                "email": profile_info.get("email", "Unknown"),
                 "profile": self.profile,
-                "user_id": user_info.get("id"),
-                "verified": user_info.get("is_verified", False),
+                "verified": verified,
                 "has_api_key": True,
             }
         except Exception:
-            # If we can't get user info but have saved credentials, return what we know
+            # If we can't validate but have saved credentials, return what we know
             return {
                 "email": profile_info.get("email", "Unknown"),
                 "profile": self.profile,
@@ -111,57 +120,50 @@ class AuthCLI:
 
         print("\n🔄 Creating account...")
 
-        try:
-            # Use the client to register
-            if self.client:
-                result = self.client.register_user(
-                    email=email,
-                    password=password,
-                    first_name=first_name,
+        # Use the client to register (failures raise; the command layer maps
+        # them to a friendly message and a non-zero exit code)
+        if self.client:
+            result = self.client.register_user(
+                email=email,
+                password=password,
+                first_name=first_name,
+            )
+        else:
+            # Create temporary client without API key for registration
+            from ..client import M8tes
+
+            temp_client = M8tes(api_key=None, base_url=self.base_url)
+            result = temp_client.register_user(
+                email=email,
+                password=password,
+                first_name=first_name,
+            )
+
+        print("\n✅ Registration successful!")
+        print(f"   User ID: {result.get('user', {}).get('id')}")
+        print(f"   Email: {result.get('user', {}).get('email')}")
+
+        # Save the API key if provided (should be included now)
+        api_key = result.get("api_key")
+        if api_key:
+            if self.credentials.save_api_key(api_key):
+                storage_type = (
+                    "OS keychain" if self.credentials.is_keyring_available else "local config"
                 )
+                print(f"   🔐 Token saved to {storage_type}")
+                print("   You can now use m8tes commands without re-authenticating")
             else:
-                # Create temporary client without API key for registration
-                from ..client import M8tes
+                print("   ⚠️  Failed to save token. You may need to re-authenticate later.")
 
-                temp_client = M8tes(api_key=None, base_url=self.base_url)
-                result = temp_client.register_user(
-                    email=email,
-                    password=password,
-                    first_name=first_name,
-                )
+        # Save profile info (email) to config
+        user_email = result.get("user", {}).get("email", email)
+        self.credentials.save_profile_info(email=user_email, base_url=self.base_url)
 
-            print("\n✅ Registration successful!")
-            print(f"   User ID: {result.get('user', {}).get('id')}")
-            print(f"   Email: {result.get('user', {}).get('email')}")
-
-            # Save the API key if provided (should be included now)
-            api_key = result.get("api_key")
-            if api_key:
-                if self.credentials.save_api_key(api_key):
-                    storage_type = (
-                        "OS keychain" if self.credentials.is_keyring_available else "local config"
-                    )
-                    print(f"   🔐 Token saved to {storage_type}")
-                    print("   You can now use m8tes commands without re-authenticating")
-                else:
-                    print("   ⚠️  Failed to save token. You may need to re-authenticate later.")
-
-            # Save profile info (email) to config
-            user_email = result.get("user", {}).get("email", email)
-            self.credentials.save_profile_info(email=user_email, base_url=self.base_url)
-
-            # Show next steps
-            if api_key:
-                self._show_getting_started_guide()
-            else:
-                print("\n💡 Next step: Login with 'm8tes auth login'")
-
-        except ValidationError as e:
-            print(f"❌ Registration failed: {e.message}")
-        except NetworkError as e:
-            print(f"❌ Network error: {e.message}")
-        except Exception as e:
-            print(f"❌ Unexpected error: {e}")
+        # Show next steps
+        if api_key:
+            self._show_getting_started_guide()
+        else:
+            print("\n💡 Next step: Login with 'm8tes auth login'")
 
     def login_interactive(self, save_token: bool = True) -> None:
         """
@@ -201,58 +203,49 @@ class AuthCLI:
 
         print("\n🔄 Authenticating...")
 
-        try:
-            # Use the client to login
-            if self.client:
-                login_response = self.client.login(email=email, password=password)
+        # Use the client to login (failures raise; the command layer maps
+        # them to a friendly message and a non-zero exit code)
+        if self.client:
+            login_response = self.client.login(email=email, password=password)
+        else:
+            # Create temporary client without API key for login
+            from ..client import M8tes
+
+            temp_client = M8tes(api_key=None, base_url=self.base_url)
+            login_response = temp_client.login(email=email, password=password)
+
+        api_key = login_response.get("api_key") if login_response else None
+        if not api_key:
+            raise AuthenticationError("No API key returned")
+
+        print("\n✅ Login successful!")
+
+        if save_token:
+            # Save the API key to keychain
+            if self.credentials.save_api_key(api_key):
+                storage_type = (
+                    "OS keychain" if self.credentials.is_keyring_available else "local config"
+                )
+                print(f"   🔐 Token saved to {storage_type}")
+                print("   You can now use m8tes commands without re-authenticating")
+
+                # Save profile info (email) to config file
+                self.credentials.save_profile_info(email=email, base_url=self.base_url)
+
+                # Save token metadata
+                self.credentials.save_token_metadata(
+                    refresh_token=login_response.get("refresh_token"),
+                    access_expiration=login_response.get("access_expires_at"),
+                    refresh_expiration=login_response.get("refresh_expires_at"),
+                )
             else:
-                # Create temporary client without API key for login
-                from ..client import M8tes
+                print("   ⚠️  Failed to save token. You may need to re-authenticate later.")
+        else:
+            print(f"   API Key: {api_key}")
+            print("   Set this as M8TES_API_KEY environment variable")
 
-                temp_client = M8tes(api_key=None, base_url=self.base_url)
-                login_response = temp_client.login(email=email, password=password)
-
-            api_key = login_response.get("api_key") if login_response else None
-            if api_key:
-                print("\n✅ Login successful!")
-
-                if save_token:
-                    # Save the API key to keychain
-                    if self.credentials.save_api_key(api_key):
-                        storage_type = (
-                            "OS keychain"
-                            if self.credentials.is_keyring_available
-                            else "local config"
-                        )
-                        print(f"   🔐 Token saved to {storage_type}")
-                        print("   You can now use m8tes commands without re-authenticating")
-
-                        # Save profile info (email) to config file
-                        self.credentials.save_profile_info(email=email, base_url=self.base_url)
-
-                        # Save token metadata
-                        self.credentials.save_token_metadata(
-                            refresh_token=login_response.get("refresh_token"),
-                            access_expiration=login_response.get("access_expires_at"),
-                            refresh_expiration=login_response.get("refresh_expires_at"),
-                        )
-                    else:
-                        print("   ⚠️  Failed to save token. You may need to re-authenticate later.")
-                else:
-                    print(f"   API Key: {api_key}")
-                    print("   Set this as M8TES_API_KEY environment variable")
-
-                # Show next steps
-                self._show_getting_started_guide()
-            else:
-                print("❌ Login failed: No API key returned")
-
-        except AuthenticationError as e:
-            print(f"❌ Authentication failed: {e.message}")
-        except NetworkError as e:
-            print(f"❌ Network error: {e.message}")
-        except Exception as e:
-            print(f"❌ Unexpected error: {e}")
+        # Show next steps
+        self._show_getting_started_guide()
 
     def show_status(self) -> None:
         """Show current authentication status."""
@@ -280,45 +273,29 @@ class AuthCLI:
             print("⚠️  Keyring not available - credentials stored in plain text")
             print("   Install keyring for secure storage: pip install keyring")
 
-        # Try to get current user info
+        # Validate the key against the v2 API. The legacy /api/v1 user endpoint is
+        # JWT-only, so probing it with an m8_ API key always read as "invalid" —
+        # and used to wipe the saved keychain token on that false positive. A
+        # status command must never mutate credentials.
         active_api_key = saved_api_key or env_api_key or (self.client and self.client.api_key)
         if active_api_key:
-            print("\n🔄 Fetching user info...")
+            print("\n🔄 Checking API key...")
             try:
-                # Use existing client or create temporary one
-                if self.client and self.client.api_key:
-                    user_info = self.client.get_current_user()
+                verified = self._probe_v2_key(active_api_key)
+                print("\n✅ API key is valid")
+                email = self.credentials.get_profile_info().get("email")
+                if email:
+                    print(f"   Email: {email}")
+                if verified:
+                    print("   Email verified: yes")
                 else:
-                    from ..client import M8tes
-
-                    temp_client = M8tes(api_key=active_api_key, base_url=self.base_url)
-                    user_info = temp_client.get_current_user()
-
-                if user_info:
-                    print("\n✅ Authenticated User:")
-                    print(f"   Email: {user_info.get('email')}")
-                    name_parts = [user_info.get("first_name", ""), user_info.get("last_name", "")]
-                    full_name = " ".join(part for part in name_parts if part).strip()
-                    if full_name:
-                        print(f"   Name: {full_name}")
-                else:
-                    print("⚠️  Could not fetch user info")
-                    print("   Run 'm8tes auth login' to refresh your token")
-                    print("   Run 'm8tes auth register' to register a new account")
-
-            except AuthenticationError as e:
-                print(f"⚠️  Could not fetch user info: {e}")
-                print("   Run 'm8tes auth login' to refresh your token")
+                    print("   Email verified: no — run 'm8tes auth resend-verify'")
+            except V2AuthenticationError:
+                print("⚠️  API key is invalid or revoked")
+                print("   Run 'm8tes auth login' to refresh your credentials")
                 print("   Run 'm8tes auth register' to register a new account")
-
-                # Clear the invalid token from keychain
-                if saved_api_key:
-                    print("\n🧹 Clearing expired token from keychain...")
-                    self.credentials.delete_api_key()
             except Exception as e:
-                print(f"⚠️  Could not fetch user info: {e}")
-                print("   Run 'm8tes auth login' to refresh your token")
-                print("   Run 'm8tes auth register' to register a new account")
+                print(f"⚠️  Could not verify API key: {e}")
         else:
             print("\n💡 Run 'm8tes auth login' to authenticate")
 

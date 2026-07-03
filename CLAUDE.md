@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-Python SDK + CLI for [m8tes.ai](https://m8tes.ai). Wraps authentication, SSE streaming, and typed payloads for building autonomous AI teammates.
+Python SDK + CLI for [m8tes.ai](https://m8tes.ai). Wraps authentication, SSE streaming, and typed payloads for building autonomous agents.
 
 ## Responsibilities
 
