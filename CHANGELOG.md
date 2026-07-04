@@ -2,6 +2,11 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [2.1.0] - 2026-07-03
+
+### Added
+- Managed iMessage (Blooio) provisioning: `client.bridges.provision_blooio(number, api_key=None, user_id=None)` connects a dedicated Blooio iMessage number to your account (registers the inbound webhook, stores the encrypted key/secret). `Bridge` now exposes `provider_number` (the connected number). Bring your own Blooio account with `api_key`, or bind a line to an end-user with `user_id`.
+
 ## [2.0.0] - 2026-07-03
 
 ### Removed
@@ -20,6 +25,7 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 ## [1.26.0] - 2026-07-02
 
 ### Added
+- Single-use hosted iMessage link codes: `client.bridges.regenerate_link_code(bridge_id, single_use=True)` issues a one-shot code consumed on the first phone that links (the safest way to hand a code to one person on the shared m8tes number); the default stays multi-use for team onboarding. `Bridge` now exposes `link_code_single_use`.
 - `client.tasks.enable_webhook(task_id)` / `client.tasks.disable_webhook(task_id)` — enable, disable, or rotate a task's webhook trigger (parity with the teammate methods). Previously a task webhook could only be created; a leaked `whk_` URL kept starting billable runs until the task itself was deleted. Calling `enable_webhook` again rotates the token, invalidating the previous URL.
 
 ### Changed
