@@ -4624,8 +4624,8 @@ class TestModels:
         page = v2_client.models.list()
         assert isinstance(page, SyncPage)
         models = {m.id: m for m in page.data}
-        # Publicly selectable set (not the internal/gateway-only gpt-4o).
-        assert set(models) == {"sonnet", "opus"}
+        # Publicly selectable set (not the internal-only gpt-4o).
+        assert set(models) == {"sonnet", "fable", "opus", "gpt-5.5", "glm-5.2", "deepseek-v3-2"}
         assert isinstance(models["opus"], Model)
         assert models["opus"].default is True
         assert models["sonnet"].default is False
