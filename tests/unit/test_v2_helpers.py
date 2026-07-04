@@ -535,3 +535,21 @@ class TestAppNeedsOAuth:
             auth_type="api_key",
         )
         assert app.needs_oauth is False
+
+
+def test_permission_request_auto_resolved_parsing():
+    """auto_resolved parses when present and defaults False for older backends."""
+    auto = PermissionRequest.from_dict(
+        {
+            "request_id": "req_2",
+            "tool_name": "AskUserQuestion",
+            "tool_input": {"answers": {"Q?": "A (Recommended) [auto-selected]"}},
+            "status": "allowed",
+            "auto_resolved": True,
+        }
+    )
+    assert auto.auto_resolved is True
+    legacy = PermissionRequest.from_dict(
+        {"request_id": "req_3", "tool_name": "gmail", "tool_input": None, "status": "pending"}
+    )
+    assert legacy.auto_resolved is False

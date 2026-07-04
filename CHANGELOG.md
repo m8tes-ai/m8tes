@@ -2,6 +2,11 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [2.2.0] - 2026-07-04
+
+### Added
+- `PermissionRequest.auto_resolved` — `True` when the platform resolved the request itself. Agents can now mark a question option as recommended (its label ends with `"(Recommended)"`); if nobody answers within ~10 minutes the run proceeds with that option instead of pausing forever, and the merged answer values in `tool_input["answers"]` end with an `"[auto-selected …]"` marker. A question with no recommended option still blocks until answered (unchanged), and plan approvals and tool permission gates never auto-continue. Calling `runs.answer()` on an auto-resolved question returns HTTP 409 (`auto_continued`) — send a follow-up message via `runs.reply()` to redirect instead. Non-blocking asks never enter `awaiting_approval`; deferrable ones pause for up to ~10 minutes before resuming on their own, so a run can complete with questions nobody answered.
+
 ## [2.1.1] - 2026-07-04
 
 ### Fixed
