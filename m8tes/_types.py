@@ -647,6 +647,13 @@ class PermissionRequest:
     status: str
     created_at: str
     resolved_at: str | None
+    # True when the platform resolved the request itself: a question whose options
+    # carried a "(Recommended)" label auto-continued after ~10 minutes without an
+    # answer (or immediately for a non-blocking ask). Auto-selected answer values
+    # in tool_input["answers"] end with an "[auto-selected …]" marker. Answering
+    # an auto-resolved question via runs.answer() raises ConflictError
+    # ("auto_continued") — send a follow-up message to redirect instead.
+    auto_resolved: bool = False
 
     @classmethod
     def from_dict(cls, data: dict) -> PermissionRequest:
@@ -657,6 +664,7 @@ class PermissionRequest:
             status=data["status"],
             created_at=data.get("created_at", ""),
             resolved_at=data.get("resolved_at"),
+            auto_resolved=data.get("auto_resolved", False),
         )
 
     @property
