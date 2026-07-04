@@ -50,7 +50,7 @@ class ConflictError(M8tesError):
 
 
 class ValidationError(M8tesError):
-    """422 — invalid request parameters."""
+    """400 or 422 — invalid request (check .status_code to tell them apart)."""
 
 
 class BillingError(M8tesError):

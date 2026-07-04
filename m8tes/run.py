@@ -97,47 +97,48 @@ class Run:
 
     def get_usage(self) -> dict[str, Any]:
         """
-        Get token usage and costs for this run.
+        Get aggregated token usage and cost for this run.
 
         Returns:
-            Dictionary with usage statistics and costs
+            Dict with message_count, total_tokens, and total_cost_usd
+            (decimal string — coerce with float()).
 
         Example:
             >>> run = instance.execute_task("Show me top keywords")
             >>> usage = run.get_usage()
-            >>> print(f"Cost: ${usage['total_cost']:.4f}")
+            >>> print(f"Cost: ${float(usage['total_cost_usd'] or 0):.4f}")
             >>> print(f"Tokens: {usage['total_tokens']}")
         """
         return self.service.get_usage(self.id)  # type: ignore[no-any-return]
 
     def get_tool_executions(self) -> list[dict[str, Any]]:
         """
-        Get tool execution history for this run.
+        Get the tool calls this run made (derived from message content blocks).
 
-        Returns:
-            List of tool execution records
+        Success/duration are not tracked per tool call; each record carries
+        the tool name and its input arguments.
 
         Example:
             >>> run = instance.execute_task("Analyze campaign performance")
             >>> tools = run.get_tool_executions()
             >>> for tool in tools:
-            ...     print(f"Tool: {tool['tool_name']}, Success: {tool['success']}")
+            ...     print(f"Tool: {tool['tool_name']}")
         """
         return self.service.get_tool_executions(self.id)  # type: ignore[no-any-return]
 
     def get_details(self) -> dict[str, Any]:
         """
-        Get comprehensive run details including conversation, usage, and tool executions.
+        Get the run with aggregated metrics — a FLAT dict.
 
         Returns:
-            Dictionary with all run data
+            The run's fields plus message_count, total_tokens, and
+            total_cost_usd (decimal string). No nested keys.
 
         Example:
             >>> run = instance.execute_task("Help me optimize my ads")
             >>> details = run.get_details()
-            >>> print(f"Messages: {details['conversation']['message_count']}")
-            >>> print(f"Cost: ${details['usage']['total_cost']:.4f}")
-            >>> print(f"Tools used: {len(details['tool_executions']['executions'])}")
+            >>> print(f"Messages: {details['message_count']}")
+            >>> print(f"Cost: ${float(details['total_cost_usd'] or 0):.4f}")
         """
         return self.service.get_details(self.id)  # type: ignore[no-any-return]
 

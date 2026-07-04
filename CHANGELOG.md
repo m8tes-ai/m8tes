@@ -2,6 +2,13 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [2.1.1] - 2026-07-04
+
+### Fixed
+- **`m8tes run get` / `usage` / `conversation` / `tools` and the `mate task` run summary work again.** The legacy run service called four endpoints that don't exist (`/details`, `/conversation`, `/usage`, `/tools`) — every one of these commands died with "Resource not found", and `run get` parsed a nested response shape the API never had. Rewired to the real endpoints: `/detail` (flat aggregated metrics) and `/messages` (transcript); tool calls are now derived from message content blocks (the API tracks no per-call success/duration, so those columns are gone from the output).
+- `m8tes google connect --browser` was a silently ignored flag; it now forces auto-open (and wins over `--no-browser`).
+- Docstring corrections (no behavior change): `teammates.create(from_template=…)` also allows `default_permission_mode` and `model` alongside `user_id`/`metadata`; `runs.answer` 409s on ANY non-awaiting status (not only terminal); `memories.create`, `users.create`, and `keys.create/rotate` now document their 409/429/403 error cases; `ValidationError` covers 400 as well as 422.
+
 ## [2.1.0] - 2026-07-03
 
 ### Added

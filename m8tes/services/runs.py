@@ -116,52 +116,64 @@ class RunService:
 
     def get_conversation(self, run_id: int) -> list:
         """
-        Get conversation messages for a run.
+        Get conversation messages for a run (GET /api/v1/runs/{id}/messages).
 
         Args:
             run_id: The run's unique identifier
 
         Returns:
-            List of conversation messages
+            List of message dicts (role, content, content_blocks, per-message
+            token/cost metrics), ordered by sequence.
         """
-        response_data = self.http.request("GET", f"/api/v1/runs/{run_id}/conversation")
-        return response_data.get("messages", [])  # type: ignore[no-any-return]
+        raw: Any = self.http.request("GET", f"/api/v1/runs/{run_id}/messages")
+        return raw if isinstance(raw, list) else raw.get("messages", [])
 
     def get_usage(self, run_id: int) -> dict:
         """
-        Get token usage and costs for a run.
+        Get aggregated token usage and cost for a run.
 
-        Args:
-            run_id: The run's unique identifier
+        There is no dedicated usage endpoint — this reads the run detail's
+        aggregated metrics (GET /api/v1/runs/{id}/detail).
 
         Returns:
-            Dictionary with usage statistics and costs
+            Dict with message_count (int), total_tokens (int | None), and
+            total_cost_usd (decimal string | None).
         """
-        response_data = self.http.request("GET", f"/api/v1/runs/{run_id}/usage")
-        return response_data
+        detail = self.get_details(run_id)
+        return {
+            "message_count": detail.get("message_count", 0),
+            "total_tokens": detail.get("total_tokens"),
+            "total_cost_usd": detail.get("total_cost_usd"),
+        }
 
     def get_tool_executions(self, run_id: int) -> list:
         """
-        Get tool execution history for a run.
+        Get the tool calls a run made, derived from its message content blocks.
 
-        Args:
-            run_id: The run's unique identifier
+        There is no dedicated tool-executions endpoint; this scans the run's
+        messages for ``tool_use`` blocks. Success/duration are not available.
 
         Returns:
-            List of tool execution records
+            List of {"tool_name": str, "arguments": dict | None} records.
         """
-        response_data = self.http.request("GET", f"/api/v1/runs/{run_id}/tools")
-        return response_data.get("executions", [])  # type: ignore[no-any-return]
+        tools = []
+        for msg in self.get_conversation(run_id):
+            for block in msg.get("content_blocks") or []:
+                if isinstance(block, dict) and block.get("type") == "tool_use":
+                    tools.append(
+                        {"tool_name": block.get("name", "unknown"), "arguments": block.get("input")}
+                    )
+        return tools
 
     def get_details(self, run_id: int) -> dict:
         """
-        Get comprehensive run details including conversation, usage, and tool executions.
-
-        Args:
-            run_id: The run's unique identifier
+        Get the run with aggregated metrics (GET /api/v1/runs/{id}/detail).
 
         Returns:
-            Dictionary with all run data
+            FLAT run dict — the run's fields plus message_count, total_tokens,
+            and total_cost_usd (decimal string). There are no nested
+            conversation/usage/tool_executions keys; use get_conversation /
+            get_tool_executions for those.
         """
-        response_data = self.http.request("GET", f"/api/v1/runs/{run_id}/details")
+        response_data = self.http.request("GET", f"/api/v1/runs/{run_id}/detail")
         return response_data

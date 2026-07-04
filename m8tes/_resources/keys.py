@@ -27,7 +27,13 @@ class Keys:
         return ApiKeyInfo.from_dict(resp.json())
 
     def create(self, *, name: str, expires_in_days: int | None = None) -> ApiKeyCreated:
-        """Create a named key. The full key is returned ONCE — store it now."""
+        """Create a named key. The full key is returned ONCE — store it now.
+
+        Raises RateLimitError (429) at the active named-key cap (50 per
+        account), and PermissionDeniedError (403) on an unclaimed
+        agent-signup account (claim the account by verifying email + setting
+        a password first).
+        """
         body: dict = {"name": name}
         if expires_in_days is not None:
             body["expires_in_days"] = expires_in_days
@@ -41,7 +47,11 @@ class Keys:
 
     def rotate(self, key_id: int | None = None) -> ApiKeyRotated | ApiKeyCreated:
         """Rotate a key — the named key ``key_id`` if given, else the default key. The
-        old secret dies immediately; the new one is returned ONCE."""
+        old secret dies immediately; the new one is returned ONCE.
+
+        Raises ConflictError (409) when the named key is already revoked, and
+        PermissionDeniedError (403) on an unclaimed agent-signup account.
+        """
         if key_id is None:
             return ApiKeyRotated.from_dict(self._http.request("POST", "/keys/rotate").json())
         return ApiKeyCreated.from_dict(self._http.request("POST", f"/keys/{key_id}/rotate").json())

@@ -18,7 +18,12 @@ class Memories:
         self._http = http
 
     def create(self, *, user_id: str, content: str) -> Memory:
-        """Create a memory for an end-user."""
+        """Create a memory for an end-user.
+
+        Raises ConflictError (409) when the end-user is at the memory
+        capacity limit, or when a memory with identical content already
+        exists for them.
+        """
         resp = self._http.request(
             "POST", "/memories/", json={"user_id": user_id, "content": content}
         )
