@@ -477,7 +477,8 @@ class Runs:
         Returns {"status": "ok", "resumed": bool}. When resumed is True, the run
         has been queued to continue from the point it paused.
 
-        Raises ConflictError (409) if the run is terminal (completed, failed, cancelled).
+        Raises ConflictError (409) unless the run is awaiting_approval — a
+        running run conflicts too, not only terminal ones.
         """
         resp = self._http.request("POST", f"/runs/{run_id}/answer", json={"answers": answers})
         result: dict[str, Any] = resp.json()

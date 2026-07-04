@@ -28,6 +28,7 @@ class Users:
         company: str | None = None,
         metadata: dict | None = None,
     ) -> EndUser:
+        """Register an end-user. Raises ConflictError (409) if user_id exists."""
         body: dict = {"user_id": user_id}
         if name is not None:
             body["name"] = name

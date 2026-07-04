@@ -59,41 +59,25 @@ class GetRunCommand(Command):
         try:
             run_id = int(args.run_id)
 
-            # Get comprehensive run details
-            run = client.runs.get(run_id)
-            details = run.get_details()
+            # /detail returns the run's fields FLAT plus aggregated metrics.
+            details = client.runs.get(run_id).get_details()
 
             print(f"\n📊 Run Details - ID: {run_id}")
             print(f"{'=' * 60}")
 
-            # Basic info
-            run_data = details.get("run", {})
             print("\n🔹 Basic Info:")
-            print(f"   Mode: {run_data.get('run_mode', 'N/A')}")
-            print(f"   Instance ID: {run_data.get('instance_id', 'N/A')}")
-            print(f"   Description: {run_data.get('description', 'No description')}")
-            print(f"   Created: {run_data.get('created_at', 'N/A')}")
+            print(f"   Status: {details.get('status', 'N/A')}")
+            print(f"   Teammate ID: {details.get('instance_id', 'N/A')}")
+            if details.get("task_name"):
+                print(f"   Task: {details['task_name']}")
+            print(f"   Description: {details.get('description') or 'No description'}")
+            print(f"   Created: {details.get('created_at', 'N/A')}")
 
-            # Conversation
-            conversation = details.get("conversation", {})
-            message_count = conversation.get("message_count", 0)
-            print(f"\n💬 Conversation: {message_count} messages")
+            print(f"\n💬 Conversation: {details.get('message_count', 0)} messages")
 
-            # Usage
-            usage = details.get("usage", {})
-            total_cost = usage.get("totalCost", 0)
-            total_tokens = usage.get("totalTokens", 0)
             print("\n💰 Token Usage:")
-            print(f"   Total Cost: ${total_cost:.4f}")
-            print(f"   Total Tokens: {total_tokens:,}")
-
-            # Tool executions
-            tool_data = details.get("tool_executions", {})
-            executions = tool_data.get("executions", [])
-            print(f"\n🔧 Tool Executions: {len(executions)}")
-            for tool in executions:
-                status = "✅" if tool.get("success") else "❌"
-                print(f"   {status} {tool.get('tool_name')} ({tool.get('duration_ms')}ms)")
+            print(f"   Total Cost: ${float(details.get('total_cost_usd') or 0):.4f}")
+            print(f"   Total Tokens: {int(details.get('total_tokens') or 0):,}")
 
             print()
             return 0
@@ -288,34 +272,17 @@ class UsageCommand(Command):
         try:
             run_id = args.run_id
 
-            # Get run and usage data
-            run = client.runs.get(run_id)
-            usage = run.get_usage()
+            # Aggregated metrics from the run detail (per-message metrics live
+            # on /messages; there is no per-model breakdown endpoint).
+            usage = client.runs.get(run_id).get_usage()
 
             print(f"\n💰 Token Usage - Run ID: {run_id}")
             print(f"{'=' * 60}")
 
-            # Overall stats
-            total_cost = usage.get("totalCost", 0)
-            total_tokens = usage.get("totalTokens", 0)
-
             print("\n📊 Summary:")
-            print(f"   Total Cost: ${total_cost:.4f}")
-            print(f"   Total Tokens: {total_tokens:,}")
-
-            # Breakdown by usage record (if available)
-            usage_records = usage.get("usage", [])
-            if usage_records:
-                print(f"\n📝 Usage Records ({len(usage_records)}):")
-                for record in usage_records:
-                    model = record.get("model", "N/A")
-                    prompt_tokens = record.get("promptTokens", 0)
-                    completion_tokens = record.get("completionTokens", 0)
-                    cost = record.get("estimatedCost", 0)
-                    print(f"\n   Model: {model}")
-                    print(f"   Prompt Tokens: {prompt_tokens:,}")
-                    print(f"   Completion Tokens: {completion_tokens:,}")
-                    print(f"   Cost: ${cost:.4f}")
+            print(f"   Total Cost: ${float(usage.get('total_cost_usd') or 0):.4f}")
+            print(f"   Total Tokens: {int(usage.get('total_tokens') or 0):,}")
+            print(f"   Messages: {usage.get('message_count', 0)}")
 
             print()
             return 0
@@ -364,38 +331,18 @@ class ToolsCommand(Command):
 
             print(f"\n{len(tools)} tool executions:\n")
 
+            # Tool calls are derived from message content blocks — the API does
+            # not track per-call success/duration, so only name + args render.
             for i, tool in enumerate(tools, 1):
-                tool_name = tool.get("tool_name", "Unknown")
-                success = tool.get("success", False)
-                duration = tool.get("duration_ms", 0)
-                status = "✅ Success" if success else "❌ Failed"
+                print(f"{i}. {tool.get('tool_name', 'Unknown')}")
 
-                print(f"{i}. {tool_name}")
-                print(f"   Status: {status}")
-                print(f"   Duration: {duration}ms")
-
-                if verbose:
-                    # Show arguments
-                    args_str = tool.get("arguments", "")
-                    if args_str:
-                        print(
-                            f"   Arguments: {args_str[:100]}..."
-                            if len(args_str) > 100
-                            else f"   Arguments: {args_str}"
-                        )
-
-                    # Show result or error
-                    if success:
-                        result = tool.get("result", "")
-                        if result:
-                            print(
-                                f"   Result: {result[:100]}..."
-                                if len(result) > 100
-                                else f"   Result: {result}"
-                            )
-                    else:
-                        error = tool.get("error_message", "No error message")
-                        print(f"   Error: {error}")
+                if verbose and tool.get("arguments") is not None:
+                    args_str = str(tool["arguments"])
+                    print(
+                        f"   Arguments: {args_str[:100]}..."
+                        if len(args_str) > 100
+                        else f"   Arguments: {args_str}"
+                    )
 
                 print()
 

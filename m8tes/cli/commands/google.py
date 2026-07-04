@@ -68,8 +68,9 @@ class ConnectCommand(Command):
 
         google_cli = GoogleIntegrationCLI(client)
         try:
-            # Determine browser behavior
-            auto_browser = not getattr(args, "no_browser", False)
+            # Determine browser behavior: --browser wins over --no-browser;
+            # default is auto-open.
+            auto_browser = getattr(args, "browser", False) or not getattr(args, "no_browser", False)
             use_local_server = not getattr(args, "manual", False)
 
             google_cli.connect_interactive(

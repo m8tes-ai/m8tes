@@ -60,9 +60,10 @@ class Teammates:
         - Templated: provide ``from_template="ppc-manager"`` to enable a pre-built
           persona. Improvements we ship to the template flow through automatically
           on subsequent reads, unless you customize the field via ``update()``
-          (which routes through per-field overrides). Only ``user_id`` and
-          ``metadata`` may co-exist with ``from_template``; other fields raise
-          400 ``from_template_conflict``.
+          (which routes through per-field overrides). ``user_id``, ``metadata``,
+          ``default_permission_mode``, and ``model`` may co-exist with
+          ``from_template``; the persona fields (name, instructions, tools, …)
+          raise 400 with ``error.details.error_code = "from_template_conflict"``.
         """
         body: dict = {}
         if name is not None:

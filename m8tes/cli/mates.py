@@ -1083,34 +1083,34 @@ class MateCLI:
             if debug:
                 print(f"\n[DEBUG] Fetching details for run ID: {run.id}")
 
-            # Fetch comprehensive run details
+            # /detail returns FLAT aggregated metrics; the transcript comes from
+            # /messages. Tool calls are derived from message content blocks.
             conversation_error = None
+            details: dict = {}
             try:
                 details = run.get_details()
             except Exception as e:
                 conversation_error = str(e)
                 if debug:
                     print(f"[DEBUG] get_details() failed: {e}")
-                    print("[DEBUG] Falling back to individual calls")
-                # Fallback to individual calls if get_details fails
-                try:
-                    messages = run.get_conversation()
-                except Exception as conv_err:
-                    messages = []
-                    conversation_error = str(conv_err)
-                    if debug:
-                        print(f"[DEBUG] get_conversation() failed: {conv_err}")
+            try:
+                messages = run.get_conversation()
+            except Exception as conv_err:
+                messages = []
+                conversation_error = conversation_error or str(conv_err)
+                if debug:
+                    print(f"[DEBUG] get_conversation() failed: {conv_err}")
 
-                details = {
-                    "conversation": {"messages": messages},
-                    "tool_executions": {"executions": run.get_tool_executions()},
-                    "usage": run.get_usage(),
-                }
-
-            # Extract data
-            messages = details.get("conversation", {}).get("messages", [])
-            tool_executions = details.get("tool_executions", {}).get("executions", [])
-            usage = details.get("usage", {})
+            tool_executions = [
+                {"tool_name": block.get("name", "unknown")}
+                for msg in messages
+                for block in (msg.get("content_blocks") or [])
+                if isinstance(block, dict) and block.get("type") == "tool_use"
+            ]
+            usage = {
+                "total_tokens": details.get("total_tokens"),
+                "total_cost_usd": details.get("total_cost_usd"),
+            }
 
             # Get final teammate response from conversation
             final_response = None
@@ -1150,28 +1150,21 @@ class MateCLI:
                     print("\n🤝 Teammate Response:")
                     print(f"{final_response}")
 
-                # Tool executions
+                # Tool executions (names only — the API tracks no per-call status)
                 if tool_executions:
                     print(f"\n⚡ Tools Used: {len(tool_executions)}")
                     for tool_exec in tool_executions:
-                        tool_name = tool_exec.get("tool_name", "unknown")
-                        success = tool_exec.get("success", False)
-                        status = "✅" if success else "❌"
-                        print(f"   {status} {tool_name}")
+                        print(f"   🔧 {tool_exec.get('tool_name', 'unknown')}")
 
-                # Usage stats
-                if usage:
-                    total_tokens = usage.get("total_tokens", 0)
-                    total_cost = usage.get("total_cost", 0)
-                    duration = usage.get("duration_seconds", 0)
-
+                # Usage stats (total_cost_usd arrives as a decimal string)
+                total_tokens = usage.get("total_tokens") or 0
+                total_cost = float(usage.get("total_cost_usd") or 0)
+                if total_tokens or total_cost:
                     print("\n💰 Usage:")
                     if total_tokens:
                         print(f"   Tokens: {total_tokens:,}")
                     if total_cost:
                         print(f"   Cost: ${total_cost:.4f}")
-                    if duration:
-                        print(f"   Duration: {duration:.2f}s")
 
                 print("\n" + "=" * 60)
 

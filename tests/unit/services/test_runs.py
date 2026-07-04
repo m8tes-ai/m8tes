@@ -309,7 +309,7 @@ class TestGetConversation:
         result = run_service.get_conversation(456)
 
         # Verify API call
-        mock_http_client.request.assert_called_once_with("GET", "/api/v1/runs/456/conversation")
+        mock_http_client.request.assert_called_once_with("GET", "/api/v1/runs/456/messages")
 
         # Verify returned messages
         assert result == messages
@@ -337,33 +337,32 @@ class TestGetUsage:
     """Test getting run usage statistics."""
 
     def test_get_usage_success(self, run_service, mock_http_client):
-        """Test retrieving usage statistics for a run."""
-        usage_data = {
-            "prompt_tokens": 150,
-            "completion_tokens": 75,
+        """Usage is the run detail's aggregated metrics (no /usage endpoint exists)."""
+        mock_http_client.request.return_value = {
+            "id": 456,
+            "message_count": 3,
             "total_tokens": 225,
-            "estimated_cost": 0.005,
+            "total_cost_usd": "0.0050",
         }
-        mock_http_client.request.return_value = usage_data
 
         result = run_service.get_usage(456)
 
-        # Verify API call
-        mock_http_client.request.assert_called_once_with("GET", "/api/v1/runs/456/usage")
-
-        # Verify returned usage data
-        assert result == usage_data
-        assert result["total_tokens"] == 225
+        mock_http_client.request.assert_called_once_with("GET", "/api/v1/runs/456/detail")
+        assert result == {
+            "message_count": 3,
+            "total_tokens": 225,
+            "total_cost_usd": "0.0050",
+        }
 
     def test_get_usage_different_runs(self, run_service, mock_http_client):
         """Test getting usage for different run IDs."""
         mock_http_client.request.return_value = {"total_tokens": 100}
 
         run_service.get_usage(456)
-        assert "/runs/456/usage" in str(mock_http_client.request.call_args)
+        assert "/runs/456/detail" in str(mock_http_client.request.call_args)
 
         run_service.get_usage(789)
-        assert "/runs/789/usage" in str(mock_http_client.request.call_args)
+        assert "/runs/789/detail" in str(mock_http_client.request.call_args)
 
 
 @pytest.mark.unit
@@ -371,37 +370,35 @@ class TestGetToolExecutions:
     """Test getting tool execution history."""
 
     def test_get_tool_executions_success(self, run_service, mock_http_client):
-        """Test retrieving tool execution history for a run."""
-        executions = [
+        """Tool calls are derived from message content blocks (no /tools endpoint)."""
+        mock_http_client.request.return_value = [
             {
-                "tool_name": "run_gaql_query",
-                "arguments": {"query": "SELECT..."},
-                "result": {"rows": [{"campaign": {"name": "Test"}}]},
-                "timestamp": "2024-01-01T00:01:00Z",
+                "role": "assistant",
+                "content": "",
+                "content_blocks": [
+                    {"type": "tool_use", "name": "run_gaql_query", "input": {"query": "SELECT..."}}
+                ],
             }
         ]
-        mock_http_client.request.return_value = {"executions": executions}
 
         result = run_service.get_tool_executions(456)
 
-        # Verify API call
-        mock_http_client.request.assert_called_once_with("GET", "/api/v1/runs/456/tools")
-
-        # Verify returned executions
-        assert result == executions
-        assert len(result) == 1
+        mock_http_client.request.assert_called_once_with("GET", "/api/v1/runs/456/messages")
+        assert result == [{"tool_name": "run_gaql_query", "arguments": {"query": "SELECT..."}}]
 
     def test_get_tool_executions_empty(self, run_service, mock_http_client):
-        """Test getting tool executions when none exist."""
-        mock_http_client.request.return_value = {"executions": []}
+        """No tool_use blocks → empty list."""
+        mock_http_client.request.return_value = [
+            {"role": "assistant", "content": "hi", "content_blocks": [{"type": "text"}]}
+        ]
 
         result = run_service.get_tool_executions(456)
 
         assert result == []
 
-    def test_get_tool_executions_missing_key(self, run_service, mock_http_client):
-        """Test getting tool executions when key is missing."""
-        mock_http_client.request.return_value = {}
+    def test_get_tool_executions_missing_blocks(self, run_service, mock_http_client):
+        """Messages without content_blocks are skipped safely."""
+        mock_http_client.request.return_value = [{"role": "user", "content": "go"}]
 
         result = run_service.get_tool_executions(456)
 
@@ -413,38 +410,30 @@ class TestGetDetails:
     """Test getting comprehensive run details."""
 
     def test_get_details_success(self, run_service, mock_http_client):
-        """Test retrieving comprehensive run details."""
+        """The /detail response is FLAT — run fields plus aggregated metrics."""
         details = {
-            "run": {
-                "id": 456,
-                "status": "completed",
-            },
-            "conversation": [{"role": "user", "content": "Hello"}],
-            "usage": {"total_tokens": 100},
-            "tool_executions": [{"tool_name": "run_gaql_query"}],
+            "id": 456,
+            "status": "completed",
+            "message_count": 2,
+            "total_tokens": 100,
+            "total_cost_usd": "0.0100",
         }
         mock_http_client.request.return_value = details
 
         result = run_service.get_details(456)
 
-        # Verify API call
-        mock_http_client.request.assert_called_once_with("GET", "/api/v1/runs/456/details")
-
-        # Verify returned details
+        mock_http_client.request.assert_called_once_with("GET", "/api/v1/runs/456/detail")
         assert result == details
-        assert "conversation" in result
-        assert "usage" in result
-        assert "tool_executions" in result
 
     def test_get_details_different_runs(self, run_service, mock_http_client):
         """Test getting details for different run IDs."""
         mock_http_client.request.return_value = {}
 
         run_service.get_details(456)
-        assert "/runs/456/details" in str(mock_http_client.request.call_args)
+        assert "/runs/456/detail" in str(mock_http_client.request.call_args)
 
         run_service.get_details(789)
-        assert "/runs/789/details" in str(mock_http_client.request.call_args)
+        assert "/runs/789/detail" in str(mock_http_client.request.call_args)
 
 
 @pytest.mark.unit

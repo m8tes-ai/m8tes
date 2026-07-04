@@ -505,7 +505,7 @@ class App:
     display_name: str
     category: str
     connected: bool
-    auth_type: str = ""  # "composio" | "api_key" | "api_key_proxy"
+    auth_type: str = ""  # "composio" | "api_key" | "api_key_proxy" | "platform_provisioned"
 
     @property
     def needs_oauth(self) -> bool:
