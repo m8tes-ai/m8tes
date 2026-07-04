@@ -787,6 +787,39 @@ class EndUser:
 
 
 @dataclass
+class EndUserUsage:
+    """One end-user's usage for the current billing period."""
+
+    id: int
+    user_id: str
+    runs_used: int
+    cost_used: str
+    input_tokens: int
+    output_tokens: int
+    total_tokens: int
+    last_active_at: str | None
+    runs_limit: int | None
+    cost_limit_cents: int | None
+    period_end: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> EndUserUsage:
+        return cls(
+            id=data["id"],
+            user_id=data["user_id"],
+            runs_used=data["runs_used"],
+            cost_used=data["cost_used"],
+            input_tokens=data["input_tokens"],
+            output_tokens=data["output_tokens"],
+            total_tokens=data["total_tokens"],
+            last_active_at=data.get("last_active_at"),
+            runs_limit=data.get("runs_limit"),
+            cost_limit_cents=data.get("cost_limit_cents"),
+            period_end=data.get("period_end", ""),
+        )
+
+
+@dataclass
 class AccountSettings:
     """Account-level settings."""
 

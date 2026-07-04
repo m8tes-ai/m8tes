@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .._types import EndUser, SyncPage
+from .._types import EndUser, EndUserUsage, SyncPage
 from ._utils import _build_params
 
 _list = list  # preserve builtin; shadowed by .list() method
@@ -39,6 +39,30 @@ class Users:
             body["metadata"] = metadata
         resp = self._http.request("POST", "/users/", json=body)
         return EndUser.from_dict(resp.json())
+
+    def usage(
+        self,
+        user_id: str | None = None,
+        *,
+        limit: int = 20,
+        starting_after: int | None = None,
+    ) -> SyncPage[EndUserUsage]:
+        """Per-end-user usage rollup for the current billing period.
+
+        Pass `user_id` to read one end-user's usage; omit it to page through all.
+        """
+        params = _build_params(limit=limit, starting_after=starting_after, user_id=user_id)
+        resp = self._http.request("GET", "/usage/end-users", params=params)
+        body = resp.json()
+
+        def _fetch_next(**kw: object) -> SyncPage[EndUserUsage]:
+            return self.usage(user_id, **kw)  # type: ignore[arg-type]
+
+        return SyncPage(
+            data=[EndUserUsage.from_dict(d) for d in body["data"]],
+            has_more=body["has_more"],
+            _fetch_next=_fetch_next,
+        )
 
     def list(
         self,
