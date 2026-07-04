@@ -785,6 +785,10 @@ class EndUser:
     metadata: dict | None
     created_at: str
     updated_at: str | None = None
+    # Per-individual sub-cap overrides (None = inherit account defaults).
+    run_limit: int | None = None
+    cost_limit_cents: int | None = None
+    rate_per_minute: int | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> EndUser:
@@ -797,6 +801,9 @@ class EndUser:
             metadata=data.get("metadata"),
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at"),
+            run_limit=data.get("run_limit"),
+            cost_limit_cents=data.get("cost_limit_cents"),
+            rate_per_minute=data.get("rate_per_minute"),
         )
 
 
@@ -815,6 +822,7 @@ class EndUserUsage:
     runs_limit: int | None
     cost_limit_cents: int | None
     period_end: str
+    rate_per_minute: int | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> EndUserUsage:
@@ -830,6 +838,7 @@ class EndUserUsage:
             runs_limit=data.get("runs_limit"),
             cost_limit_cents=data.get("cost_limit_cents"),
             period_end=data.get("period_end", ""),
+            rate_per_minute=data.get("rate_per_minute"),
         )
 
 
@@ -840,6 +849,7 @@ class AccountSettings:
     # Per-end-user (multi-tenant) sub-caps; None = no cap.
     per_end_user_run_limit: int | None = None
     per_end_user_cost_limit_cents: int | None = None
+    per_end_user_rate_per_minute: int | None = None
     # Data retention: "standard" or "metadata_only" (zero data retention).
     retention_mode: str = "standard"
 
@@ -848,6 +858,7 @@ class AccountSettings:
         return cls(
             per_end_user_run_limit=data.get("per_end_user_run_limit"),
             per_end_user_cost_limit_cents=data.get("per_end_user_cost_limit_cents"),
+            per_end_user_rate_per_minute=data.get("per_end_user_rate_per_minute"),
             retention_mode=data.get("retention_mode", "standard"),
         )
 

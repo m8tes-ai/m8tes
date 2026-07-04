@@ -123,3 +123,18 @@ def test_update_sub_cap_clear_sends_explicit_null():
     Settings(_http()).update(per_end_user_run_limit=None)
 
     assert json.loads(responses.calls[0].request.body) == {"per_end_user_run_limit": None}
+
+
+@responses.activate
+def test_update_rate_per_minute():
+    responses.add(
+        responses.PATCH,
+        f"{BASE}/settings/",
+        json={"per_end_user_rate_per_minute": 10, "retention_mode": "standard"},
+        status=200,
+    )
+
+    settings = Settings(_http()).update(per_end_user_rate_per_minute=10)
+
+    assert settings.per_end_user_rate_per_minute == 10
+    assert json.loads(responses.calls[0].request.body) == {"per_end_user_rate_per_minute": 10}

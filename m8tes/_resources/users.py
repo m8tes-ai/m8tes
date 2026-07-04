@@ -9,6 +9,9 @@ from ._utils import _build_params
 
 _list = list  # preserve builtin; shadowed by .list() method
 
+# Distinguishes "omit field" from "clear override with None" (PATCH semantics).
+_UNSET: object = object()
+
 if TYPE_CHECKING:
     from .._http import HTTPClient
 
@@ -27,8 +30,14 @@ class Users:
         email: str | None = None,
         company: str | None = None,
         metadata: dict | None = None,
+        run_limit: int | None = None,
+        cost_limit_cents: int | None = None,
+        rate_per_minute: int | None = None,
     ) -> EndUser:
-        """Register an end-user. Raises ConflictError (409) if user_id exists."""
+        """Create an end-user profile. The optional per-individual sub-cap
+        overrides (run_limit / cost_limit_cents / rate_per_minute) win over the
+        account-wide ``client.settings`` defaults; ``run_limit=0`` blocks the
+        end-user entirely."""
         body: dict = {"user_id": user_id}
         if name is not None:
             body["name"] = name
@@ -38,6 +47,12 @@ class Users:
             body["company"] = company
         if metadata is not None:
             body["metadata"] = metadata
+        if run_limit is not None:
+            body["run_limit"] = run_limit
+        if cost_limit_cents is not None:
+            body["cost_limit_cents"] = cost_limit_cents
+        if rate_per_minute is not None:
+            body["rate_per_minute"] = rate_per_minute
         resp = self._http.request("POST", "/users/", json=body)
         return EndUser.from_dict(resp.json())
 
@@ -96,7 +111,13 @@ class Users:
         email: str | None = None,
         company: str | None = None,
         metadata: dict | None = None,
+        run_limit: int | None = _UNSET,  # type: ignore[assignment]
+        cost_limit_cents: int | None = _UNSET,  # type: ignore[assignment]
+        rate_per_minute: int | None = _UNSET,  # type: ignore[assignment]
     ) -> EndUser:
+        """Update an end-user profile. For the sub-cap overrides, pass an int to
+        set, ``None`` to clear (inherit the account default), or omit to leave
+        unchanged."""
         body: dict = {}
         if name is not None:
             body["name"] = name
@@ -106,6 +127,12 @@ class Users:
             body["company"] = company
         if metadata is not None:
             body["metadata"] = metadata
+        if run_limit is not _UNSET:
+            body["run_limit"] = run_limit
+        if cost_limit_cents is not _UNSET:
+            body["cost_limit_cents"] = cost_limit_cents
+        if rate_per_minute is not _UNSET:
+            body["rate_per_minute"] = rate_per_minute
         resp = self._http.request("PATCH", f"/users/{user_id}", json=body)
         return EndUser.from_dict(resp.json())
 
