@@ -33,9 +33,35 @@ class Bridges:
         resp = self._http.request("POST", "/bridges/provision")
         return Bridge.from_dict(resp.json())
 
-    def regenerate_link_code(self, bridge_id: int) -> Bridge:
-        """Rotate a hosted bridge's link code (previously shared codes stop working)."""
-        resp = self._http.request("POST", f"/bridges/{bridge_id}/link-code")
+    def provision_blooio(
+        self, number: str, *, api_key: str | None = None, user_id: str | None = None
+    ) -> Bridge:
+        """Connect a managed Blooio iMessage number (a dedicated line) to your account.
+
+        ``number`` is the dedicated Blooio number in E.164 (e.g. ``"+15551234567"``). Pass
+        ``api_key`` to bring your own Blooio account (stored encrypted; omit to use the platform
+        account), and ``user_id`` to bind the line to a specific end-user for multi-tenant
+        isolation. Registers the inbound webhook with Blooio and returns the bridge, whose
+        ``provider_number`` is the connected number. Raises if Blooio isn't configured (HTTP 503)
+        or the number is invalid / already claimed / not on the account (HTTP 400)."""
+        body: dict = {"number": number}
+        if api_key is not None:
+            body["api_key"] = api_key
+        if user_id is not None:
+            body["user_id"] = user_id
+        resp = self._http.request("POST", "/bridges/provision-blooio", json=body)
+        return Bridge.from_dict(resp.json())
+
+    def regenerate_link_code(self, bridge_id: int, single_use: bool = False) -> Bridge:
+        """Rotate a hosted bridge's link code (previously shared codes stop working).
+
+        ``single_use=True`` issues a one-shot code consumed on the first phone that links (the
+        safest way to hand a code to a single person on the shared m8tes number); the default
+        keeps the code multi-use for team onboarding.
+        """
+        # Only send a body when opting in, so a bodiless request still works against older servers.
+        json = {"single_use": True} if single_use else None
+        resp = self._http.request("POST", f"/bridges/{bridge_id}/link-code", json=json)
         return Bridge.from_dict(resp.json())
 
     def list_handles(self, bridge_id: int) -> builtins.list[HandleLink]:

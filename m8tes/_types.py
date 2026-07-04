@@ -198,6 +198,10 @@ class Bridge:
     m8tes_handle: str | None = None
     link_code: str | None = None
     link_code_expires_at: str | None = None
+    # Hosted bridges: True when the active code links exactly one phone, then is consumed.
+    link_code_single_use: bool = False
+    # Managed (blooio) bridges: the dedicated iMessage number connected to this account.
+    provider_number: str | None = None
     webhook_secret: str | None = None
     # Connection health-check result — populated only on self-hosted create.
     connection_ok: bool | None = None
@@ -218,6 +222,8 @@ class Bridge:
             m8tes_handle=data.get("m8tes_handle"),
             link_code=data.get("link_code"),
             link_code_expires_at=data.get("link_code_expires_at"),
+            link_code_single_use=bool(data.get("link_code_single_use", False)),
+            provider_number=data.get("provider_number"),
             webhook_secret=data.get("webhook_secret"),
             connection_ok=data.get("connection_ok"),
             connection_error=data.get("connection_error"),

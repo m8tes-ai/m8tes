@@ -431,6 +431,29 @@ class TestTeammatesCRUD:
             assert v2_client.bridges.provision().id == bridge.id
             # Listing verified handles works (empty until someone texts the code).
             assert isinstance(v2_client.bridges.list_handles(bridge.id), list)
+
+            # A single-use rotate issues a new, one-shot code; the default rotate is multi-use.
+            single = v2_client.bridges.regenerate_link_code(bridge.id, single_use=True)
+            assert single.link_code_single_use is True
+            assert single.link_code and single.link_code != bridge.link_code
+            multi = v2_client.bridges.regenerate_link_code(bridge.id)
+            assert multi.link_code_single_use is False
+        finally:
+            v2_client.bridges.delete(bridge.id)
+
+    def test_blooio_provision_endpoint_reachable(self, v2_client):
+        """The managed-Blooio provision endpoint is reachable via the SDK. A bogus number
+        yields 503 (Blooio unconfigured) or 400/502 (number not on the account / provider
+        failure) — either proves the SDK method + HTTP contract without registering a real
+        webhook. If it unexpectedly succeeds (a genuinely owned number), clean up."""
+        try:
+            bridge = v2_client.bridges.provision_blooio("+15550009999")
+        except M8tesError as e:
+            assert e.status_code in (400, 502, 503)
+            return
+        try:
+            assert bridge.kind == "blooio"
+            assert bridge.provider_number
         finally:
             v2_client.bridges.delete(bridge.id)
 
