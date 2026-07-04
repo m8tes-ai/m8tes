@@ -1021,6 +1021,8 @@ class Plan:
     monthly_price_cents: int
     annual_price_cents: int
     overage_rate_cents: int
+    # Per-period model-spend fair-use cap; 0 when the server predates the field.
+    fair_use_cost_limit_cents: int = 0
 
     @classmethod
     def from_dict(cls, data: dict) -> Plan:
@@ -1031,6 +1033,7 @@ class Plan:
             monthly_price_cents=data["monthly_price_cents"],
             annual_price_cents=data["annual_price_cents"],
             overage_rate_cents=data["overage_rate_cents"],
+            fair_use_cost_limit_cents=data.get("fair_use_cost_limit_cents", 0),
         )
 
 
