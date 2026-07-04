@@ -134,7 +134,7 @@ for m in client.models.list().data:
 bot = client.teammates.create(name="Ops", model="sonnet")   # or per run: runs.create(..., model="opus")
 ```
 
-Today that's `sonnet` and `opus`; more (non-Anthropic + open-source) appear in `models.list()` as they go live. Omit `model` to use the `default`.
+Today that's the Claude models `sonnet`, `opus` (default), and `fable` (most capable, ~2x cost), plus `gpt-5.5`, `glm-5.2`, and `deepseek-v3-2` served through the zero-data-retention gateway. `models.list()` is the live source of truth; omit `model` to use the `default`.
 
 ## Runs
 
