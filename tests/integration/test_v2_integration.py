@@ -3292,6 +3292,23 @@ class TestEndUsersCRUD:
             v2_client.memories.delete(mem.id, user_id=uid)
             v2_client.users.delete(uid)
 
+    def test_end_user_usage_rollup(self, v2_client):
+        """usage() returns a zero row for a fresh end-user, with period metadata."""
+        uid = _uid()
+        v2_client.users.create(user_id=uid)
+        try:
+            page = v2_client.users.usage(uid)
+            assert len(page.data) == 1
+            row = page.data[0]
+            assert row.user_id == uid
+            assert row.runs_used == 0
+            assert row.cost_used == "0"
+            assert row.total_tokens == 0
+            assert row.last_active_at is None
+            assert row.period_end  # period metadata always present
+        finally:
+            v2_client.users.delete(uid)
+
     def test_users_pagination(self, v2_client):
         """Users list supports cursor pagination."""
         uids = [_uid() for _ in range(3)]
