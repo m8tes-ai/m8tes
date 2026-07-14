@@ -2,6 +2,15 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [2.5.0] - 2026-07-14
+
+### Added
+- `client.billing.usage_timeseries(start_date=…, end_date=…, user_id=…, teammate_id=…)` — daily token + USD usage buckets (`UsageTimeseries` / `UsageBucket` / `UsageTotals`), zero-filled over the window (default: last 30 UTC days). Cost mirrors `usage().cost_used` semantics, so the series reconciles with period totals and prepaid ledger debits.
+- `client.billing.receipts(limit=…, starting_after=…)` — prepaid top-up payment history with Stripe-hosted receipt links (`Receipt`), newest first, cursor-paginated.
+- `Run.usage` (`RunUsage`) — per-run token counts and USD cost on every run response; `None` until metrics arrive.
+- `client.billing.usage_timeseries(group_by="model")` — per-model slices (`UsageModelSlice`) inside each day bucket, for model-level cost attribution.
+- `client.billing.set_auto_reload(enabled=…, threshold_cents=…, amount_cents=…)` — auto top-up: when the balance falls below the threshold, the saved card is charged off-session and credited. `Balance` gains `auto_reload_enabled` / `auto_reload_threshold_cents` / `auto_reload_amount_cents`. Enabling without a saved card raises `BillingError` (`NO_SAVED_PAYMENT_METHOD`).
+
 ## [2.4.0] - 2026-07-14
 
 ### Added
