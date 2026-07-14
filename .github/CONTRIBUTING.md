@@ -15,8 +15,10 @@ We use TDD. Write a failing test first, then implement.
 ```bash
 make check          # lint + type-check + unit tests (run before every PR)
 make test-unit      # fast unit tests only
-make test-integration  # requires backend at localhost:8000
+make test-integration  # maintainers only — needs a live m8tes backend (E2E_BACKEND_URL)
 ```
+
+Unit tests run fully offline — they're all CI requires for a PR.
 
 ## Submitting a PR
 

@@ -30,9 +30,15 @@ from m8tes._types import (
 
 # Load schemas.py directly from file path, bypassing app.routers.__init__
 # which eagerly imports v1 routers that depend on the full fastapi package.
+# In a standalone SDK checkout (the public repo) the backend source isn't
+# present — skip the whole module instead of crashing test collection.
 _schemas_path = (
     Path(__file__).resolve().parents[4] / "fastapi" / "app" / "routers" / "v2" / "schemas.py"
 )
+if not _schemas_path.exists():
+    pytest.skip(
+        "backend schemas.py not available (standalone SDK checkout)", allow_module_level=True
+    )
 _spec = importlib.util.spec_from_file_location("v2_schemas", _schemas_path)
 _schemas = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_schemas)

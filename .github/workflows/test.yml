@@ -1,0 +1,31 @@
+# CI for the public SDK repo: lint, type-check, and offline unit tests.
+# Integration/e2e suites need a live backend and are run by maintainers upstream.
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: Install
+        run: uv pip install -e ".[dev]"
+      - name: Lint
+        run: |
+          uv run ruff check .
+          uv run ruff format --check .
+      - name: Type-check
+        run: uv run mypy m8tes/
+      - name: Tests (offline suites)
+        # Default addopts exclude e2e/smoke/integration (they need a live backend)
+        run: uv run pytest -q

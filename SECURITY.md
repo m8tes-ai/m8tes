@@ -18,7 +18,8 @@ We actively maintain the latest major version of the SDK. Security fixes are bac
 
 | Version | Supported |
 |---------|-----------|
-| 1.x     | ✓         |
+| 2.x     | ✓         |
+| 1.x     | security fixes when practical |
 | < 1.0   | ✗         |
 
 ## Scope

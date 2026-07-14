@@ -142,4 +142,3 @@ Skipping these makes it impossible for users to know what version they need or w
 ## References
 
 - API documentation: [m8tes.ai/docs](https://m8tes.ai/docs)
-- Backend API: [github.com/m8tes](https://github.com/m8tes)
