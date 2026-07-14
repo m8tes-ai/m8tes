@@ -63,6 +63,30 @@ class TaskTriggers:
         items = body["data"] if isinstance(body, dict) and "data" in body else body
         return [Trigger.from_dict(d) for d in items]
 
+    def update(
+        self,
+        task_id: int,
+        trigger_id: int,
+        *,
+        enabled: bool | None = None,
+        cron: str | None = None,
+        interval_seconds: int | None = None,
+        timezone: str | None = None,
+    ) -> Trigger:
+        """Update a trigger in place: pause/resume with ``enabled``, or reshape a
+        schedule's cron/interval/timezone — no delete + re-create needed."""
+        body: dict = {}
+        if enabled is not None:
+            body["enabled"] = enabled
+        if cron is not None:
+            body["cron"] = cron
+        if interval_seconds is not None:
+            body["interval_seconds"] = interval_seconds
+        if timezone is not None:
+            body["timezone"] = timezone
+        resp = self._http.request("PATCH", f"/tasks/{task_id}/triggers/{trigger_id}", json=body)
+        return Trigger.from_dict(resp.json())
+
     def delete(self, task_id: int, trigger_id: int) -> None:
         self._http.request("DELETE", f"/tasks/{task_id}/triggers/{trigger_id}")
 

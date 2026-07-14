@@ -2,6 +2,19 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [2.4.0] - 2026-07-14
+
+### Added
+- `files=` on `runs.create()` — attach input files (path strings, `(filename, bytes)` tuples, or open binary files) for the agent to read; routes through the new multipart `POST /runs/with-files` endpoint with every other argument unchanged.
+- `runs.outcome(run_id)` — condensed run result in one call: the agent's closing `summary` (transport markers stripped), `headline`, `needs_reply`, structured `output_data`, token counts, and the run's metered `cost_usd`.
+- `teammates.enable()` / `teammates.disable()` — pause a teammate without archiving it (schedules stop firing, reversibly) and re-enable it later.
+- `teammates.list_documents()` / `teammates.get_document()` — read the teammate's persistent documents (e.g. `latest-report`), the polished deliverables it maintains across runs.
+- `memories.update(memory_id, content=...)` — correct a memory in place, and account-level memory scope: omit `user_id` on `memories.create/list/update/delete` to manage memories seen by runs that carry no `user_id`.
+- `tasks.triggers.update(task_id, trigger_id, enabled=..., cron=..., interval_seconds=..., timezone=...)` — pause/resume or reshape a schedule (or app) trigger in place; schedule triggers returned by `triggers.list()` now populate `next_run`.
+- Strict multi-tenant mode: requests that would land in the account-level scope because `user_id` was omitted are rejected (422) instead of silently assuming the global account scope. **On by default for new API-product signups**; choose at signup (`m8tes.signup(..., require_end_user_id=False)` for single-tenant use) or toggle any time with `settings.update(require_end_user_id=...)`.
+
+### Changed
+- Cancelled runs now fire their own `run.cancelled` webhook event instead of arriving as `run.failed` with `data.status: "cancelled"`. New webhooks subscribe to it by default; add `run.cancelled` to older subscriptions that need cancellation notifications.
 ## [2.3.0] - 2026-07-13
 
 ### Added

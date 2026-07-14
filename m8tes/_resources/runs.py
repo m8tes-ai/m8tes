@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Generator
+import json
 from typing import TYPE_CHECKING, Any, cast
 
 from .._streaming import RunStream
@@ -12,6 +13,7 @@ from .._types import (
     PermissionRequest,
     Run,
     RunFile,
+    RunOutcome,
     SyncPage,
 )
 from ._utils import _build_params
@@ -20,6 +22,23 @@ _list = list  # preserve builtin; shadowed by .list() method
 
 if TYPE_CHECKING:
     from .._http import HTTPClient
+
+
+def _to_file_part(f: Any) -> tuple[str, bytes]:
+    """Normalize a files= item (path str, (name, bytes) tuple, or file object)
+    into the (filename, content) tuple the multipart request expects.
+
+    File objects are materialized with .read() so the automatic 429/5xx retry
+    re-sends the same bytes instead of an exhausted stream (empty upload).
+    """
+    if isinstance(f, str):
+        from pathlib import Path
+
+        p = Path(f)
+        return (p.name, p.read_bytes())
+    if isinstance(f, tuple):
+        return f
+    return (getattr(f, "name", "upload.bin").rsplit("/", 1)[-1], f.read())
 
 
 class Runs:
@@ -48,6 +67,7 @@ class Runs:
         model: str | None = None,
         email_inbox: bool = False,
         output_schema: dict | None = None,
+        files: _list | None = None,
         raise_on_error: bool = False,
     ) -> RunStream | Run:
         """Create and execute a run.
@@ -55,6 +75,11 @@ class Runs:
         With stream=True (default): returns iterable RunStream of events.
         With stream=False: returns Run immediately (status="running").
             Poll GET /runs/{id} until status is terminal to get output.
+
+        Pass files= to attach files the agent can read (a CSV to analyze, a PDF
+        to summarize). Each item is a path string, a (filename, bytes) tuple, or
+        an open binary file object. Uploads use the multipart /runs/with-files
+        endpoint; every other argument works exactly the same.
 
         Set human_in_the_loop=True to enable interactive features
         (clarifying questions, tool approval, plan mode).
@@ -103,6 +128,15 @@ class Runs:
             body["email_inbox"] = True
         if output_schema is not None:
             body["output_schema"] = output_schema
+
+        if files:
+            file_parts = [("files", _to_file_part(f)) for f in files]
+            form = {"payload": json.dumps(body)}
+            if stream:
+                resp = self._http.stream("POST", "/runs/with-files", data=form, files=file_parts)
+                return RunStream(resp, raise_on_error=raise_on_error)
+            resp = self._http.request("POST", "/runs/with-files", data=form, files=file_parts)
+            return Run.from_dict(resp.json())
 
         if stream:
             resp = self._http.stream("POST", "/runs/", json=body)
@@ -411,6 +445,11 @@ class Runs:
     def get(self, run_id: int) -> Run:
         resp = self._http.request("GET", f"/runs/{run_id}")
         return Run.from_dict(resp.json())
+
+    def outcome(self, run_id: int) -> RunOutcome:
+        """Condensed run result: closing summary, structured output, and metered cost."""
+        resp = self._http.request("GET", f"/runs/{run_id}/outcome")
+        return RunOutcome.from_dict(resp.json())
 
     def reply(
         self,
