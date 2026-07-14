@@ -275,6 +275,11 @@ class Run:
     # and when the next one fires (ISO timestamp, None when none is scheduled).
     auto_retry_count: int = 0
     next_retry_at: str | None = None
+    # Structured result matching the `output_schema` the run was created with. None when no schema
+    # was requested — and also None when the model produced no structured result (a run cut short
+    # by truncation, a pause, or a spend limit still completes, with its text `output` intact).
+    # Always None-check before indexing.
+    output_data: dict | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> Run:
@@ -296,6 +301,7 @@ class Run:
             retry_count=data.get("retry_count", 0),
             auto_retry_count=data.get("auto_retry_count", 0),
             next_retry_at=data.get("next_retry_at"),
+            output_data=data.get("output_data"),
         )
 
 
