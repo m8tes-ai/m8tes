@@ -25,6 +25,7 @@ from m8tes._types import (
     PermissionRequest,
     Run,
     RunFile,
+    RunOutcome,
     SyncPage,
     Task,
     Teammate,
@@ -163,6 +164,21 @@ class TestTeammates:
         responses.add(responses.PATCH, f"{BASE}/teammates/1", json={"id": 1, "name": "New"})
         t = Teammates(http).update(1, name="New")
         assert t.name == "New"
+
+    @responses.activate
+    def test_disable_and_enable(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/teammates/1/disable",
+            json={"id": 1, "name": "Bot", "status": "disabled"},
+        )
+        responses.add(
+            responses.POST,
+            f"{BASE}/teammates/1/enable",
+            json={"id": 1, "name": "Bot", "status": "enabled"},
+        )
+        assert Teammates(http).disable(1).status == "disabled"
+        assert Teammates(http).enable(1).status == "enabled"
 
     @responses.activate
     def test_update_sends_only_provided_fields(self, http):
@@ -649,6 +665,32 @@ class TestRuns:
         Runs(http).create(message="Do X", stream=False, permission_mode="autonomous")
         body = json.loads(responses.calls[0].request.body)
         assert body["permission_mode"] == "autonomous"
+
+    @responses.activate
+    def test_outcome(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/42/outcome",
+            json={
+                "run_id": 42,
+                "status": "completed",
+                "summary": "Paused 3 wasteful keywords.",
+                "headline": "wasted spend cut",
+                "needs_reply": False,
+                "output_data": {"saved": 120},
+                "message_count": 14,
+                "input_tokens": 100,
+                "output_tokens": 50,
+                "total_tokens": 150,
+                "cost_usd": "0.4831",
+            },
+        )
+        outcome = Runs(http).outcome(42)
+        assert isinstance(outcome, RunOutcome)
+        assert outcome.summary == "Paused 3 wasteful keywords."
+        assert outcome.needs_reply is False
+        assert outcome.output_data == {"saved": 120}
+        assert outcome.cost_usd == "0.4831"
 
     @responses.activate
     def test_list_files(self, http):
@@ -1382,3 +1424,127 @@ class TestBridges:
         assert body["allowed_imessage_senders"] == ["+15551231234"]
         assert tm.bridge_id == 5
         assert tm.allowed_imessage_senders == ["+15551231234"]
+
+
+class TestTeammateDocuments:
+    @responses.activate
+    def test_list_documents(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/teammates/1/documents",
+            json={
+                "data": [
+                    {
+                        "id": 3,
+                        "name": "latest-report",
+                        "summary": "Weekly PPC report",
+                        "mime_type": "text/markdown",
+                        "size_bytes": 2048,
+                        "source": "agent",
+                    }
+                ],
+                "has_more": False,
+            },
+        )
+        docs = Teammates(http).list_documents(1)
+        assert len(docs) == 1
+        assert docs[0].name == "latest-report"
+        assert docs[0].content is None
+
+    @responses.activate
+    def test_get_document(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/teammates/1/documents/latest-report",
+            json={
+                "id": 3,
+                "name": "latest-report",
+                "summary": "Weekly PPC report",
+                "mime_type": "text/markdown",
+                "size_bytes": 2048,
+                "source": "agent",
+                "content": "# Report",
+            },
+        )
+        doc = Teammates(http).get_document(1, "latest-report")
+        assert doc.content == "# Report"
+
+
+class TestTaskTriggerUpdate:
+    @responses.activate
+    def test_pause_schedule_trigger(self, http):
+        responses.add(
+            responses.PATCH,
+            f"{BASE}/tasks/10/triggers/5",
+            json={"id": 5, "type": "schedule", "enabled": False, "cron": "0 9 * * *"},
+        )
+        t = TaskTriggers(http).update(10, 5, enabled=False)
+        assert isinstance(t, Trigger)
+        assert t.enabled is False
+        assert json.loads(responses.calls[0].request.body) == {"enabled": False}
+
+    @responses.activate
+    def test_reshape_schedule_trigger(self, http):
+        responses.add(
+            responses.PATCH,
+            f"{BASE}/tasks/10/triggers/5",
+            json={"id": 5, "type": "schedule", "enabled": True, "cron": "0 18 * * 5"},
+        )
+        TaskTriggers(http).update(10, 5, cron="0 18 * * 5", timezone="Europe/Copenhagen")
+        body = json.loads(responses.calls[0].request.body)
+        assert body == {"cron": "0 18 * * 5", "timezone": "Europe/Copenhagen"}
+
+
+class TestRunsWithFiles:
+    @responses.activate
+    def test_create_with_files_uses_multipart(self, http):
+        responses.add(
+            responses.POST, f"{BASE}/runs/with-files", json={"id": 9, "status": "running"}
+        )
+        run = Runs(http).create(
+            message="Summarize this",
+            teammate_id=1,
+            stream=False,
+            files=[("data.csv", b"a,b\n1,2\n")],
+        )
+        assert isinstance(run, Run)
+        req = responses.calls[0].request
+        assert "multipart/form-data" in req.headers["Content-Type"]
+        body = req.body if isinstance(req.body, bytes) else req.body.encode()
+        assert b'name="payload"' in body
+        assert b'"message": "Summarize this"' in body
+        assert b"data.csv" in body
+        assert b"a,b" in body
+
+    @responses.activate
+    def test_create_without_files_stays_json(self, http):
+        responses.add(responses.POST, f"{BASE}/runs/", json={"id": 9, "status": "running"})
+        Runs(http).create(message="Hi", teammate_id=1, stream=False)
+        assert responses.calls[0].request.headers["Content-Type"] == "application/json"
+
+
+class TestToFilePart:
+    def test_path_string_reads_bytes(self, tmp_path):
+        from m8tes._resources.runs import _to_file_part
+
+        p = tmp_path / "report.csv"
+        p.write_bytes(b"a,b\n1,2\n")
+        name, content = _to_file_part(str(p))
+        assert name == "report.csv"
+        assert content == b"a,b\n1,2\n"
+
+    def test_file_object_is_materialized(self, tmp_path):
+        """File objects are read once so HTTP retries re-send identical bytes."""
+        from m8tes._resources.runs import _to_file_part
+
+        p = tmp_path / "note.txt"
+        p.write_bytes(b"hello")
+        with open(p, "rb") as fh:
+            name, content = _to_file_part(fh)
+        assert name == "note.txt"
+        assert content == b"hello"
+
+    def test_tuple_passthrough(self):
+        from m8tes._resources.runs import _to_file_part
+
+        assert _to_file_part(("x.bin", b"\x00")) == ("x.bin", b"\x00")

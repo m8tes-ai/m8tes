@@ -31,6 +31,7 @@ class Settings:
         per_end_user_cost_limit_cents: int | None = _UNSET,
         per_end_user_rate_per_minute: int | None = _UNSET,
         retention_mode: str | None = None,
+        require_end_user_id: bool | None = None,
     ) -> AccountSettings:
         """Update account settings.
 
@@ -40,6 +41,9 @@ class Settings:
         an int to set, ``None`` to clear, or omit to leave unchanged.
         ``retention_mode`` is ``"standard"`` or ``"metadata_only"`` (zero data
         retention — we never persist message content, tool I/O, or generated reports).
+        ``require_end_user_id=True`` turns on strict multi-tenant mode: any request
+        that would land in the account-level scope because ``user_id`` was omitted
+        is rejected (422) instead of silently assuming the global account scope.
         """
         body: dict = {}
         if per_end_user_run_limit is not _UNSET:
@@ -50,5 +54,7 @@ class Settings:
             body["per_end_user_rate_per_minute"] = per_end_user_rate_per_minute
         if retention_mode is not None:
             body["retention_mode"] = retention_mode
+        if require_end_user_id is not None:
+            body["require_end_user_id"] = require_end_user_id
         resp = self._http.request("PATCH", "/settings/", json=body)
         return AccountSettings.from_dict(resp.json())

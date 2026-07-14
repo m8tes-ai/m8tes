@@ -1226,6 +1226,36 @@ class TestMemoriesCRUD:
             for m in mems:
                 v2_client.memories.delete(m.id, user_id=user_id)
 
+    def test_account_scope_and_update(self, v2_client):
+        """Account-level memories (no user_id) live in their own scope and are editable."""
+        mem = v2_client.memories.create(content=f"Account fact {_uid()}")
+        try:
+            assert mem.user_id is None
+            # Not visible in any end-user scope
+            page = v2_client.memories.list(user_id=_uid())
+            assert not any(m.id == mem.id for m in page.data)
+            # Visible in the account scope
+            page = v2_client.memories.list()
+            assert any(m.id == mem.id for m in page.data)
+            # Editable in place
+            updated = v2_client.memories.update(mem.id, content=f"Corrected fact {_uid()}")
+            assert updated.content.startswith("Corrected fact")
+        finally:
+            v2_client.memories.delete(mem.id)
+
+    def test_update_end_user_memory(self, v2_client):
+        user_id = _uid()
+        mem = v2_client.memories.create(user_id=user_id, content="Prefers dark mode")
+        try:
+            updated = v2_client.memories.update(
+                mem.id, content="Prefers light mode", user_id=user_id
+            )
+            assert updated.content == "Prefers light mode"
+            with pytest.raises(NotFoundError):  # wrong scope never matches
+                v2_client.memories.update(mem.id, content="X")
+        finally:
+            v2_client.memories.delete(mem.id, user_id=user_id)
+
     def test_search_by_query(self, v2_client):
         """list(query=...) keyword-filters the end-user's memories (case-insensitive)."""
         user_id = _uid()
@@ -1663,7 +1693,7 @@ class TestWebhookIsolationAndEdges:
         """Create without events uses V2 defaults exactly."""
         wh = v2_client.webhooks.create(url="https://example.com/defaults-check")
         try:
-            assert set(wh.events) == {"run.completed", "run.failed"}
+            assert set(wh.events) == {"run.completed", "run.failed", "run.cancelled"}
         finally:
             v2_client.webhooks.delete(wh.id)
 
@@ -1837,6 +1867,59 @@ class TestRunsReadOnly:
         """List files for nonexistent run returns 404."""
         with pytest.raises(NotFoundError):
             v2_client.runs.list_files(999999)
+
+    def test_outcome_nonexistent_run(self, v2_client):
+        """Outcome for nonexistent run returns 404."""
+        with pytest.raises(NotFoundError):
+            v2_client.runs.outcome(999999)
+
+
+@pytest.mark.integration
+class TestRunsWithFiles:
+    def test_create_with_files_multipart(self, v2_client):
+        """files= routes through /runs/with-files; local backends without sandbox
+        reject attachments with a clean 400 instead of a silent drop."""
+        from m8tes._exceptions import M8tesError
+
+        tm = v2_client.teammates.create(name="FileReader")
+        try:
+            try:
+                run = v2_client.runs.create(
+                    teammate_id=tm.id,
+                    message="Read the attached file",
+                    files=[("note.txt", b"hello")],
+                    stream=False,
+                )
+                assert run.id > 0  # sandbox-enabled backend accepted the upload
+            except M8tesError as e:
+                if e.status_code == 503:
+                    pytest.skip("backend has no inference key configured")
+                if e.status_code == 429:
+                    pytest.skip("backend at run capacity")
+                assert e.status_code == 400
+                assert "sandbox" in str(e).lower()
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+
+@pytest.mark.integration
+class TestTeammateEnableDisable:
+    def test_disable_enable_round_trip(self, v2_client):
+        """Disable pauses without archiving; enable restores."""
+        tm = v2_client.teammates.create(name="PauseMe")
+        try:
+            paused = v2_client.teammates.disable(tm.id)
+            assert paused.status == "disabled"
+            page = v2_client.teammates.list()
+            assert any(t.id == tm.id for t in page.data)  # still listed
+            restored = v2_client.teammates.enable(tm.id)
+            assert restored.status == "enabled"
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_disable_nonexistent_teammate(self, v2_client):
+        with pytest.raises(NotFoundError):
+            v2_client.teammates.disable(999999)
 
     def test_list_with_teammate_filter(self, v2_client):
         """Filter runs by teammate_id returns valid page."""

@@ -4,7 +4,14 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from .._types import EmailInbox, FetchmailInbox, SyncPage, Teammate, TeammateWebhook
+from .._types import (
+    EmailInbox,
+    FetchmailInbox,
+    SyncPage,
+    Teammate,
+    TeammateDocument,
+    TeammateWebhook,
+)
 from ._utils import _build_params
 
 _list = list  # preserve builtin; shadowed by .list() method
@@ -243,6 +250,43 @@ class Teammates:
         self._http.request(
             "DELETE", f"/teammates/{teammate_id}", params=_build_params(user_id=user_id)
         )
+
+    def list_documents(
+        self, teammate_id: int, *, user_id: str | None = None
+    ) -> _list[TeammateDocument]:
+        """List the teammate's persistent documents (metadata only, no content)."""
+        resp = self._http.request(
+            "GET",
+            f"/teammates/{teammate_id}/documents",
+            params=_build_params(user_id=user_id),
+        )
+        return [TeammateDocument.from_dict(d) for d in resp.json()["data"]]
+
+    def get_document(
+        self, teammate_id: int, name: str, *, user_id: str | None = None
+    ) -> TeammateDocument:
+        """Read one teammate document (e.g. "latest-report") including its content."""
+        resp = self._http.request(
+            "GET",
+            f"/teammates/{teammate_id}/documents/{name}",
+            params=_build_params(user_id=user_id),
+        )
+        return TeammateDocument.from_dict(resp.json())
+
+    def disable(self, teammate_id: int, *, user_id: str | None = None) -> Teammate:
+        """Pause a teammate without archiving: schedules stop firing (reversibly)
+        and the teammate stays listed. Reverse with enable()."""
+        resp = self._http.request(
+            "POST", f"/teammates/{teammate_id}/disable", params=_build_params(user_id=user_id)
+        )
+        return Teammate.from_dict(resp.json())
+
+    def enable(self, teammate_id: int, *, user_id: str | None = None) -> Teammate:
+        """Re-enable a paused teammate and re-arm the schedules the disable paused."""
+        resp = self._http.request(
+            "POST", f"/teammates/{teammate_id}/enable", params=_build_params(user_id=user_id)
+        )
+        return Teammate.from_dict(resp.json())
 
     def reset(self, teammate_id: int, *, fields: _list[str] | None = None) -> _list[str]:
         """Clear customer overrides on a template-linked teammate.

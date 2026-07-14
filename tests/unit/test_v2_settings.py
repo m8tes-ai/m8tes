@@ -138,3 +138,16 @@ def test_update_rate_per_minute():
 
     assert settings.per_end_user_rate_per_minute == 10
     assert json.loads(responses.calls[0].request.body) == {"per_end_user_rate_per_minute": 10}
+
+
+@responses.activate
+def test_update_require_end_user_id():
+    responses.add(
+        responses.PATCH,
+        f"{BASE}/settings/",
+        json={"retention_mode": "standard", "require_end_user_id": True},
+    )
+    http = HTTPClient(api_key="m8_test", base_url=BASE, timeout=5)
+    settings = Settings(http).update(require_end_user_id=True)
+    assert settings.require_end_user_id is True
+    assert json.loads(responses.calls[0].request.body) == {"require_end_user_id": True}

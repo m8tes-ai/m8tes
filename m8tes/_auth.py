@@ -27,6 +27,7 @@ def signup(
     last_name: str = "",
     *,
     product: str = "api",
+    require_end_user_id: bool | None = None,
     base_url: str | None = None,
 ) -> SignupResult:
     """Create an account and return an API key immediately. No authentication required.
@@ -37,11 +38,16 @@ def signup(
     human — the agent never holds a login credential. Pass a ``password`` to create a normal
     account. ``product``: "api" (developer/prepaid) or "platform" (team product). Either way,
     verify/activate before unrestricted runs (a small preview allowance runs first).
+
+    ``require_end_user_id`` (strict multi-tenant mode): omit for the product default —
+    ON for "api" signups (a forgotten ``user_id`` fails loudly instead of writing to the
+    account scope), OFF for "platform". Pass ``False`` if you're building for yourself
+    (single-tenant); changeable any time via ``client.settings.update()``.
     """
     if not first_name:
         raise ValueError("first_name is required")
     url = (base_url or os.environ.get("M8TES_BASE_URL") or _DEFAULT_BASE_URL).rstrip("/")
-    payload: dict[str, str] = {
+    payload: dict = {
         "email": email,
         "first_name": first_name,
         "last_name": last_name,
@@ -49,6 +55,8 @@ def signup(
     }
     if password is not None:
         payload["password"] = password
+    if require_end_user_id is not None:
+        payload["require_end_user_id"] = require_end_user_id
     resp = requests.post(f"{url}/signup", json=payload, timeout=30)
     if not resp.ok:
         _raise_for_status(resp, method="POST", path="/signup")

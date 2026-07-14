@@ -123,6 +123,12 @@ class HTTPClient:
         self, method: str, url: str, *, is_stream: bool = False, **kwargs: Any
     ) -> requests.Response:
         """Send request with retry on 429/5xx. Respects Retry-After header."""
+        if "files" in kwargs:
+            # Multipart upload: drop the session-level JSON Content-Type so
+            # requests sets multipart/form-data with its boundary instead.
+            headers = dict(kwargs.get("headers") or {})
+            headers.setdefault("Content-Type", None)
+            kwargs["headers"] = headers
         last_exc: Exception | None = None
         for attempt in range(_MAX_RETRIES):
             try:
