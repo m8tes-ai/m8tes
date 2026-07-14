@@ -250,6 +250,30 @@ class HandleLink:
 
 
 @dataclass
+class RunUsage:
+    """Token counts + USD cost for one run. `cost_usd` is a Decimal string and
+    matches what billing meters (SDK-authoritative cost with calculated fallback)."""
+
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int
+    cache_creation_tokens: int
+    total_tokens: int
+    cost_usd: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> RunUsage:
+        return cls(
+            input_tokens=data.get("input_tokens", 0),
+            output_tokens=data.get("output_tokens", 0),
+            cache_read_tokens=data.get("cache_read_tokens", 0),
+            cache_creation_tokens=data.get("cache_creation_tokens", 0),
+            total_tokens=data.get("total_tokens", 0),
+            cost_usd=data.get("cost_usd", "0"),
+        )
+
+
+@dataclass
 class Run:
     """A run (execution) of a teammate."""
 
@@ -283,6 +307,8 @@ class Run:
     # by truncation, a pause, or a spend limit still completes, with its text `output` intact).
     # Always None-check before indexing.
     output_data: dict | None = None
+    # Token counts + USD cost for this run; None until metrics arrive.
+    usage: RunUsage | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> Run:
@@ -306,6 +332,7 @@ class Run:
             auto_retry_count=data.get("auto_retry_count", 0),
             next_retry_at=data.get("next_retry_at"),
             output_data=data.get("output_data"),
+            usage=RunUsage.from_dict(data["usage"]) if data.get("usage") else None,
         )
 
 
@@ -1161,6 +1188,11 @@ class Balance:
     low_balance_threshold_micros: int
     critical_balance_threshold_micros: int
     transactions: list[TokenTransaction]
+    # Auto-reload: when enabled, a balance below threshold_cents triggers an off-session
+    # charge of amount_cents to the saved card. Configure via set_auto_reload().
+    auto_reload_enabled: bool = False
+    auto_reload_threshold_cents: int | None = None
+    auto_reload_amount_cents: int | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> Balance:
@@ -1171,6 +1203,114 @@ class Balance:
             low_balance_threshold_micros=data.get("low_balance_threshold_micros", 0),
             critical_balance_threshold_micros=data.get("critical_balance_threshold_micros", 0),
             transactions=[TokenTransaction.from_dict(t) for t in data.get("transactions", [])],
+            auto_reload_enabled=data.get("auto_reload_enabled", False),
+            auto_reload_threshold_cents=data.get("auto_reload_threshold_cents"),
+            auto_reload_amount_cents=data.get("auto_reload_amount_cents"),
+        )
+
+
+def _usage_lanes(data: dict) -> dict:
+    """The token/cost lanes shared by every usage shape — one extraction, reused by
+    UsageTotals / UsageModelSlice / UsageBucket so adding a lane touches one place."""
+    return {
+        "input_tokens": data.get("input_tokens", 0),
+        "output_tokens": data.get("output_tokens", 0),
+        "cache_read_tokens": data.get("cache_read_tokens", 0),
+        "cache_creation_tokens": data.get("cache_creation_tokens", 0),
+        "total_tokens": data.get("total_tokens", 0),
+        "cost_usd": data.get("cost_usd", "0"),
+    }
+
+
+@dataclass
+class UsageTotals:
+    """Token + USD totals over a usage-timeseries window."""
+
+    input_tokens: int
+    output_tokens: int
+    cache_read_tokens: int
+    cache_creation_tokens: int
+    total_tokens: int
+    cost_usd: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> UsageTotals:
+        return cls(**_usage_lanes(data))
+
+
+@dataclass
+class UsageModelSlice(UsageTotals):
+    """One model's share of a day bucket ("unknown" for pre-attribution history)."""
+
+    model: str = "unknown"
+
+    @classmethod
+    def from_dict(cls, data: dict) -> UsageModelSlice:
+        return cls(**_usage_lanes(data), model=data.get("model", "unknown"))
+
+
+@dataclass
+class UsageBucket(UsageTotals):
+    """One UTC-day bucket of token + USD usage (ISO date string)."""
+
+    date: str = ""
+    # Per-model slices — populated only when the series was requested with
+    # group_by="model"; None otherwise.
+    models: list[UsageModelSlice] | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> UsageBucket:
+        return cls(
+            **_usage_lanes(data),
+            date=data.get("date", ""),
+            models=(
+                [UsageModelSlice.from_dict(s) for s in data["models"]]
+                if data.get("models") is not None
+                else None
+            ),
+        )
+
+
+@dataclass
+class UsageTimeseries:
+    """Daily usage buckets, zero-filled across [start_date, end_date] (UTC days)."""
+
+    start_date: str
+    end_date: str
+    buckets: list[UsageBucket]
+    totals: UsageTotals
+
+    @classmethod
+    def from_dict(cls, data: dict) -> UsageTimeseries:
+        return cls(
+            start_date=data.get("start_date", ""),
+            end_date=data.get("end_date", ""),
+            buckets=[UsageBucket.from_dict(b) for b in data.get("buckets", [])],
+            totals=UsageTotals.from_dict(data.get("totals", {})),
+        )
+
+
+@dataclass
+class Receipt:
+    """One prepaid top-up with its Stripe-hosted receipt link (may be None when
+    the underlying checkout session is no longer retrievable)."""
+
+    id: int
+    amount_cents: int
+    currency: str
+    description: str | None
+    receipt_url: str | None
+    created_at: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Receipt:
+        return cls(
+            id=data.get("id", 0),
+            amount_cents=data.get("amount_cents", 0),
+            currency=data.get("currency", "usd"),
+            description=data.get("description"),
+            receipt_url=data.get("receipt_url"),
+            created_at=data.get("created_at", ""),
         )
 
 

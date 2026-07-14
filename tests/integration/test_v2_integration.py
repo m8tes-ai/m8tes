@@ -4386,6 +4386,81 @@ class TestV2Billing:
         with pytest.raises(ValidationError):
             v2_client.billing.set_alert_threshold(low_balance_threshold_cents=100_000_01)
 
+    def test_usage_timeseries_default_window(self, v2_client):
+        from m8tes._types import UsageBucket, UsageTimeseries
+
+        series = v2_client.billing.usage_timeseries()
+        assert isinstance(series, UsageTimeseries)
+        assert len(series.buckets) == 30  # default: last 30 UTC days, zero-filled
+        assert all(isinstance(b, UsageBucket) for b in series.buckets)
+        assert series.buckets[-1].date == series.end_date
+        # Totals reconcile with the buckets.
+        assert series.totals.total_tokens == sum(b.total_tokens for b in series.buckets)
+
+    def test_usage_timeseries_rejects_inverted_range(self, v2_client):
+        with pytest.raises(ValidationError):
+            v2_client.billing.usage_timeseries(start_date="2026-07-02", end_date="2026-07-01")
+
+    def test_usage_timeseries_filters_accepted(self, v2_client):
+        series = v2_client.billing.usage_timeseries(
+            start_date="2026-07-01", end_date="2026-07-03", user_id="nonexistent-euid"
+        )
+        assert len(series.buckets) == 3
+        assert series.totals.total_tokens == 0  # unknown end-user → strictly empty
+
+    def test_usage_timeseries_group_by_model(self, v2_client):
+        series = v2_client.billing.usage_timeseries(
+            start_date="2026-07-01", end_date="2026-07-02", group_by="model"
+        )
+        assert all(b.models is not None for b in series.buckets)  # [] on empty days
+        with pytest.raises(ValidationError):
+            v2_client.billing.usage_timeseries(group_by="teammate")
+
+    def test_receipts_lists_empty_for_fresh_account(self, v2_client):
+        page = v2_client.billing.receipts()
+        assert isinstance(page.data, list)
+        assert isinstance(page.has_more, bool)
+
+    def test_balance_carries_auto_reload_fields(self, v2_client):
+        bal = v2_client.billing.balance()
+        assert bal.auto_reload_enabled is False  # off by default
+        assert bal.auto_reload_threshold_cents is None
+
+    def test_set_auto_reload_rejected_for_tiers_account(self, v2_client):
+        # The integration account bills via tiers — auto-reload is prepaid-only (403).
+        from m8tes._exceptions import PermissionDeniedError
+
+        with pytest.raises(PermissionDeniedError):
+            v2_client.billing.set_auto_reload(enabled=True, threshold_cents=500, amount_cents=2000)
+
+    def test_set_auto_reload_requires_amounts_to_enable(self, v2_client):
+        with pytest.raises(ValidationError):
+            v2_client.billing.set_auto_reload(enabled=True)
+
+
+@pytest.mark.integration
+@pytest.mark.runtime
+class TestRunUsageField:
+    """DevRunResponse.usage parses through the SDK on real run responses."""
+
+    def test_run_carries_usage_field(self, v2_client):
+        """The `usage` key must be PRESENT on every run response (null until metrics
+        arrive) — asserted on the raw payload, since `usage is None` alone would also
+        pass if the field were dropped entirely."""
+        tm = v2_client.teammates.create(name="UsageField")
+        try:
+            run = v2_client.runs.create(teammate_id=tm.id, message="ping", stream=False)
+            raw = v2_client._http.request("GET", f"/runs/{run.id}").json()
+            assert "usage" in raw  # falsifiable: fails if the field is dropped
+            fetched = v2_client.runs.get(run.id)
+            if fetched.usage is not None:
+                assert fetched.usage.total_tokens >= 0
+                assert fetched.usage.cost_usd is not None
+            with contextlib.suppress(Exception):
+                v2_client.runs.cancel(run.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
 
 @pytest.mark.integration
 class TestTeammateTemplates:
