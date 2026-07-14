@@ -2,6 +2,15 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [2.2.1] - 2026-07-13
+
+### Changed
+- Removed five unused dependencies (`anthropic`, `aiohttp`, `cryptography`, `pygments`, `python-dotenv`) — `pip install m8tes` is now much lighter with an identical API surface.
+
+### Fixed
+- The test suite passes in a standalone checkout of the public repo: the backend schema-contract test now skips cleanly instead of crashing collection when the backend source isn't present.
+- Repo hygiene for public contributors: CI (lint + type-check + offline tests on Python 3.11/3.12) runs on every PR, `SECURITY.md` reflects the 2.x line, and the stale `AGENTS.md` (it described the legacy module layout) was removed in favor of `CLAUDE.md`.
+
 ## [2.2.0] - 2026-07-04
 
 ### Added

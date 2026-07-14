@@ -1,6 +1,7 @@
 # m8tes Python SDK
 
 [![PyPI](https://img.shields.io/pypi/v/m8tes.svg)](https://pypi.org/project/m8tes/)
+[![Tests](https://github.com/m8tes-ai/m8tes/actions/workflows/test.yml/badge.svg)](https://github.com/m8tes-ai/m8tes/actions/workflows/test.yml)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
