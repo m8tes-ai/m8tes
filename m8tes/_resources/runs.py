@@ -47,6 +47,7 @@ class Runs:
         permission_mode: str | None = None,
         model: str | None = None,
         email_inbox: bool = False,
+        output_schema: dict | None = None,
         raise_on_error: bool = False,
     ) -> RunStream | Run:
         """Create and execute a run.
@@ -65,6 +66,11 @@ class Runs:
 
         If teammate_id points at an end-user-scoped teammate, omitting user_id
         inherits that scope. Passing a different user_id is rejected.
+
+        Pass output_schema= (a JSON Schema, "type": "object") to get a typed result back on
+        run.output_data instead of parsing prose. Inline your definitions — $ref/$defs are not
+        supported. output_data is None when the model produced no structured result, so always
+        None-check it. The schema sticks to the run: replies and retries stay structured.
         """
         body: dict = {"message": message, "stream": stream}
         if teammate_id is not None:
@@ -95,6 +101,8 @@ class Runs:
             body["model"] = model
         if email_inbox:
             body["email_inbox"] = True
+        if output_schema is not None:
+            body["output_schema"] = output_schema
 
         if stream:
             resp = self._http.stream("POST", "/runs/", json=body)
@@ -240,6 +248,7 @@ class Runs:
         permission_mode: str | None = None,
         model: str | None = None,
         email_inbox: bool = False,
+        output_schema: dict | None = None,
         on_approval: Callable[[PermissionRequest], str] | None = None,
         on_question: Callable[[PermissionRequest], dict[str, str]] | None = None,
         poll_interval: float = 2.0,
@@ -269,6 +278,7 @@ class Runs:
                 permission_mode=permission_mode,
                 model=model,
                 email_inbox=email_inbox,
+                output_schema=output_schema,
             ),
         )
         # Preserve email_address from initial response — GET /runs/{id} doesn't return it
