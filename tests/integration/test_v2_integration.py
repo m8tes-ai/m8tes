@@ -1849,6 +1849,44 @@ class TestRunsReadOnly:
 
 
 @pytest.mark.integration
+class TestRunTaskLinkage:
+    """runs ↔ tasks pull-path: task_id on runs + runs.list(task_id=...).
+
+    2026-07-13 QA: without this, a scheduled/webhook task's results could only be
+    pushed via webhooks — no way to pull run history for a task.
+    """
+
+    def test_task_id_filter_accepted_and_scoped(self, v2_client):
+        """The filter is a real filter (not silently ignored): a task with no runs
+        yields an empty page even when the account has other runs."""
+        tm = v2_client.teammates.create(name="TaskLinkage")
+        try:
+            task = v2_client.tasks.create(teammate_id=tm.id, instructions="never run")
+            page = v2_client.runs.list(task_id=task.id)
+            assert isinstance(page, SyncPage)
+            assert page.data == []
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+
+@pytest.mark.integration
+@pytest.mark.runtime
+class TestRunTaskLinkageRuntime:
+    def test_run_carries_task_id_and_filter_returns_it(self, v2_client):
+        """Full loop: create run → task_id set → list(task_id=) finds exactly it."""
+        tm = v2_client.teammates.create(name="TaskLinkageRun")
+        try:
+            run = v2_client.runs.create(teammate_id=tm.id, message="linkage", stream=False)
+            assert isinstance(run.task_id, int)
+            page = v2_client.runs.list(task_id=run.task_id)
+            assert [r.id for r in page.data] == [run.id]
+            assert page.data[0].task_id == run.task_id
+            v2_client.runs.cancel(run.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+
+@pytest.mark.integration
 @pytest.mark.runtime
 class TestRunsHumanInTheLoop:
     """HITL validation via SDK — permission_mode + human_in_the_loop combos."""
@@ -4084,10 +4122,16 @@ class TestAuthEndpoints:
         import requests
 
         email = f"usage-{uuid.uuid4().hex[:8]}@test.m8tes.ai"
-        api_key = requests.post(
+        signup = requests.post(
             f"{backend_url}/api/v1/auth/register",
             json={"email": email, "password": "TestPassword123!", "first_name": "SDKTest"},
-        ).json()["api_key"]
+        )
+        if signup.status_code == 429:
+            # The suite's cumulative signups can trip the register IP rate limit —
+            # environmental, not a product failure (died as KeyError before 2026-07-13).
+            pytest.skip("register IP rate limit hit — rerun after the window resets")
+        assert signup.status_code in (200, 201), signup.text[:200]
+        api_key = signup.json()["api_key"]
 
         resp = requests.get(
             f"{backend_url}/api/v2/usage",

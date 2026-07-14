@@ -44,7 +44,17 @@ def _raise_for_status(resp: requests.Response, *, method: str = "", path: str = 
         # top-level error.code is the int HTTP status. Surfacing the nested code
         # is what makes exc.code == "RUN_LIMIT_REACHED" instead of None.
         error_obj = body.get("error", {})
-        if isinstance(error_obj, str):
+        if resp.status_code == 404 and "error" not in body and body.get("detail") == "Not Found":
+            # FastAPI's bare route-level 404 (no v2 error envelope): the host serves
+            # the m8tes backend but the PATH didn't match any route — almost always a
+            # base_url missing its /api/v2 prefix. A real v2 "resource not found"
+            # arrives enveloped and never takes this branch.
+            message = (
+                f"HTTP 404 from {resp.url} with no API error envelope — the path matched "
+                f"no route. Check your base_url includes the /api/v2 prefix "
+                f"(the hosted API is {DEFAULT_BASE_URL})."
+            )
+        elif isinstance(error_obj, str):
             # Proxy/gateway may return {"error": "plain string"} instead of dict
             message = error_obj
         else:

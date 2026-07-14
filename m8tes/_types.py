@@ -264,6 +264,9 @@ class Run:
     updated_at: str | None
     permission_mode: str | None = None
     email_address: str | None = None
+    # The task this run executed (every run belongs to exactly one task; ad-hoc runs
+    # get an auto-created one). Pull a task's run history: client.runs.list(task_id=...)
+    task_id: int | None = None
     # Failure / retry metadata. A retry creates a NEW run; `retry_of_run_id` links
     # it to the one it retried. `retryable` says whether runs.retry() will be
     # accepted; `error_code` is the machine-readable failure class when known.
@@ -295,6 +298,7 @@ class Run:
             updated_at=data.get("updated_at"),
             permission_mode=data.get("permission_mode"),
             email_address=data.get("email_address"),
+            task_id=data.get("task_id"),
             error_code=data.get("error_code"),
             retryable=data.get("retryable", False),
             retry_of_run_id=data.get("retry_of_run_id"),

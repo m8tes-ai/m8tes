@@ -2,6 +2,15 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [2.3.0] - 2026-07-13
+
+### Added
+- `Run.task_id` — every run now reports the task it executed (every run belongs to exactly one task; ad-hoc runs get an auto-created one).
+- `client.runs.list(task_id=...)` — pull one task's run history and outputs. This closes the loop for scheduled/webhook tasks: create the task, then retrieve its results — no webhook receiver required.
+
+### Fixed
+- A bare JSON 404 (`{"detail": "Not Found"}`, no API error envelope) now raises a `NotFoundError` explaining the base_url is likely missing its `/api/v2` prefix, instead of an unactionable "Not Found". Real resource-not-found responses (proper envelope) are untouched.
+
 ## [2.2.1] - 2026-07-13
 
 ### Changed
