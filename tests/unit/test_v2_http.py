@@ -197,6 +197,44 @@ class TestErrorMapping:
         assert "<html>" not in exc_info.value.message
 
     @responses.activate
+    def test_plain_json_404_hints_base_url(self, http):
+        """A bare FastAPI 404 ({"detail": "Not Found"}, no v2 error envelope) means the
+        HOST is right but the path prefix is wrong (e.g. base_url missing /api/v2) —
+        the exception must say so instead of an unactionable 'Not Found'."""
+        responses.add(
+            responses.GET,
+            "https://api.m8tes.ai/v2/runs",
+            json={"detail": "Not Found"},
+            status=404,
+        )
+        with pytest.raises(NotFoundError) as exc_info:
+            http.request("GET", "/runs")
+        assert "base_url" in exc_info.value.message
+        assert "https://api.m8tes.ai/api/v2" in exc_info.value.message
+
+    @responses.activate
+    def test_enveloped_404_keeps_api_message(self, http):
+        """A REAL v2 404 (resource not found, proper error envelope) must keep the
+        API's message untouched — no base_url noise on legitimate lookups."""
+        responses.add(
+            responses.GET,
+            "https://api.m8tes.ai/v2/runs/999",
+            json={
+                "error": {
+                    "type": "not_found",
+                    "message": "Run not found",
+                    "code": 404,
+                    "request_id": "req_x",
+                }
+            },
+            status=404,
+        )
+        with pytest.raises(NotFoundError) as exc_info:
+            http.request("GET", "/runs/999")
+        assert exc_info.value.message == "Run not found"
+        assert "base_url" not in exc_info.value.message
+
+    @responses.activate
     def test_string_error_body(self, http):
         """API/proxy returning {"error": "string"} instead of {"error": {...}} must not crash."""
         responses.add(

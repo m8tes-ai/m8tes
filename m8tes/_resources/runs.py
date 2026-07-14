@@ -374,13 +374,17 @@ class Runs:
         self,
         *,
         teammate_id: int | None = None,
+        task_id: int | None = None,
         user_id: str | None = None,
         status: str | None = None,
         limit: int = 20,
         starting_after: int | None = None,
     ) -> SyncPage[Run]:
+        """List runs. task_id pulls one task's run history (e.g. a scheduled or
+        webhook-triggered task's results); user_id scopes to one end-user."""
         params = _build_params(
             teammate_id=teammate_id,
+            task_id=task_id,
             user_id=user_id,
             status=status,
             limit=limit,
@@ -390,7 +394,13 @@ class Runs:
         body = resp.json()
 
         def _fetch_next(**kw: object) -> SyncPage[Run]:
-            return self.list(teammate_id=teammate_id, user_id=user_id, status=status, **kw)  # type: ignore[arg-type]
+            return self.list(
+                teammate_id=teammate_id,
+                task_id=task_id,
+                user_id=user_id,
+                status=status,
+                **kw,  # type: ignore[arg-type]
+            )
 
         return SyncPage(
             data=[Run.from_dict(d) for d in body["data"]],
