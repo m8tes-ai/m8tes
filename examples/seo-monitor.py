@@ -16,7 +16,7 @@ client = M8tes()
 teammate = client.teammates.create(
     name="seo-monitor",
     instructions=(
-        "You are an SEO specialist. Every week: "
+        "You are an SEO & content Mate. Every week: "
         "1. Check Google Search Console for new indexing errors or coverage issues — "
         "flag any URLs blocked by robots, not found, or server errors. "
         "2. Find pages with high impressions but low CTR (>500 impressions, <2% CTR) — "
