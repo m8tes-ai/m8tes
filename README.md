@@ -135,7 +135,7 @@ for m in client.models.list().data:
 bot = client.teammates.create(name="Ops", model="sonnet")   # or per run: runs.create(..., model="opus")
 ```
 
-Today that's the Claude models `sonnet`, `opus` (default), and `fable` (most capable, ~2x cost), plus `gpt-5.5`, `glm-5.2`, and `deepseek-v3-2` served through the zero-data-retention gateway. `models.list()` is the live source of truth; omit `model` to use the `default`.
+Today that's the Claude models `sonnet`, `opus` (default), and `fable` (most capable, ~2x cost), plus OpenAI `gpt-5.5`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, and open-source `glm-5.2` / `deepseek-v3-2` served through the zero-data-retention gateway. `models.list()` is the live source of truth; omit `model` to use the `default`.
 
 ## Runs
 
