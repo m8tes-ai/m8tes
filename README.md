@@ -108,13 +108,15 @@ for log in page.data:
 
 **Customer-facing agents.** Give each user their own agent with isolated memory, tools, and permissions. Multi-tenant without custom plumbing.
 
-## vs. LangChain, CrewAI, and other SDKs
+## vs. eve, LangChain, CrewAI, and other frameworks
 
-LangChain, CrewAI, and the OpenAI Agents SDK are orchestration frameworks. They help you coordinate model calls and tool use — but execution, OAuth, scheduling, memory, and approval flows are all yours to build and host.
+eve, LangChain, CrewAI, and the OpenAI Agents SDK are agent frameworks. They help you build one production agent — but you still write, deploy, and operate the agent application, and execution, OAuth, scheduling, memory, approval flows, and tenant isolation are all yours to build and host.
 
-| | LangChain / CrewAI / OpenAI SDK | m8tes |
+| | eve / LangChain / CrewAI / OpenAI SDK | m8tes |
 |---|---|---|
-| Agent execution | Local — you host it | Hosted sandbox |
+| An agent is | Code you write and deploy | An API resource created at runtime |
+| Agent execution | Local or your cloud — you host it | Hosted sandbox |
+| Multi-tenancy | Build isolation yourself | One `user_id` parameter |
 | Tool integrations | Build and maintain | 150+ with managed OAuth |
 | Scheduling & triggers | Write your own | Built in |
 | Memory | DIY persistence layer | Per-user memory out of the box |
@@ -122,7 +124,7 @@ LangChain, CrewAI, and the OpenAI Agents SDK are orchestration frameworks. They 
 | Real-time streaming | Roll your own | SSE out of the box |
 | Infrastructure | Your problem | Our problem |
 
-m8tes is not a framework. It's the hosted runtime layer. The Python SDK is the client on top.
+m8tes is not a framework. It's the layer above one: a framework gives you a codebase to build an agent; m8tes gives you an API to give every customer one. The Python SDK is the client on top.
 
 ## Models
 
