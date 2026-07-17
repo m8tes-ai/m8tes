@@ -14,6 +14,7 @@ class M8tesError(Exception):
         code: str | None = None,
         retry_after: float | None = None,
         details: dict | None = None,
+        doc_url: str | None = None,
     ):
         super().__init__(message)
         self.message = message
@@ -21,6 +22,9 @@ class M8tesError(Exception):
         self.request_id = request_id
         self.method = method
         self.path = path
+        # Docs deep link for this error type, from the envelope's error.doc_url
+        # (e.g. https://m8tes.ai/docs/api-introduction#authentication on a 401).
+        self.doc_url = doc_url
         # App-level machine error code from the v2 envelope's error.details.error_code
         # (e.g. "RUN_LIMIT_REACHED", "OVERAGE_CAP_REACHED", "TRIAL_EXPIRED"). Falls
         # back to a top-level string code when no nested code is present.
