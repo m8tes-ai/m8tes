@@ -553,3 +553,39 @@ class TestVersionConsistency:
         # Should reference __version__ dynamically, not contain a hardcoded "0.1.0"
         assert "0.1.0" not in source
         assert __version__ not in {"", None}
+
+
+class TestDocUrl:
+    """The envelope's error.doc_url surfaces on typed exceptions (additive field)."""
+
+    @responses.activate
+    def test_doc_url_surfaces_on_exception(self, http):
+        responses.add(
+            responses.GET,
+            "https://api.m8tes.ai/v2/teammates",
+            json={
+                "error": {
+                    "type": "authentication_error",
+                    "message": "Invalid API key.",
+                    "code": 401,
+                    "request_id": "req_x",
+                    "doc_url": "https://m8tes.ai/docs/api-introduction#authentication",
+                }
+            },
+            status=401,
+        )
+        with pytest.raises(AuthenticationError) as exc_info:
+            http.request("GET", "/teammates")
+        assert exc_info.value.doc_url == "https://m8tes.ai/docs/api-introduction#authentication"
+
+    @responses.activate
+    def test_missing_doc_url_is_none(self, http):
+        responses.add(
+            responses.GET,
+            "https://api.m8tes.ai/v2/teammates/1",
+            json={"error": {"type": "not_found", "message": "Nope", "code": 404}},
+            status=404,
+        )
+        with pytest.raises(NotFoundError) as exc_info:
+            http.request("GET", "/teammates/1")
+        assert exc_info.value.doc_url is None

@@ -36,6 +36,7 @@ def _raise_for_status(resp: requests.Response, *, method: str = "", path: str = 
     request_id = None
     code = None
     details: dict | None = None
+    doc_url = None
     try:
         body = resp.json()
         # v2 API returns {"error": {"type", "message", "code", "request_id",
@@ -60,6 +61,8 @@ def _raise_for_status(resp: requests.Response, *, method: str = "", path: str = 
         else:
             message = error_obj.get("message", body.get("detail", message))
             request_id = error_obj.get("request_id", body.get("request_id"))
+            raw_doc_url = error_obj.get("doc_url")
+            doc_url = raw_doc_url if isinstance(raw_doc_url, str) else None
             raw_details = error_obj.get("details")
             details = raw_details if isinstance(raw_details, dict) else None
             # Prefer the nested machine code (RUN_LIMIT_REACHED, OVERAGE_CAP_REACHED,
@@ -106,6 +109,7 @@ def _raise_for_status(resp: requests.Response, *, method: str = "", path: str = 
         code=code,
         retry_after=retry_after,
         details=details,
+        doc_url=doc_url,
     )
 
 

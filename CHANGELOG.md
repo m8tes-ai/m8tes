@@ -2,6 +2,11 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [2.5.1] - 2026-07-17
+
+### Added
+- `M8tesError.doc_url` — every typed exception now carries the API's new `error.doc_url` docs deep link (e.g. a 401 points at m8tes.ai/docs/api-introduction#authentication). `None` when the server omits it; fully backward compatible.
+
 ## [2.5.0] - 2026-07-14
 
 ### Added
