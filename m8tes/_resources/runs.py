@@ -66,6 +66,7 @@ class Runs:
         human_in_the_loop: bool | None = None,
         permission_mode: str | None = None,
         model: str | None = None,
+        effort: str | None = None,
         email_inbox: bool = False,
         output_schema: dict | None = None,
         files: _list | None = None,
@@ -126,6 +127,8 @@ class Runs:
             body["permission_mode"] = permission_mode
         if model is not None:
             body["model"] = model
+        if effort is not None:
+            body["effort"] = effort
         if email_inbox:
             body["email_inbox"] = True
         if output_schema is not None:
@@ -284,6 +287,7 @@ class Runs:
         human_in_the_loop: bool | None = None,
         permission_mode: str | None = None,
         model: str | None = None,
+        effort: str | None = None,
         email_inbox: bool = False,
         output_schema: dict | None = None,
         on_approval: Callable[[PermissionRequest], str] | None = None,
@@ -315,6 +319,7 @@ class Runs:
                 human_in_the_loop=human_in_the_loop,
                 permission_mode=permission_mode,
                 model=model,
+                effort=effort,
                 email_inbox=email_inbox,
                 output_schema=output_schema,
             ),
@@ -377,6 +382,7 @@ class Runs:
         human_in_the_loop: bool | None = None,
         permission_mode: str | None = None,
         model: str | None = None,
+        effort: str | None = None,
     ) -> Generator[str, None, None]:
         """Create a streaming run and yield only text delta strings.
 
@@ -403,6 +409,7 @@ class Runs:
             human_in_the_loop=human_in_the_loop,
             permission_mode=permission_mode,
             model=model,
+            effort=effort,
         )
         run_stream = cast(RunStream, stream)
         with run_stream:
