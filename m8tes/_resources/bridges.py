@@ -1,7 +1,7 @@
 """Bridges resource — per-account BlueBubbles (Apple Messages) server connections.
 
 A bridge holds a customer's BlueBubbles server URL + password + webhook secret.
-Bind a teammate to a bridge via ``teammates.create/update(bridge_id=...)``. The
+Bind a agent to a bridge via ``agents.create/update(bridge_id=...)``. The
 webhook secret is generated server-side and returned ONCE (on create / rotate_secret);
 the password is write-only and never returned.
 """
@@ -85,7 +85,7 @@ class Bridges:
         configure it as the BlueBubbles webhook secret immediately.
 
         Pass ``owner_handle`` (your own iMessage phone/email) to text the Company Agent
-        (your inbound-default teammate) right away, without editing its allowlist."""
+        (your inbound-default agent) right away, without editing its allowlist."""
         body: dict = {"name": name, "server_url": server_url, "password": password}
         if owner_handle is not None:
             body["owner_handle"] = owner_handle
@@ -140,5 +140,5 @@ class Bridges:
         return result
 
     def delete(self, bridge_id: int) -> None:
-        """Delete a bridge. Fails (409) if teammates are still bound to it."""
+        """Delete a bridge. Fails (409) if agents are still bound to it."""
         self._http.request("DELETE", f"/bridges/{bridge_id}")

@@ -2,6 +2,13 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [2.6.0] - 2026-07-17
+
+### Added
+- **`client.agents` is the canonical resource accessor** (the API's canonical paths are now `/api/v2/agents` and `/api/v2/agent-templates`). `client.teammates` and `client.teammate_templates` remain permanent aliases of the same objects — nothing breaks.
+- `agent_id=` accepted as the canonical kwarg on `runs.create`, `runs.create_and_wait`, `runs.stream_text`, `runs.list`, `tasks.create`, and `tasks.list` (`teammate_id=` still accepted; passing conflicting values raises `ValueError`).
+- `Run.agent_id` / `Task.agent_id` properties mirroring the wire field `teammate_id`; `m8tes._types.Agent` aliases `Teammate` (not re-exported at top level — the legacy v1 `m8tes.Agent` class keeps that name).
+
 ## [2.5.1] - 2026-07-17
 
 ### Added

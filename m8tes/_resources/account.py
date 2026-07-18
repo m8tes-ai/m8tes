@@ -17,7 +17,7 @@ class Account:
     def export(self) -> dict[str, Any]:
         """Export all of the current account's data (GDPR/CCPA right to access).
 
-        Returns a JSON document of the account's teammates, tasks, runs, documents,
+        Returns a JSON document of the account's agents, tasks, runs, documents,
         memories, and integration metadata. Secrets are never included.
         """
         resp = self._http.request("GET", "/account/export")

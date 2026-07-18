@@ -8,6 +8,8 @@ from ._exceptions import AuthenticationError
 from ._http import DEFAULT_BASE_URL, HTTPClient
 from ._resources import (
     Account,
+    Agents,
+    AgentTemplates,
     Apps,
     AuditLogs,
     Auth,
@@ -23,8 +25,6 @@ from ._resources import (
     Settings,
     Skills,
     Tasks,
-    Teammates,
-    TeammateTemplates,
     Users,
     Webhooks,
 )
@@ -35,8 +35,8 @@ class M8tes:
 
     Usage:
         client = M8tes(api_key="m8_...")
-        teammate = client.teammates.create(name="Bot", tools=["gmail"])
-        for event in client.runs.create(teammate_id=teammate.id, message="Do X"):
+        agent = client.agents.create(name="Bot", tools=["gmail"])
+        for event in client.runs.create(agent_id=agent.id, message="Do X"):
             print(event.type, event.raw)
     """
 
@@ -58,8 +58,10 @@ class M8tes:
         self.auth = Auth(self._http)
         self.billing = Billing(self._http)
         self.audit_logs = AuditLogs(self._http)
-        self.teammates = Teammates(self._http)
-        self.teammate_templates = TeammateTemplates(self._http)
+        self.agents = Agents(self._http)
+        self.teammates = self.agents  # permanent alias
+        self.agent_templates = AgentTemplates(self._http)
+        self.teammate_templates = self.agent_templates  # permanent alias
         self.bridges = Bridges(self._http)
         self.runs = Runs(self._http)
         self.tasks = Tasks(self._http)

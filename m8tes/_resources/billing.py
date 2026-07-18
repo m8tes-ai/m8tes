@@ -11,7 +11,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from .._types import Balance, Plan, Receipt, SyncPage, Usage, UsageTimeseries
-from ._utils import _build_params
+from ._utils import _build_params, _resolve_agent_id
 
 if TYPE_CHECKING:
     from .._http import HTTPClient
@@ -35,13 +35,14 @@ class Billing:
         end_date: str | None = None,
         user_id: str | None = None,
         teammate_id: int | None = None,
+        agent_id: int | None = None,
         group_by: str | None = None,
     ) -> UsageTimeseries:
         """Daily token + USD usage buckets, zero-filled over the window (UTC days).
 
         Defaults to the last 30 days ending today. Dates are ISO strings
-        (`"2026-07-01"`). Pass `user_id` to scope to one end-user, `teammate_id`
-        to scope to one teammate. With `group_by="model"`, each bucket carries
+        (`"2026-07-01"`). Pass `user_id` to scope to one end-user, `agent_id`
+        to scope to one agent. With `group_by="model"`, each bucket carries
         per-model slices in `.models` (history predating model attribution folds
         into "unknown"). Cost mirrors `usage().cost_used` semantics, so the
         series always reconciles with period totals and prepaid debits.
@@ -50,7 +51,7 @@ class Billing:
             start_date=start_date,
             end_date=end_date,
             user_id=user_id,
-            teammate_id=teammate_id,
+            teammate_id=_resolve_agent_id(teammate_id, agent_id),
             group_by=group_by,
         )
         resp = self._http.request("GET", "/usage/timeseries", params=params)

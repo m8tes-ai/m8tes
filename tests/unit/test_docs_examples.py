@@ -201,6 +201,7 @@ class FakeClient:
     def __init__(self, recorder: CallRecorder, **kwargs):
         recorder.record("client.init", **kwargs)
         self.teammates = FakeTeammates(recorder)
+        self.agents = self.teammates  # mirror the real client's permanent alias
         self.tasks = FakeTasks(recorder)
         self.runs = FakeRuns(recorder)
         self.apps = FakeApps(recorder)
@@ -249,7 +250,7 @@ def run_example(monkeypatch: pytest.MonkeyPatch, filename: str) -> CallRecorder:
 def test_readme_documents_opt_in_inbox_and_auth_usage_notes():
     readme = README_PATH.read_text()
 
-    assert "Enable an @m8tes.ai inbox per teammate" in readme
+    assert "Enable an @m8tes.ai inbox per agent" in readme
     assert "client.auth.get_usage()" in readme
     assert "POST /api/v2/token" in readme
     assert "invalidates the previous one" in readme

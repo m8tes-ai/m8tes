@@ -14,9 +14,9 @@ from m8tes import M8tes
 
 client = M8tes()
 
-# ── Create a teammate that generates reports ───────────────────────────────────
+# ── Create a agent that generates reports ───────────────────────────────────
 
-reporter = client.teammates.create(
+reporter = client.agents.create(
     name="weekly reporter",
     tools=["stripe", "google-sheets", "gmail"],
     instructions=(
@@ -36,7 +36,7 @@ print("── Streaming run with file tracking ───────────
 run_id: int | None = None
 
 with client.runs.create(
-    teammate_id=reporter.id,
+    agent_id=reporter.id,
     message=(
         "Pull last week's metrics from Stripe. "
         "Write weekly_report.md with an executive summary "
@@ -66,7 +66,7 @@ if run_id:
 print("\n\n── Non-streaming run ─────────────────────────────────────────────────────")
 
 run = client.runs.create_and_wait(
-    teammate_id=reporter.id,
+    agent_id=reporter.id,
     message="Export all VIP customers to vip_customers.json.",
 )  # create_and_wait is non-streaming by definition — no progress output
 
@@ -82,7 +82,7 @@ for f in client.runs.list_files(run.id):
 print("\n\n── Scheduled weekly report ────────────────────────────────────────────────")
 
 task = client.tasks.create(
-    teammate_id=reporter.id,
+    agent_id=reporter.id,
     instructions=(
         "Pull last week's key metrics from Stripe and Google Sheets. "
         "Write weekly_report.md and weekly_data.csv. "

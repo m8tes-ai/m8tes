@@ -16,7 +16,7 @@ from .._types import (
     RunOutcome,
     SyncPage,
 )
-from ._utils import _build_params
+from ._utils import _build_params, _resolve_agent_id
 
 _list = list  # preserve builtin; shadowed by .list() method
 
@@ -52,6 +52,7 @@ class Runs:
         *,
         message: str,
         teammate_id: int | None = None,
+        agent_id: int | None = None,
         tools: list[str] | None = None,
         stream: bool = True,
         name: str | None = None,
@@ -86,10 +87,10 @@ class Runs:
 
         The four built-in tool toggles (memory, history, task_setup_tools,
         feedback) are run-level overrides. Leave them None to inherit the
-        teammate default (then the platform default, enabled); pass True/False
+        agent default (then the platform default, enabled); pass True/False
         to force one on/off for this run. See client.built_in_tools.list().
 
-        If teammate_id points at an end-user-scoped teammate, omitting user_id
+        If teammate_id points at an end-user-scoped agent, omitting user_id
         inherits that scope. Passing a different user_id is rejected.
 
         Pass output_schema= (a JSON Schema, "type": "object") to get a typed result back on
@@ -97,6 +98,7 @@ class Runs:
         supported. output_data is None when the model produced no structured result, so always
         None-check it. The schema sticks to the run: replies and retries stay structured.
         """
+        teammate_id = _resolve_agent_id(teammate_id, agent_id)
         body: dict = {"message": message, "stream": stream}
         if teammate_id is not None:
             body["teammate_id"] = teammate_id
@@ -269,6 +271,7 @@ class Runs:
         *,
         message: str,
         teammate_id: int | None = None,
+        agent_id: int | None = None,
         tools: list[str] | None = None,
         name: str | None = None,
         instructions: str | None = None,
@@ -293,6 +296,7 @@ class Runs:
         Pass on_approval= and on_question= to handle human-in-the-loop pauses inline.
         Without callbacks, HITL runs will raise RuntimeError when they pause for input.
         """
+        teammate_id = _resolve_agent_id(teammate_id, agent_id)
         initial = cast(
             Run,
             self.create(
@@ -360,6 +364,7 @@ class Runs:
         *,
         message: str,
         teammate_id: int | None = None,
+        agent_id: int | None = None,
         tools: list[str] | None = None,
         name: str | None = None,
         instructions: str | None = None,
@@ -381,6 +386,7 @@ class Runs:
         """
         from ..streaming import TextDeltaEvent
 
+        teammate_id = _resolve_agent_id(teammate_id, agent_id)
         stream = self.create(
             message=message,
             teammate_id=teammate_id,
@@ -408,6 +414,7 @@ class Runs:
         self,
         *,
         teammate_id: int | None = None,
+        agent_id: int | None = None,
         task_id: int | None = None,
         user_id: str | None = None,
         status: str | None = None,
@@ -416,6 +423,7 @@ class Runs:
     ) -> SyncPage[Run]:
         """List runs. task_id pulls one task's run history (e.g. a scheduled or
         webhook-triggered task's results); user_id scopes to one end-user."""
+        teammate_id = _resolve_agent_id(teammate_id, agent_id)
         params = _build_params(
             teammate_id=teammate_id,
             task_id=task_id,

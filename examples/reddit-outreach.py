@@ -2,7 +2,7 @@
 Reddit outreach agent — finds fresh posts relevant to your target audience,
 leaves genuine helpful comments, and logs each interaction to Google Sheets.
 
-Demonstrates: teammates, tools, non-streaming runs.
+Demonstrates: agents, tools, non-streaming runs.
 
 Usage:
     export M8TES_API_KEY=m8_...
@@ -18,7 +18,7 @@ SPREADSHEET_ID = "your-google-sheets-spreadsheet-id"
 TARGET_AUDIENCE = "describe who you're trying to reach and what problems they have"
 # ────────────────────────────────────────────────────────────────────────────
 
-teammate = client.teammates.create(
+agent = client.agents.create(
     name="reddit-outreach",
     instructions=(
         "You find fresh Reddit posts, leave genuine helpful comments, "
@@ -46,12 +46,12 @@ teammate = client.teammates.create(
     tools=["reddit", "google-sheets"],
 )
 
-print(f"teammate: {teammate.id}")
+print(f"agent: {agent.id}")
 print()
 print("Running outreach session...")
 
 run = client.runs.create_and_wait(
-    teammate_id=teammate.id,
+    agent_id=agent.id,
     message="Start the outreach session. Find relevant posts from the last 12 hours and comment.",
 )
 print(run.output)

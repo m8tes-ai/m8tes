@@ -24,15 +24,15 @@ def http():
 class TestHTTPClient:
     @responses.activate
     def test_auth_header(self, http):
-        responses.add(responses.GET, "https://api.m8tes.ai/v2/teammates", json=[], status=200)
-        http.request("GET", "/teammates")
+        responses.add(responses.GET, "https://api.m8tes.ai/v2/agents", json=[], status=200)
+        http.request("GET", "/agents")
         assert responses.calls[0].request.headers["Authorization"] == "Bearer m8_test123"
 
     @responses.activate
     def test_base_url_joined(self, http):
-        responses.add(responses.GET, "https://api.m8tes.ai/v2/teammates", json=[], status=200)
-        http.request("GET", "/teammates")
-        assert responses.calls[0].request.url == "https://api.m8tes.ai/v2/teammates"
+        responses.add(responses.GET, "https://api.m8tes.ai/v2/agents", json=[], status=200)
+        http.request("GET", "/agents")
+        assert responses.calls[0].request.url == "https://api.m8tes.ai/v2/agents"
 
     @responses.activate
     def test_trailing_slash_stripped(self):
@@ -170,13 +170,13 @@ class TestErrorMapping:
         not dump the raw HTML document into the exception message."""
         responses.add(
             responses.GET,
-            "https://api.m8tes.ai/v2/teammates",
+            "https://api.m8tes.ai/v2/agents",
             body="<!DOCTYPE html><html><head><title>m8tes</title></head></html>",
             status=404,
             content_type="text/html",
         )
         with pytest.raises(NotFoundError) as exc_info:
-            http.request("GET", "/teammates")
+            http.request("GET", "/agents")
         assert "base_url" in exc_info.value.message
         assert "https://api.m8tes.ai/api/v2" in exc_info.value.message
         assert "<!DOCTYPE" not in exc_info.value.message
@@ -186,13 +186,13 @@ class TestErrorMapping:
         """HTML detection must also work when the server omits the text/html content type."""
         responses.add(
             responses.GET,
-            "https://api.m8tes.ai/v2/teammates",
+            "https://api.m8tes.ai/v2/agents",
             body="  <html><body>Not Found</body></html>",
             status=404,
             content_type="text/plain",
         )
         with pytest.raises(NotFoundError) as exc_info:
-            http.request("GET", "/teammates")
+            http.request("GET", "/agents")
         assert "base_url" in exc_info.value.message
         assert "<html>" not in exc_info.value.message
 
@@ -450,7 +450,7 @@ class TestRetrySemantics:
         mock_resp.headers = {}
         http._session.request = MagicMock(return_value=mock_resp)
         with pytest.raises(APIError):
-            http.request("PATCH", "/teammates/123")
+            http.request("PATCH", "/agents/123")
         assert http._session.request.call_count == 1
 
     def test_post_not_retried_on_429(self, http):
@@ -516,7 +516,7 @@ class TestRetrySemantics:
         ok_resp.status_code = 200
 
         http._session.request = MagicMock(side_effect=[fail_resp, ok_resp])
-        resp = http.request("GET", "/teammates")
+        resp = http.request("GET", "/agents")
         assert resp.status_code == 200
         assert http._session.request.call_count == 2
 
@@ -534,7 +534,7 @@ class TestRetrySemantics:
         ok_resp.status_code = 200
 
         http._session.request = MagicMock(side_effect=[fail_resp, ok_resp])
-        resp = http.request("DELETE", "/teammates/123")
+        resp = http.request("DELETE", "/agents/123")
         assert resp.status_code == 200
         assert http._session.request.call_count == 2
 
@@ -562,7 +562,7 @@ class TestDocUrl:
     def test_doc_url_surfaces_on_exception(self, http):
         responses.add(
             responses.GET,
-            "https://api.m8tes.ai/v2/teammates",
+            "https://api.m8tes.ai/v2/agents",
             json={
                 "error": {
                     "type": "authentication_error",
@@ -575,17 +575,17 @@ class TestDocUrl:
             status=401,
         )
         with pytest.raises(AuthenticationError) as exc_info:
-            http.request("GET", "/teammates")
+            http.request("GET", "/agents")
         assert exc_info.value.doc_url == "https://m8tes.ai/docs/api-introduction#authentication"
 
     @responses.activate
     def test_missing_doc_url_is_none(self, http):
         responses.add(
             responses.GET,
-            "https://api.m8tes.ai/v2/teammates/1",
+            "https://api.m8tes.ai/v2/agents/1",
             json={"error": {"type": "not_found", "message": "Nope", "code": 404}},
             status=404,
         )
         with pytest.raises(NotFoundError) as exc_info:
-            http.request("GET", "/teammates/1")
+            http.request("GET", "/agents/1")
         assert exc_info.value.doc_url is None

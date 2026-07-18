@@ -4124,7 +4124,7 @@ class TestAuthEndpoints:
         ).json()["api_key"]
 
         resp = requests.get(
-            f"{backend_url}/api/v2/teammates",
+            f"{backend_url}/api/v2/agents",
             headers={"Authorization": f"Bearer {api_key}"},
         )
         assert resp.status_code == 200

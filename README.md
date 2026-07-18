@@ -33,9 +33,9 @@ print(result.output)
 print(f"inbox: {result.email_address}")  # forward emails here to trigger future runs
 ```
 
-Set `task_setup_tools=False` on `client.runs.create(...)`, `client.runs.reply(...)`, or `client.tasks.run(...)` when you do not want the agent to receive the internal same-scope management tools for teammates, tasks, runs, approvals, files, memories, inboxes, webhooks, and app connections during that execution. Set `feedback=False` on those same V2 calls to disable the internal issue-reporting feedback tool (`report_issue`) for that execution.
+Set `task_setup_tools=False` on `client.runs.create(...)`, `client.runs.reply(...)`, or `client.tasks.run(...)` when you do not want the agent to receive the internal same-scope management tools for agents, tasks, runs, approvals, files, memories, inboxes, webhooks, and app connections during that execution. Set `feedback=False` on those same V2 calls to disable the internal issue-reporting feedback tool (`report_issue`) for that execution.
 
-When you pass `user_id`, the run is scoped to that end user. If you target an existing teammate or task that is already scoped, the `user_id` you pass must match that resource's scope. If you omit `user_id`, runs and tasks inherit the scope from the targeted teammate or task.
+When you pass `user_id`, the run is scoped to that end user. If you target an existing agent or task that is already scoped, the `user_id` you pass must match that resource's scope. If you omit `user_id`, runs and tasks inherit the scope from the targeted agent or task.
 
 → Full docs and examples at [m8tes.ai/docs](https://m8tes.ai/docs)
 
@@ -59,9 +59,9 @@ client.billing.set_overage(enabled=True, monthly_cap_cents=5000)  # $50 cap
 
 New accounts start on a time-boxed `trial` (no free tier); upgrade to a paid plan to raise run limits.
 
-Need email-triggered runs? Opt in with `email_inbox=True` on `client.teammates.create(...)` or call `client.teammates.enable_email_inbox(teammate_id)` later.
+Need email-triggered runs? Opt in with `email_inbox=True` on `client.agents.create(...)` or call `client.agents.enable_email_inbox(agent_id)` later.
 
-Need iMessage-triggered runs? Configure BlueBubbles on your account, then set `inbound_imessage_enabled=True` and `imessage_chat_guid="..."` on `client.teammates.create(...)` or `client.teammates.update(...)`. Use a dedicated 1:1 chat unless you intentionally want everyone in that thread to trigger the teammate and receive its replies.
+Need iMessage-triggered runs? Configure BlueBubbles on your account, then set `inbound_imessage_enabled=True` and `imessage_chat_guid="..."` on `client.agents.create(...)` or `client.agents.update(...)`. Use a dedicated 1:1 chat unless you intentionally want everyone in that thread to trigger the agent and receive its replies.
 
 Inspect account request history with `client.audit_logs.list(...)`:
 
@@ -84,7 +84,7 @@ for log in page.data:
 | File output and delivery | ✅ Generated files downloadable via API |
 | Webhook infrastructure for agent events | ✅ Outbound webhooks built in |
 | Per-user data isolation | ✅ Set `user_id`, we handle the rest |
-| An email inbox for your agent | ✅ Enable an @m8tes.ai inbox per teammate |
+| An email inbox for your agent | ✅ Enable an @m8tes.ai inbox per agent |
 
 ## What's included
 
@@ -128,13 +128,13 @@ m8tes is not a framework. It's the layer above one: a framework gives you a code
 
 ## Models
 
-Pick the model per teammate or per run via `model=`. List what's available (with prices) instead of hardcoding:
+Pick the model per agent or per run via `model=`. List what's available (with prices) instead of hardcoding:
 
 ```python
 for m in client.models.list().data:
     print(m.id, m.provider, m.pricing.input_per_mtok, "→", m.pricing.output_per_mtok, "/Mtok")
 
-bot = client.teammates.create(name="Ops", model="sonnet")   # or per run: runs.create(..., model="opus")
+bot = client.agents.create(name="Ops", model="sonnet")   # or per run: runs.create(..., model="opus")
 ```
 
 Today that's the Claude models `sonnet`, `opus` (default), and `fable` (most capable, ~2x cost), plus OpenAI `gpt-5.5`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, and open-source `glm-5.2` / `deepseek-v3-2` served through the zero-data-retention gateway. `models.list()` is the live source of truth; omit `model` to use the `default`.
@@ -301,7 +301,7 @@ When your account has sandbox execution enabled, agents run inside a full Linux 
 
 ```python
 with client.runs.create(
-    teammate_id=...,
+    agent_id=...,
     message="open chromium, go to example.com, and return the page title",
 ) as stream:
     for event in stream:
@@ -325,18 +325,18 @@ Extra events in the stream:
 
 ```python
 # schedule — every weekday at 9am (shortcut on tasks.create, no separate call needed)
-task = client.tasks.create(teammate_id=..., instructions="...", schedule="0 9 * * 1-5")
+task = client.tasks.create(agent_id=..., instructions="...", schedule="0 9 * * 1-5")
 
 # webhook — POST to a URL to trigger runs
-task = client.tasks.create(teammate_id=..., instructions="...", webhook=True)
+task = client.tasks.create(agent_id=..., instructions="...", webhook=True)
 print(task.webhook_url)  # POST here to trigger (shown once)
 
-# email — give the teammate an inbox at creation time
-mate = client.teammates.create(name="inbox bot", email_inbox=True)
+# email — give the agent an inbox at creation time
+mate = client.agents.create(name="inbox bot", email_inbox=True)
 print(mate.email_address)  # forward emails here
 
-# iMessage — route one BlueBubbles chat to a teammate
-messages_bot = client.teammates.create(
+# iMessage — route one BlueBubbles chat to a agent
+messages_bot = client.agents.create(
     name="messages bot",
     inbound_imessage_enabled=True,
     imessage_chat_guid="iMessage;-;+15551231234",
@@ -356,8 +356,8 @@ Give each user their own AI agent with isolated memory, tools, and permissions.
 # create a user profile
 client.users.create(user_id="cust_123", name="Acme Corp", email="admin@acme.com")
 
-# give them their own teammate
-bot = client.teammates.create(
+# give them their own agent
+bot = client.agents.create(
     name="acme assistant",
     tools=["gmail", "slack"],
     user_id="cust_123",
@@ -371,7 +371,7 @@ client.permissions.create(user_id="cust_123", tool="gmail")
 
 # run on their behalf — memory, permissions, history, and internal management tools all scoped
 run = client.runs.create_and_wait(
-    teammate_id=bot.id,
+    agent_id=bot.id,
     message="check inbox for urgent items",
     user_id="cust_123",
 )
@@ -381,11 +381,11 @@ The same rule applies to saved tasks and follow-up runs:
 
 ```python
 task = client.tasks.create(
-    teammate_id=bot.id,
+    agent_id=bot.id,
     instructions="review urgent inbox items",
 )
 
-# inherits cust_123 from the scoped teammate
+# inherits cust_123 from the scoped agent
 run = client.tasks.run(task.id, stream=False)
 assert run.user_id == "cust_123"
 ```
@@ -425,9 +425,9 @@ client.apps.release("twilio", user_id="cust_123")  # release it back
 
 | Resource | Key methods | Description |
 |----------|------------|-------------|
-| `client.teammates` | `create` `list` `get` `update` `delete` `reset` `enable_webhook` `disable_webhook` `enable_email_inbox` `disable_email_inbox` `enable_fetchmail` `disable_fetchmail` | Agent personas with tools and instructions |
-| `client.teammate_templates` | `list` | Pre-built teammate template catalog (slugs for `teammates.create(from_template=...)`) |
-| `client.runs` | `create` `stream` `poll` `wait` `create_and_wait` `reply` `reply_and_wait` `stream_text` `get` `list` `cancel` `retry` `permissions` `approve` `answer` `update_permission_mode` `list_files` `download_file` | Execute teammates and stream results |
+| `client.agents` | `create` `list` `get` `update` `delete` `reset` `enable_webhook` `disable_webhook` `enable_email_inbox` `disable_email_inbox` `enable_fetchmail` `disable_fetchmail` | Agent personas with tools and instructions |
+| `client.agent_templates` | `list` | Pre-built agent template catalog (slugs for `agents.create(from_template=...)`) |
+| `client.runs` | `create` `stream` `poll` `wait` `create_and_wait` `reply` `reply_and_wait` `stream_text` `get` `list` `cancel` `retry` `permissions` `approve` `answer` `update_permission_mode` `list_files` `download_file` | Execute agents and stream results |
 | `client.audit_logs` | `list` | Account-scoped API request history |
 | `client.tasks` | `create` `list` `get` `update` `delete` `run` `run_and_wait` `lessons` `delete_lesson` `clear_lessons` | Reusable task definitions (+ lesson curation) |
 | `client.tasks.triggers` | `create` `list` `delete` | Schedule, webhook, and email triggers |
@@ -490,9 +490,9 @@ content = client.runs.download_file(run_id=42, filename="report.csv")
 from m8tes import M8tes, NotFoundError, RateLimitError, AuthenticationError
 
 try:
-    client.teammates.get(999)
+    client.agents.get(999)
 except NotFoundError:
-    print("teammate not found")
+    print("agent not found")
 except RateLimitError as e:
     print(f"rate limited, retry after {e.retry_after}s")
 except AuthenticationError:
@@ -510,7 +510,7 @@ failure: `status` is `"completed"`, the message is in `run.output`, and
 trusting `output`:
 
 ```python
-run = client.runs.create_and_wait(teammate_id=mate.id, message="...")
+run = client.runs.create_and_wait(agent_id=mate.id, message="...")
 if run.error_code:
     print(f"run failed upstream: {run.error_code} — {run.output}")
 else:

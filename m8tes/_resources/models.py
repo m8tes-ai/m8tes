@@ -11,7 +11,7 @@ if TYPE_CHECKING:
 
 
 class Models:
-    """client.models — list the models you can pass as ``model`` on a teammate or run.
+    """client.models — list the models you can pass as ``model`` on a agent or run.
 
     The set is the publicly selectable models (it grows, incl. non-Anthropic and open-source
     models, as they're enabled — no SDK change needed since ``model`` is a plain string).
@@ -23,7 +23,7 @@ class Models:
     def list(self) -> SyncPage[Model]:
         """List selectable models with USD price per million tokens.
 
-        Pass a returned ``id`` as ``model`` on a teammate or run; omit ``model`` to use the
+        Pass a returned ``id`` as ``model`` on a agent or run; omit ``model`` to use the
         one with ``default=True``.
         """
         body = self._http.request("GET", "/models/").json()

@@ -74,7 +74,7 @@ class ModelPricing:
 
 @dataclass
 class Model:
-    """A selectable model. Pass ``id`` as ``model`` on a teammate or a run."""
+    """A selectable model. Pass ``id`` as ``model`` on a agent or a run."""
 
     id: str
     name: str
@@ -98,7 +98,7 @@ class Model:
 
 @dataclass
 class Teammate:
-    """A teammate (agent persona) with tools and instructions."""
+    """An agent persona with tools and instructions (canonical name: Agent)."""
 
     id: int
     name: str
@@ -133,7 +133,7 @@ class Teammate:
     enable_history: bool | None = None
     enable_task_setup_tools: bool | None = None
     enable_feedback: bool | None = None
-    # When True, the teammate runs a weekly review-and-improve task over its own runs.
+    # When True, the agent runs a weekly review-and-improve task over its own runs.
     enable_self_improvement: bool | None = None
 
     @classmethod
@@ -275,7 +275,7 @@ class RunUsage:
 
 @dataclass
 class Run:
-    """A run (execution) of a teammate."""
+    """A run (execution) of a agent."""
 
     id: int
     teammate_id: int | None
@@ -310,6 +310,11 @@ class Run:
     # Token counts + USD cost for this run; None until metrics arrive.
     usage: RunUsage | None = None
 
+    @property
+    def agent_id(self) -> int | None:
+        """Canonical alias for the wire field teammate_id."""
+        return self.teammate_id
+
     @classmethod
     def from_dict(cls, data: dict) -> Run:
         return cls(
@@ -338,7 +343,7 @@ class Run:
 
 @dataclass
 class Task:
-    """A reusable task definition attached to a teammate."""
+    """A reusable task definition attached to a agent."""
 
     id: int
     teammate_id: int
@@ -356,18 +361,23 @@ class Task:
     webhook_url: str | None = None
     webhook_enabled: bool = False
     # Template propagation metadata (null on custom tasks). Set when a task
-    # was seeded from a teammate template — see /api/v2/teammate-templates
+    # was seeded from a agent template — see /api/v2/teammate-templates
     # and Teammates.create(from_template=...).
     source_template_task_slug: str | None = None
     is_modified: bool = False
     user_recommends_removal: bool = False
-    # Built-in tool defaults; None = inherit from the teammate (then platform default).
+    # Built-in tool defaults; None = inherit from the agent (then platform default).
     enable_memory: bool | None = None
     enable_history: bool | None = None
     enable_task_setup_tools: bool | None = None
     enable_feedback: bool | None = None
     # Self-improvement lessons toggle (task-level, non-null; default on).
     enable_lessons: bool = True
+
+    @property
+    def agent_id(self) -> int | None:
+        """Canonical alias for the wire field teammate_id."""
+        return self.teammate_id
 
     @classmethod
     def from_dict(cls, data: dict) -> Task:
@@ -457,7 +467,7 @@ class AppTriggerType:
 
 @dataclass
 class TeammateDocument:
-    """A teammate's persistent document (e.g. latest-report).
+    """A agent's persistent document (e.g. latest-report).
 
     `content` is None on list responses — fetch one document to get its text.
     """
@@ -650,7 +660,7 @@ class BuiltInTool:
     Built-ins are NOT passed in the ``tools=[...]`` array — that's for integrations
     and custom MCP servers. The four ``configurable`` ones (memory, history,
     task_setup_tools, feedback) are toggled via the ``enable_*`` fields on
-    teammates/tasks/runs. ``multi_tenant_safe=False`` means the tool is skipped on
+    agents/tasks/runs. ``multi_tenant_safe=False`` means the tool is skipped on
     end-user (``user_id``-scoped) runs.
     """
 
@@ -1316,9 +1326,9 @@ class Receipt:
 
 @dataclass
 class TeammateTemplate:
-    """A pre-built teammate template from the public catalog.
+    """A pre-built agent template from the public catalog.
 
-    Use `slug` with `client.teammates.create(from_template=slug)`. The nested
+    Use `slug` with `client.agents.create(from_template=slug)`. The nested
     task/question lists are kept as plain dicts (read e.g. `t.default_tasks[0]["slug"]`).
     """
 
@@ -1351,7 +1361,7 @@ class TeammateTemplate:
 
 @dataclass
 class Lesson:
-    """A lesson a task's teammate has saved for future runs."""
+    """A lesson a task's agent has saved for future runs."""
 
     id: str
     text: str
@@ -1396,8 +1406,8 @@ class McpServer:
     """A user-defined custom tool server (BYO REST endpoints exposed as agent tools).
 
     The auth secret is write-only (set on create/update, never returned) — ``has_secret``
-    reports whether one is stored. Attach to a teammate by passing ``slug`` in the
-    teammate's ``tools=[...]`` list.
+    reports whether one is stored. Attach to a agent by passing ``slug`` in the
+    agent's ``tools=[...]`` list.
     """
 
     id: int
@@ -1470,3 +1480,11 @@ class Skill:
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at", ""),
         )
+
+
+# Canonical naming: "agent" is the developer-facing term; Teammate is the same
+# class under its legacy name. NOTE: the alias is NOT re-exported at package top
+# level — the legacy v1 module m8tes/agent.py already owns the public name
+# `m8tes.Agent`. Import from m8tes._types if you want the v2 alias explicitly.
+Agent = Teammate
+AgentTemplate = TeammateTemplate

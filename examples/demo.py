@@ -1,7 +1,7 @@
 """
-m8tes demo: create a teammate, schedule it, give it an email inbox, run it live.
+m8tes demo: create a agent, schedule it, give it an email inbox, run it live.
 
-Shows the full setup in one script: teammate creation, scheduling, email trigger,
+Shows the full setup in one script: agent creation, scheduling, email trigger,
 and a live streaming run. Run this once and the agent is deployed.
 
 Usage:
@@ -13,8 +13,8 @@ from m8tes import M8tes, PermissionMode
 
 client = M8tes()
 
-# 1. create a teammate with an email inbox
-teammate = client.teammates.create(
+# 1. create a agent with an email inbox
+agent = client.agents.create(
     name="ops assistant",
     tools=["stripe", "linear", "slack"],
     instructions=(
@@ -24,12 +24,12 @@ teammate = client.teammates.create(
     ),
     email_inbox=True,
 )
-print(f"teammate: {teammate.id}")
-print(f"inbox:    {teammate.email_address}  # forward anything here to trigger a run")
+print(f"agent: {agent.id}")
+print(f"inbox:    {agent.email_address}  # forward anything here to trigger a run")
 
 # 2. schedule it: every Monday at 9am ET
 task = client.tasks.create(
-    teammate_id=teammate.id,
+    agent_id=agent.id,
     instructions="run the weekly ops summary",
     schedule="0 9 * * 1",
     schedule_timezone="America/New_York",
@@ -41,7 +41,7 @@ print("-" * 48)
 
 # 3. run it now: autonomous (no approval prompts), streams live output
 with client.runs.create(
-    teammate_id=teammate.id,
+    agent_id=agent.id,
     message="run the ops summary now",
     permission_mode=PermissionMode.AUTONOMOUS,
 ) as stream:

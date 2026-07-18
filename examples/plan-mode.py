@@ -14,9 +14,9 @@ from m8tes import M8tes, PermissionMode, PermissionRequest
 
 client = M8tes()
 
-# ── Create a teammate with write-access tools ──────────────────────────────────
+# ── Create a agent with write-access tools ──────────────────────────────────
 
-agent = client.teammates.create(
+agent = client.agents.create(
     name="ops agent",
     tools=["gmail", "linear", "slack"],
     instructions="You are an operations assistant. Before taking any actions, "
@@ -55,7 +55,7 @@ def handle_approval(req: PermissionRequest) -> str:
 
 
 run = client.runs.create(
-    teammate_id=agent.id,
+    agent_id=agent.id,
     message="Process unread support emails: create Linear tickets for bugs, "
     "post urgent issues to #ops in Slack.",
     human_in_the_loop=True,
@@ -72,7 +72,7 @@ print(f"\nDone: {run.output[:300]}...")
 print("\n\n── Automated run (auto-approve plan) ─────────────────────────────")
 
 automated_run = client.runs.create_and_wait(
-    teammate_id=agent.id,
+    agent_id=agent.id,
     message="Check for any new Linear tickets assigned to me and post a summary to Slack.",
     human_in_the_loop=True,
     permission_mode=PermissionMode.PLAN,

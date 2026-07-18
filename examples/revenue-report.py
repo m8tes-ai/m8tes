@@ -2,7 +2,7 @@
 Revenue reporting agent — pulls weekly MRR from Stripe, compares to the prior week,
 posts a delta summary to #finance on Slack.
 
-Runs every Monday at 9am. Demonstrates: teammates, tasks, scheduled triggers.
+Runs every Monday at 9am. Demonstrates: agents, tasks, scheduled triggers.
 
 Usage:
     export M8TES_API_KEY=m8_...
@@ -13,8 +13,8 @@ from m8tes import M8tes
 
 client = M8tes()
 
-# create a reusable teammate
-teammate = client.teammates.create(
+# create a reusable agent
+agent = client.agents.create(
     name="revenue-report",
     instructions=(
         "You are a finance ops assistant. "
@@ -28,7 +28,7 @@ teammate = client.teammates.create(
 
 # create a task and schedule it — every Monday at 9am ET
 task = client.tasks.create(
-    teammate_id=teammate.id,
+    agent_id=agent.id,
     instructions="run the weekly revenue report and post the delta to #finance on slack",
 )
 trigger = client.tasks.triggers.create(
@@ -38,7 +38,7 @@ trigger = client.tasks.triggers.create(
     timezone="America/New_York",
 )
 
-print(f"teammate: {teammate.id}")
+print(f"agent: {agent.id}")
 print(f"task:     {task.id}")
 print(f"trigger:  {trigger.id} (runs every Monday at 9am ET)")
 print()
@@ -46,7 +46,7 @@ print("Running once now to verify setup...")
 
 # run it once immediately to verify everything is connected
 run = client.runs.create_and_wait(
-    teammate_id=teammate.id,
+    agent_id=agent.id,
     message="Run the weekly revenue report now.",
 )
 print(run.output)

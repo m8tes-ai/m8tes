@@ -2,7 +2,7 @@
 Support triage agent — classifies inbound support emails, creates Linear tickets
 for bugs, and escalates urgent issues to Slack. Runs every weekday at 8am.
 
-Demonstrates: teammates, tasks, scheduled triggers, real-time streaming.
+Demonstrates: agents, tasks, scheduled triggers, real-time streaming.
 
 Usage:
     export M8TES_API_KEY=m8_...
@@ -13,8 +13,8 @@ from m8tes import M8tes
 
 client = M8tes()
 
-# create the teammate once
-teammate = client.teammates.create(
+# create the agent once
+agent = client.agents.create(
     name="support-triage",
     instructions=(
         "Triage inbound support emails. "
@@ -29,7 +29,7 @@ teammate = client.teammates.create(
 
 # schedule — every weekday at 8am ET
 task = client.tasks.create(
-    teammate_id=teammate.id,
+    agent_id=agent.id,
     instructions="triage support emails: file bugs in linear, escalate urgent issues to slack",
 )
 trigger = client.tasks.triggers.create(
@@ -39,7 +39,7 @@ trigger = client.tasks.triggers.create(
     timezone="America/New_York",
 )
 
-print(f"teammate: {teammate.id}")
+print(f"agent: {agent.id}")
 print(f"task:     {task.id}")
 print(f"trigger:  {trigger.id} (runs weekdays at 8am ET)")
 print()
@@ -48,7 +48,7 @@ print("-" * 40)
 
 # stream a test run to see it work in real time
 for event in client.runs.create(
-    teammate_id=teammate.id,
+    agent_id=agent.id,
     message="Process all unread support emails from the last 24 hours.",
 ):
     match event.type:

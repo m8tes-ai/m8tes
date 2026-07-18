@@ -7,12 +7,12 @@ from typing import TYPE_CHECKING, Any, cast
 
 from .._streaming import RunStream
 from .._types import LessonList, PermissionRequest, Run, SyncPage, Task, TeammateWebhook, Trigger
-from ._utils import _build_params
+from ._utils import _build_params, _resolve_agent_id
 
 _list = list  # preserve builtin; shadowed by .list() method
 
 # Sentinel distinguishing "not provided" (leave unchanged) from an explicit None
-# (send JSON null → reset the toggle to the platform default). Mirrors teammates.py.
+# (send JSON null → reset the toggle to the platform default). Mirrors agents.py.
 _UNSET: Any = object()
 
 if TYPE_CHECKING:
@@ -101,8 +101,9 @@ class Tasks:
     def create(
         self,
         *,
-        teammate_id: int,
         instructions: str,
+        teammate_id: int | None = None,
+        agent_id: int | None = None,
         name: str | None = None,
         tools: list[str] | None = None,
         expected_output: str | None = None,
@@ -121,10 +122,13 @@ class Tasks:
         """Create a reusable task.
 
         The four enable_* fields set this task's default for the built-in tools;
-        leave None to inherit the teammate default (then the platform default).
-        enable_lessons toggles whether the teammate accumulates self-improvement
+        leave None to inherit the agent default (then the platform default).
+        enable_lessons toggles whether the agent accumulates self-improvement
         lessons across this task's runs (task-level, default on).
         """
+        teammate_id = _resolve_agent_id(teammate_id, agent_id)
+        if teammate_id is None:
+            raise ValueError("agent_id (or legacy teammate_id) is required")
         body: dict = {"teammate_id": teammate_id, "instructions": instructions}
         if name is not None:
             body["name"] = name
@@ -160,10 +164,12 @@ class Tasks:
         self,
         *,
         teammate_id: int | None = None,
+        agent_id: int | None = None,
         user_id: str | None = None,
         limit: int = 20,
         starting_after: int | None = None,
     ) -> SyncPage[Task]:
+        teammate_id = _resolve_agent_id(teammate_id, agent_id)
         params = _build_params(
             teammate_id=teammate_id, user_id=user_id, limit=limit, starting_after=starting_after
         )
@@ -205,8 +211,8 @@ class Tasks:
 
         For the four ``enable_*`` built-in tool defaults: omit to leave unchanged,
         pass True/False to pin this task's default, or pass ``None`` to reset that
-        toggle back to inherit-from-teammate (sends JSON null). Mirrors
-        ``teammates.update``.
+        toggle back to inherit-from-agent (sends JSON null). Mirrors
+        ``agents.update``.
         """
         body: dict = {}
         if name is not None:
@@ -221,7 +227,7 @@ class Tasks:
             body["goals"] = goals
         if email_notifications is not None:
             body["email_notifications"] = email_notifications
-        # Explicit None -> JSON null -> resets the toggle to inherit-from-teammate.
+        # Explicit None -> JSON null -> resets the toggle to inherit-from-agent.
         if enable_memory is not _UNSET:
             body["enable_memory"] = enable_memory
         if enable_history is not _UNSET:
@@ -264,7 +270,7 @@ class Tasks:
 
         The four built-in tool toggles (memory, history, task_setup_tools,
         feedback) are run-level overrides; leave them None to inherit the task
-        then teammate default (then the platform default, enabled).
+        then agent default (then the platform default, enabled).
 
         If the saved task is already scoped to an end user, omitting user_id
         inherits that scope. Passing a different user_id is rejected.
@@ -358,10 +364,10 @@ class Tasks:
         """Disable the task's webhook trigger. POSTs to the old URL stop starting runs."""
         self._http.request("DELETE", f"/tasks/{task_id}/webhook")
 
-    # ── Lessons (what the task's teammate has learned) ──────────────────────
+    # ── Lessons (what the task's agent has learned) ──────────────────────
 
     def lessons(self, task_id: int) -> LessonList:
-        """List the lessons this task's teammate has saved for future runs."""
+        """List the lessons this task's agent has saved for future runs."""
         resp = self._http.request("GET", f"/tasks/{task_id}/lessons")
         return LessonList.from_dict(resp.json())
 

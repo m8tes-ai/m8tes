@@ -28,10 +28,10 @@ client.memories.create(
 client.memories.create(user_id="globex-inc", content="uses email for all notifications, not Slack")
 client.memories.create(user_id="globex-inc", content="operates in UTC, weekly reports due Friday")
 
-# ── 3. Create a shared teammate ────────────────────────────────────────────────
-# one teammate definition, used by all users — each run is fully isolated
+# ── 3. Create a shared agent ────────────────────────────────────────────────
+# one agent definition, used by all users — each run is fully isolated
 
-assistant = client.teammates.create(
+assistant = client.agents.create(
     name="ops-assistant",
     instructions=(
         "You are an operations assistant. Help the user with reporting, "
@@ -45,7 +45,7 @@ assistant = client.teammates.create(
 
 print("Running for acme-corp...")
 acme_run = client.runs.create_and_wait(
-    teammate_id=assistant.id,
+    agent_id=assistant.id,
     message="Summarize this week's closed deals and send a recap to the team.",
     user_id="acme-corp",  # all memory and history scoped to this user
 )
@@ -54,7 +54,7 @@ print(f"acme-corp: {acme_run.output[:200]}...")
 print()
 print("Running for globex-inc...")
 globex_run = client.runs.create_and_wait(
-    teammate_id=assistant.id,
+    agent_id=assistant.id,
     message="Summarize this week's closed deals and send a recap to the team.",
     user_id="globex-inc",  # completely isolated — no data bleeds between users
 )

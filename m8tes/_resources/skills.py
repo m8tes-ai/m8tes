@@ -2,7 +2,7 @@
 
 A skill is a reusable playbook the agent loads on demand at run start: a short
 ``description`` (when to use it) plus a markdown ``body`` (the steps). Scope mirrors
-memory — ``account`` (every Mate) or ``teammate`` (one Mate, via ``teammate_id``):
+memory — ``account`` (every Mate) or ``agent`` (one Mate, via ``teammate_id``):
 
     client.skills.create(
         name="acme refund playbook",
@@ -20,6 +20,7 @@ from .._types import Skill
 
 if TYPE_CHECKING:
     from .._http import HTTPClient
+from ._utils import _resolve_agent_id
 
 
 class Skills:
@@ -36,6 +37,7 @@ class Skills:
         body: str,
         scope: str = "account",
         teammate_id: int | None = None,
+        agent_id: int | None = None,
         user_id: str | None = None,
     ) -> Skill:
         """Author a skill. ``scope`` is "account" (all Mates) or "teammate" (requires
@@ -46,6 +48,7 @@ class Skills:
             "body": body,
             "scope": scope,
         }
+        teammate_id = _resolve_agent_id(teammate_id, agent_id)
         if teammate_id is not None:
             payload["teammate_id"] = teammate_id
         if user_id is not None:
