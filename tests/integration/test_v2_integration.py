@@ -236,6 +236,28 @@ class TestTeammatesCRUD:
         finally:
             v2_client.teammates.delete(t.id)
 
+    def test_effort_roundtrip(self, v2_client):
+        """effort persists on create, updates via PATCH, clears via null, and the
+        models catalog exposes each model's max_effort ceiling."""
+        t = v2_client.teammates.create(name="EffortBot", effort="low")
+        try:
+            assert t.effort == "low"
+            updated = v2_client.teammates.update(t.id, effort="xhigh")
+            assert updated.effort == "xhigh"
+            assert v2_client.teammates.get(t.id).effort == "xhigh"
+            # effort=None sends JSON null → clears back to platform default
+            cleared = v2_client.teammates.update(t.id, effort=None)
+            assert cleared.effort is None
+        finally:
+            v2_client.teammates.delete(t.id)
+        models = v2_client.models.list().data
+        assert all(m.max_effort in {"high", "max"} for m in models)
+        assert any(m.max_effort == "max" for m in models)  # Claude tiers
+
+    def test_invalid_effort_rejected(self, v2_client):
+        with pytest.raises(ValidationError):
+            v2_client.teammates.create(name="BadEffortBot", effort="turbo")
+
     def test_model_defaults_to_none(self, v2_client):
         """Omitting model leaves it None (platform default)."""
         t = v2_client.teammates.create(name="NoModelBot")

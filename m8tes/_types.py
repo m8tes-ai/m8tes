@@ -81,6 +81,9 @@ class Model:
     description: str
     provider: str  # "anthropic", "openai", … — who serves it
     default: bool  # used when ``model`` is omitted / null
+    # Highest effort tier the model accepts ("max" Claude, "high" others);
+    # higher requested effort is clamped, never rejected.
+    max_effort: str = "max"
     pricing: ModelPricing | None = None
 
     @classmethod
@@ -92,6 +95,7 @@ class Model:
             description=data["description"],
             provider=data.get("provider", "unknown"),
             default=data["default"],
+            max_effort=data.get("max_effort", "max"),
             pricing=ModelPricing.from_dict(pricing) if pricing else None,
         )
 
@@ -128,6 +132,9 @@ class Teammate:
     webhook_url: str | None = None
     # Claude model alias ("sonnet" | "opus"); None = platform default.
     model: str | None = None
+    # Reasoning effort ("low"|"medium"|"high"|"xhigh"|"max"); None = platform
+    # default (max on Claude models, high on others; see Model.max_effort).
+    effort: str | None = None
     # Built-in tool defaults; None = inherit the platform default (enabled).
     enable_memory: bool | None = None
     enable_history: bool | None = None
@@ -163,6 +170,7 @@ class Teammate:
             webhook_enabled=data.get("webhook_enabled", False),
             webhook_url=data.get("webhook_url"),
             model=data.get("model"),
+            effort=data.get("effort"),
             enable_memory=data.get("enable_memory"),
             enable_history=data.get("enable_history"),
             enable_task_setup_tools=data.get("enable_task_setup_tools"),

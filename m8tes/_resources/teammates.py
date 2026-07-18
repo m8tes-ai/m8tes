@@ -58,6 +58,7 @@ class Agents:
         webhook: bool = False,
         default_permission_mode: str | None = None,
         model: str | None = None,
+        effort: str | None = None,
         from_template: str | None = None,
     ) -> Teammate:
         """Create a teammate.
@@ -121,6 +122,8 @@ class Agents:
             body["default_permission_mode"] = default_permission_mode
         if model is not None:
             body["model"] = model
+        if effort is not None:
+            body["effort"] = effort
         if from_template is not None:
             body["from_template"] = from_template
         resp = self._http.request("POST", "/agents/", json=body)
@@ -174,6 +177,7 @@ class Agents:
         allowed_slack_senders: _list[str] | None = None,
         default_permission_mode: str | None = None,
         model: str | None = _UNSET,
+        effort: str | None = _UNSET,
         enable_memory: bool | None = _UNSET,
         enable_history: bool | None = _UNSET,
         enable_task_setup_tools: bool | None = _UNSET,
@@ -226,6 +230,8 @@ class Agents:
             body["default_permission_mode"] = default_permission_mode
         if model is not _UNSET:
             body["model"] = model  # explicit None -> JSON null -> clears to default
+        if effort is not _UNSET:
+            body["effort"] = effort  # explicit None -> JSON null -> clears to default
         # Explicit None -> JSON null -> resets the toggle to the platform default.
         if enable_memory is not _UNSET:
             body["enable_memory"] = enable_memory

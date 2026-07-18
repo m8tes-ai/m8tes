@@ -1,7 +1,6 @@
 """Resource namespaces for the v2 developer SDK."""
 
 from .account import Account
-from .teammates import Agents, Teammates
 from .apps import Apps
 from .audit_logs import AuditLogs
 from .auth import Auth
@@ -18,6 +17,7 @@ from .settings import Settings
 from .skills import Skills
 from .tasks import Tasks
 from .teammate_templates import AgentTemplates, TeammateTemplates
+from .teammates import Agents, Teammates
 from .users import Users
 from .webhooks import Webhooks
 
