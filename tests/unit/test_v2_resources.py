@@ -49,7 +49,7 @@ class TestTeammates:
     def test_create(self, http):
         responses.add(
             responses.POST,
-            f"{BASE}/teammates/",
+            f"{BASE}/agents/",
             json={
                 "id": 1,
                 "name": "Bot",
@@ -69,9 +69,7 @@ class TestTeammates:
 
     @responses.activate
     def test_create_with_all_fields(self, http):
-        responses.add(
-            responses.POST, f"{BASE}/teammates/", json={"id": 2, "name": "Full"}, status=201
-        )
+        responses.add(responses.POST, f"{BASE}/agents/", json={"id": 2, "name": "Full"}, status=201)
         Teammates(http).create(
             name="Full",
             tools=["gmail"],
@@ -90,7 +88,7 @@ class TestTeammates:
 
     @responses.activate
     def test_create_with_model(self, http):
-        responses.add(responses.POST, f"{BASE}/teammates/", json={"id": 4, "name": "M"}, status=201)
+        responses.add(responses.POST, f"{BASE}/agents/", json={"id": 4, "name": "M"}, status=201)
         Teammates(http).create(name="M", model="sonnet")
         body = json.loads(responses.calls[0].request.body)
         assert body["model"] == "sonnet"
@@ -99,7 +97,7 @@ class TestTeammates:
     def test_create_with_imessage_fields(self, http):
         responses.add(
             responses.POST,
-            f"{BASE}/teammates/",
+            f"{BASE}/agents/",
             json={
                 "id": 3,
                 "name": "Messages Bot",
@@ -123,7 +121,7 @@ class TestTeammates:
     def test_list(self, http):
         responses.add(
             responses.GET,
-            f"{BASE}/teammates/",
+            f"{BASE}/agents/",
             json={"data": [{"id": 1, "name": "A"}, {"id": 2, "name": "B"}], "has_more": False},
         )
         result = Teammates(http).list()
@@ -134,26 +132,26 @@ class TestTeammates:
 
     @responses.activate
     def test_list_with_user_id(self, http):
-        responses.add(responses.GET, f"{BASE}/teammates/", json={"data": [], "has_more": False})
+        responses.add(responses.GET, f"{BASE}/agents/", json={"data": [], "has_more": False})
         Teammates(http).list(user_id="u_1")
         assert "user_id=u_1" in responses.calls[0].request.url
 
     @responses.activate
     def test_get(self, http):
-        responses.add(responses.GET, f"{BASE}/teammates/42", json={"id": 42, "name": "Bot"})
+        responses.add(responses.GET, f"{BASE}/agents/42", json={"id": 42, "name": "Bot"})
         t = Teammates(http).get(42)
         assert t.id == 42
 
     @responses.activate
     def test_get_forwards_user_id(self, http):
-        responses.add(responses.GET, f"{BASE}/teammates/42", json={"id": 42, "name": "Bot"})
+        responses.add(responses.GET, f"{BASE}/agents/42", json={"id": 42, "name": "Bot"})
         Teammates(http).get(42, user_id="alice")
         assert responses.calls[0].request.params.get("user_id") == "alice"
 
     @responses.activate
     def test_update_and_delete_forward_user_id(self, http):
-        responses.add(responses.PATCH, f"{BASE}/teammates/1", json={"id": 1, "name": "N"})
-        responses.add(responses.DELETE, f"{BASE}/teammates/1", status=204)
+        responses.add(responses.PATCH, f"{BASE}/agents/1", json={"id": 1, "name": "N"})
+        responses.add(responses.DELETE, f"{BASE}/agents/1", status=204)
         Teammates(http).update(1, user_id="alice", name="N")
         assert responses.calls[0].request.params.get("user_id") == "alice"
         Teammates(http).delete(1, user_id="alice")
@@ -161,7 +159,7 @@ class TestTeammates:
 
     @responses.activate
     def test_update(self, http):
-        responses.add(responses.PATCH, f"{BASE}/teammates/1", json={"id": 1, "name": "New"})
+        responses.add(responses.PATCH, f"{BASE}/agents/1", json={"id": 1, "name": "New"})
         t = Teammates(http).update(1, name="New")
         assert t.name == "New"
 
@@ -169,12 +167,12 @@ class TestTeammates:
     def test_disable_and_enable(self, http):
         responses.add(
             responses.POST,
-            f"{BASE}/teammates/1/disable",
+            f"{BASE}/agents/1/disable",
             json={"id": 1, "name": "Bot", "status": "disabled"},
         )
         responses.add(
             responses.POST,
-            f"{BASE}/teammates/1/enable",
+            f"{BASE}/agents/1/enable",
             json={"id": 1, "name": "Bot", "status": "enabled"},
         )
         assert Teammates(http).disable(1).status == "disabled"
@@ -182,7 +180,7 @@ class TestTeammates:
 
     @responses.activate
     def test_update_sends_only_provided_fields(self, http):
-        responses.add(responses.PATCH, f"{BASE}/teammates/1", json={"id": 1, "name": "X"})
+        responses.add(responses.PATCH, f"{BASE}/agents/1", json={"id": 1, "name": "X"})
         Teammates(http).update(
             1,
             name="X",
@@ -200,7 +198,7 @@ class TestTeammates:
 
     @responses.activate
     def test_update_with_model_sends_only_model(self, http):
-        responses.add(responses.PATCH, f"{BASE}/teammates/1", json={"id": 1, "name": "X"})
+        responses.add(responses.PATCH, f"{BASE}/agents/1", json={"id": 1, "name": "X"})
         Teammates(http).update(1, model="sonnet")
         body = json.loads(responses.calls[0].request.body)
         assert body == {"model": "sonnet"}
@@ -212,14 +210,14 @@ class TestTeammates:
         Deliberately unlike other optional fields (omit-if-None): the v2 contract
         makes null a meaningful model state (D4).
         """
-        responses.add(responses.PATCH, f"{BASE}/teammates/1", json={"id": 1, "name": "X"})
+        responses.add(responses.PATCH, f"{BASE}/agents/1", json={"id": 1, "name": "X"})
         Teammates(http).update(1, model=None)
         body = json.loads(responses.calls[0].request.body)
         assert body == {"model": None}
 
     @responses.activate
     def test_update_without_model_omits_the_key(self, http):
-        responses.add(responses.PATCH, f"{BASE}/teammates/1", json={"id": 1, "name": "X"})
+        responses.add(responses.PATCH, f"{BASE}/agents/1", json={"id": 1, "name": "X"})
         Teammates(http).update(1, name="X")
         body = json.loads(responses.calls[0].request.body)
         assert "model" not in body
@@ -228,7 +226,7 @@ class TestTeammates:
     def test_update_can_set_imessage_fields(self, http):
         responses.add(
             responses.PATCH,
-            f"{BASE}/teammates/1",
+            f"{BASE}/agents/1",
             json={
                 "id": 1,
                 "name": "Bot",
@@ -251,7 +249,7 @@ class TestTeammates:
 
     @responses.activate
     def test_delete(self, http):
-        responses.add(responses.DELETE, f"{BASE}/teammates/1", status=204)
+        responses.add(responses.DELETE, f"{BASE}/agents/1", status=204)
         Teammates(http).delete(1)
         assert responses.calls[0].request.method == "DELETE"
 
@@ -259,7 +257,7 @@ class TestTeammates:
     def test_enable_webhook(self, http):
         responses.add(
             responses.POST,
-            f"{BASE}/teammates/1/webhook",
+            f"{BASE}/agents/1/webhook",
             json={"enabled": True, "url": "https://api.m8tes.ai/api/v1/webhooks/mates/1/tok_abc"},
             status=201,
         )
@@ -270,7 +268,7 @@ class TestTeammates:
 
     @responses.activate
     def test_disable_webhook(self, http):
-        responses.add(responses.DELETE, f"{BASE}/teammates/1/webhook", status=204)
+        responses.add(responses.DELETE, f"{BASE}/agents/1/webhook", status=204)
         Teammates(http).disable_webhook(1)
         assert responses.calls[0].request.method == "DELETE"
 
@@ -278,7 +276,7 @@ class TestTeammates:
     def test_enable_webhook_not_found(self, http):
         responses.add(
             responses.POST,
-            f"{BASE}/teammates/999/webhook",
+            f"{BASE}/agents/999/webhook",
             json={"error": {"message": "Teammate not found"}},
             status=404,
         )
@@ -289,7 +287,7 @@ class TestTeammates:
     def test_enable_email_inbox(self, http):
         responses.add(
             responses.POST,
-            f"{BASE}/teammates/1/email-inbox",
+            f"{BASE}/agents/1/email-inbox",
             json={"enabled": True, "address": "abc123@notifications.m8tes.ai"},
             status=201,
         )
@@ -302,7 +300,7 @@ class TestTeammates:
 
     @responses.activate
     def test_disable_email_inbox(self, http):
-        responses.add(responses.DELETE, f"{BASE}/teammates/1/email-inbox", status=204)
+        responses.add(responses.DELETE, f"{BASE}/agents/1/email-inbox", status=204)
         Teammates(http).disable_email_inbox(1)
         assert responses.calls[0].request.method == "DELETE"
 
@@ -1401,7 +1399,7 @@ class TestBridges:
     def test_teammate_create_includes_bridge_fields(self, http):
         responses.add(
             responses.POST,
-            f"{BASE}/teammates/",
+            f"{BASE}/agents/",
             json={
                 "id": 9,
                 "name": "bot",
@@ -1431,7 +1429,7 @@ class TestTeammateDocuments:
     def test_list_documents(self, http):
         responses.add(
             responses.GET,
-            f"{BASE}/teammates/1/documents",
+            f"{BASE}/agents/1/documents",
             json={
                 "data": [
                     {
@@ -1455,7 +1453,7 @@ class TestTeammateDocuments:
     def test_get_document(self, http):
         responses.add(
             responses.GET,
-            f"{BASE}/teammates/1/documents/latest-report",
+            f"{BASE}/agents/1/documents/latest-report",
             json={
                 "id": 3,
                 "name": "latest-report",

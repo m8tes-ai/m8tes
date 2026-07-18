@@ -1,5 +1,5 @@
 """
-Configure a teammate to receive Apple Messages through a BlueBubbles bridge.
+Configure a agent to receive Apple Messages through a BlueBubbles bridge.
 
 Usage:
     export M8TES_API_KEY=m8_...
@@ -7,7 +7,7 @@ Usage:
 
 iMessage is per-customer: you run your own BlueBubbles server (on your own Mac,
 under your own Apple ID). Register it once as a bridge, point the BlueBubbles
-webhook at m8tes using the returned secret, then bind a teammate to a chat on
+webhook at m8tes using the returned secret, then bind a agent to a chat on
 that bridge with an explicit sender allowlist (routing is fail-closed).
 """
 
@@ -27,9 +27,9 @@ print(f"webhook secret (save now, shown once): {bridge.webhook_secret}")
 print("point your BlueBubbles webhook at POST /api/v1/webhooks/inbound/imessage")
 print("with header  X-Webhook-Secret: <the secret above>")
 
-# 2. Bind a teammate to a chat on that bridge. allowed_imessage_senders is
-#    required — only listed handles can trigger the teammate (fail-closed).
-teammate = client.teammates.create(
+# 2. Bind a agent to a chat on that bridge. allowed_imessage_senders is
+#    required — only listed handles can trigger the agent (fail-closed).
+agent = client.agents.create(
     name="messages concierge",
     instructions=(
         "reply with short, direct answers, ask clarifying questions when needed, "
@@ -41,6 +41,6 @@ teammate = client.teammates.create(
     allowed_imessage_senders=["+15551231234"],
 )
 
-print(f"teammate:  {teammate.id}")
-print(f"chat guid: {teammate.imessage_chat_guid}")
-print("BlueBubbles will now route that chat to this teammate.")
+print(f"agent:  {agent.id}")
+print(f"chat guid: {agent.imessage_chat_guid}")
+print("BlueBubbles will now route that chat to this agent.")

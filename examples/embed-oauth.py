@@ -19,10 +19,10 @@ from m8tes import M8tes
 client = M8tes()
 
 # ── Account-level setup (run once at startup) ─────────────────────────────────
-# The teammate is shared across all users. Configure it with your own tools
+# The agent is shared across all users. Configure it with your own tools
 # (api_key integrations you control) here. End-user OAuth is added per-user below.
 
-assistant = client.teammates.create(
+assistant = client.agents.create(
     name="customer assistant",
     tools=["notion", "gmail"],  # users connect their own accounts
     instructions=(
@@ -32,7 +32,7 @@ assistant = client.teammates.create(
     ),
 )
 
-print(f"Teammate created: {assistant.id}")
+print(f"Agent created: {assistant.id}")
 
 # ── Simulate the web request context ─────────────────────────────────────────
 # In a real app these would be your web framework request/response objects.
@@ -102,7 +102,7 @@ def run_for_user(user_id: str, message: str) -> str:
         raise ValueError(f"User {user_id!r} has not connected Gmail yet.")
 
     run = client.runs.create_and_wait(
-        teammate_id=assistant.id,
+        agent_id=assistant.id,
         message=message,
         user_id=user_id,  # all memory and tool access scoped to this user
     )

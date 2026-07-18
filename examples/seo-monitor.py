@@ -2,7 +2,7 @@
 SEO monitoring agent — checks Google Search Console weekly for indexing issues,
 coverage errors, and ranking opportunities. Posts a priority-flagged summary to Slack.
 
-Demonstrates: teammates, scheduled triggers, non-streaming runs.
+Demonstrates: agents, scheduled triggers, non-streaming runs.
 
 Usage:
     export M8TES_API_KEY=m8_...
@@ -13,7 +13,7 @@ from m8tes import M8tes
 
 client = M8tes()
 
-teammate = client.teammates.create(
+agent = client.agents.create(
     name="seo-monitor",
     instructions=(
         "You are an SEO & content Mate. Every week: "
@@ -30,7 +30,7 @@ teammate = client.teammates.create(
 
 # schedule — every Monday at 7am ET (before the team starts work)
 task = client.tasks.create(
-    teammate_id=teammate.id,
+    agent_id=agent.id,
     instructions="run the weekly seo check and post a priority-flagged summary to #marketing",
 )
 trigger = client.tasks.triggers.create(
@@ -40,14 +40,14 @@ trigger = client.tasks.triggers.create(
     timezone="America/New_York",
 )
 
-print(f"teammate: {teammate.id}")
+print(f"agent: {agent.id}")
 print(f"task:     {task.id}")
 print(f"trigger:  {trigger.id} (runs every Monday at 7am ET)")
 print()
 print("Running SEO check now (non-streaming)...")
 
 run = client.runs.create_and_wait(
-    teammate_id=teammate.id,
+    agent_id=agent.id,
     message="Run the weekly SEO check now.",
 )
 print(run.output)

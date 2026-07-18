@@ -25,8 +25,8 @@ if TYPE_CHECKING:
     from .._http import HTTPClient
 
 
-class Teammates:
-    """client.teammates — agent persona CRUD."""
+class Agents:
+    """client.agents (alias: client.teammates) — agent persona CRUD."""
 
     def __init__(self, http: HTTPClient):
         self._http = http
@@ -123,7 +123,7 @@ class Teammates:
             body["model"] = model
         if from_template is not None:
             body["from_template"] = from_template
-        resp = self._http.request("POST", "/teammates/", json=body)
+        resp = self._http.request("POST", "/agents/", json=body)
         return Teammate.from_dict(resp.json())
 
     def list(
@@ -134,7 +134,7 @@ class Teammates:
         starting_after: int | None = None,
     ) -> SyncPage[Teammate]:
         params = _build_params(user_id=user_id, limit=limit, starting_after=starting_after)
-        resp = self._http.request("GET", "/teammates/", params=params)
+        resp = self._http.request("GET", "/agents/", params=params)
         body = resp.json()
 
         def _fetch_next(**kw: object) -> SyncPage[Teammate]:
@@ -146,16 +146,16 @@ class Teammates:
             _fetch_next=_fetch_next,
         )
 
-    def get(self, teammate_id: int, *, user_id: str | None = None) -> Teammate:
+    def get(self, agent_id: int, *, user_id: str | None = None) -> Teammate:
         """Get a teammate. Pass user_id to scope to one end-user (404 on mismatch)."""
         resp = self._http.request(
-            "GET", f"/teammates/{teammate_id}", params=_build_params(user_id=user_id)
+            "GET", f"/agents/{agent_id}", params=_build_params(user_id=user_id)
         )
         return Teammate.from_dict(resp.json())
 
     def update(
         self,
-        teammate_id: int,
+        agent_id: int,
         *,
         user_id: str | None = None,
         name: str | None = None,
@@ -239,56 +239,54 @@ class Teammates:
             body["enable_self_improvement"] = enable_self_improvement
         resp = self._http.request(
             "PATCH",
-            f"/teammates/{teammate_id}",
+            f"/agents/{agent_id}",
             json=body,
             params=_build_params(user_id=user_id),
         )
         return Teammate.from_dict(resp.json())
 
-    def delete(self, teammate_id: int, *, user_id: str | None = None) -> None:
+    def delete(self, agent_id: int, *, user_id: str | None = None) -> None:
         """Archive a teammate. Pass user_id to scope to one end-user (404 on mismatch)."""
-        self._http.request(
-            "DELETE", f"/teammates/{teammate_id}", params=_build_params(user_id=user_id)
-        )
+        self._http.request("DELETE", f"/agents/{agent_id}", params=_build_params(user_id=user_id))
 
     def list_documents(
-        self, teammate_id: int, *, user_id: str | None = None
+        self, agent_id: int, *, user_id: str | None = None
     ) -> _list[TeammateDocument]:
         """List the teammate's persistent documents (metadata only, no content)."""
         resp = self._http.request(
             "GET",
-            f"/teammates/{teammate_id}/documents",
+            f"/agents/{agent_id}/documents",
             params=_build_params(user_id=user_id),
         )
         return [TeammateDocument.from_dict(d) for d in resp.json()["data"]]
 
     def get_document(
-        self, teammate_id: int, name: str, *, user_id: str | None = None
+        self, agent_id: int, name: str, *, user_id: str | None = None
     ) -> TeammateDocument:
         """Read one teammate document (e.g. "latest-report") including its content."""
         resp = self._http.request(
             "GET",
-            f"/teammates/{teammate_id}/documents/{name}",
+            f"/agents/{agent_id}/documents/{name}",
             params=_build_params(user_id=user_id),
         )
         return TeammateDocument.from_dict(resp.json())
 
-    def disable(self, teammate_id: int, *, user_id: str | None = None) -> Teammate:
+    def disable(self, agent_id: int, *, user_id: str | None = None) -> Teammate:
         """Pause a teammate without archiving: schedules stop firing (reversibly)
         and the teammate stays listed. Reverse with enable()."""
         resp = self._http.request(
-            "POST", f"/teammates/{teammate_id}/disable", params=_build_params(user_id=user_id)
+            "POST", f"/agents/{agent_id}/disable", params=_build_params(user_id=user_id)
         )
         return Teammate.from_dict(resp.json())
 
-    def enable(self, teammate_id: int, *, user_id: str | None = None) -> Teammate:
+    def enable(self, agent_id: int, *, user_id: str | None = None) -> Teammate:
         """Re-enable a paused teammate and re-arm the schedules the disable paused."""
         resp = self._http.request(
-            "POST", f"/teammates/{teammate_id}/enable", params=_build_params(user_id=user_id)
+            "POST", f"/agents/{agent_id}/enable", params=_build_params(user_id=user_id)
         )
         return Teammate.from_dict(resp.json())
 
-    def reset(self, teammate_id: int, *, fields: _list[str] | None = None) -> _list[str]:
+    def reset(self, agent_id: int, *, fields: _list[str] | None = None) -> _list[str]:
         """Clear customer overrides on a template-linked teammate.
 
         Templated teammates store user customizations in an overrides JSON; this
@@ -304,32 +302,36 @@ class Teammates:
         body: dict = {}
         if fields is not None:
             body["fields"] = fields
-        resp = self._http.request("POST", f"/teammates/{teammate_id}/reset", json=body)
+        resp = self._http.request("POST", f"/agents/{agent_id}/reset", json=body)
         return _list(resp.json().get("reset_fields", []))
 
-    def enable_webhook(self, teammate_id: int) -> TeammateWebhook:
+    def enable_webhook(self, agent_id: int) -> TeammateWebhook:
         """Enable webhook trigger on a teammate. Returns the webhook URL (shown once)."""
-        resp = self._http.request("POST", f"/teammates/{teammate_id}/webhook")
+        resp = self._http.request("POST", f"/agents/{agent_id}/webhook")
         return TeammateWebhook.from_dict(resp.json())
 
-    def disable_webhook(self, teammate_id: int) -> None:
+    def disable_webhook(self, agent_id: int) -> None:
         """Disable webhook trigger on a teammate."""
-        self._http.request("DELETE", f"/teammates/{teammate_id}/webhook")
+        self._http.request("DELETE", f"/agents/{agent_id}/webhook")
 
-    def enable_email_inbox(self, teammate_id: int) -> EmailInbox:
+    def enable_email_inbox(self, agent_id: int) -> EmailInbox:
         """Enable email inbox on a teammate. Returns the email address."""
-        resp = self._http.request("POST", f"/teammates/{teammate_id}/email-inbox")
+        resp = self._http.request("POST", f"/agents/{agent_id}/email-inbox")
         return EmailInbox.from_dict(resp.json())
 
-    def disable_email_inbox(self, teammate_id: int) -> None:
+    def disable_email_inbox(self, agent_id: int) -> None:
         """Disable email inbox on a teammate."""
-        self._http.request("DELETE", f"/teammates/{teammate_id}/email-inbox")
+        self._http.request("DELETE", f"/agents/{agent_id}/email-inbox")
 
-    def enable_fetchmail(self, teammate_id: int) -> FetchmailInbox:
+    def enable_fetchmail(self, agent_id: int) -> FetchmailInbox:
         """Enable read-only email inbox on a teammate. Returns the email address."""
-        resp = self._http.request("POST", f"/teammates/{teammate_id}/fetchmail")
+        resp = self._http.request("POST", f"/agents/{agent_id}/fetchmail")
         return FetchmailInbox.from_dict(resp.json())
 
-    def disable_fetchmail(self, teammate_id: int) -> None:
+    def disable_fetchmail(self, agent_id: int) -> None:
         """Disable read-only email inbox on a teammate."""
-        self._http.request("DELETE", f"/teammates/{teammate_id}/fetchmail")
+        self._http.request("DELETE", f"/agents/{agent_id}/fetchmail")
+
+
+# Permanent back-compat alias — client.teammates keeps working forever.
+Teammates = Agents

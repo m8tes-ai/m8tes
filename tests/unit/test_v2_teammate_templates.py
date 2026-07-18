@@ -17,7 +17,7 @@ def _http() -> HTTPClient:
 def test_list_templates_parses_and_hits_trailing_slash():
     responses.add(
         responses.GET,
-        f"{BASE}/teammate-templates/",
+        f"{BASE}/agent-templates/",
         json={
             "data": [
                 {
@@ -44,5 +44,5 @@ def test_list_templates_parses_and_hits_trailing_slash():
     assert t.required_integrations == ["google_ads"]
     assert t.default_tasks[0]["slug"] == "weekly-search-term-review"
     # Trailing slash means no 307 redirect.
-    assert responses.calls[0].request.url == f"{BASE}/teammate-templates/"
+    assert responses.calls[0].request.url == f"{BASE}/agent-templates/"
     assert not responses.calls[0].response.history

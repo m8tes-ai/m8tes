@@ -17,9 +17,9 @@ m8tes-python/
 │   ├── _client.py        # V2 SDK entry point (M8tes class)
 │   ├── _http.py          # Thin requests wrapper (auth, base_url, errors)
 │   ├── _exceptions.py    # Typed error hierarchy (M8tesError, AuthenticationError, etc.)
-│   ├── _types.py         # Dataclasses: Teammate, Run, Task, Trigger, App
+│   ├── _types.py         # Dataclasses: Teammate/Agent, Run, Task, Trigger, App
 │   ├── _streaming.py     # RunStream context manager (wraps AISDKStreamParser)
-│   ├── _resources/       # Resource classes: Teammates, Runs, Tasks, Apps
+│   ├── _resources/       # Resource classes: Agents (alias Teammates), Runs, Tasks, Apps
 │   ├── client.py         # Legacy CLI HTTP client + auth middleware
 │   ├── agent.py          # Legacy mate models + execution helpers
 │   ├── cli/
@@ -44,7 +44,7 @@ The V2 SDK follows a Stripe-style resource pattern:
 
 ```
 M8tes (entry point)
-├── teammates   → Teammates CRUD + webhook enable/disable
+├── agents      → Agents CRUD + webhook enable/disable (client.teammates = permanent alias)
 ├── runs        → Create (streaming/non-streaming), list, get, cancel, reply
 ├── tasks       → Tasks CRUD + triggers (schedule, webhook, email)
 ├── apps        → List tools, manage OAuth connections
@@ -56,10 +56,10 @@ M8tes (entry point)
 **Key files:**
 - `_client.py` — Entry point, initializes all resources
 - `_http.py` — Auth, retries (429/5xx), structured error parsing
-- `_types.py` — Dataclasses: Teammate, Run, Task, Trigger, App, etc.
+- `_types.py` — Dataclasses: Teammate (canonical alias: Agent), Run, Task, Trigger, App, etc.
 - `_exceptions.py` — Typed hierarchy: M8tesError → NotFoundError, AuthenticationError, etc.
 - `_streaming.py` — RunStream context manager wrapping SSE parser
-- `_resources/` — One module per resource (teammates.py, runs.py, tasks.py, etc.)
+- `_resources/` — One module per resource (teammates.py exports Agents, runs.py, tasks.py, etc.)
 
 **Conventions:**
 - All list methods return `ListResponse` with `.data`, `.has_more`, and `.auto_paging_iter()`
@@ -83,8 +83,8 @@ V2 SDK usage (developer):
 from m8tes import M8tes
 
 client = M8tes(api_key="m8_...")
-bot = client.teammates.create(name="Ops Mate", tools=["gmail"])
-for event in client.runs.create(teammate_id=bot.id, message="Close tickets"):
+bot = client.agents.create(name="Ops Mate", tools=["gmail"])
+for event in client.runs.create(agent_id=bot.id, message="Close tickets"):
     print(event.type, event.raw)
 ```
 
