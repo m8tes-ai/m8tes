@@ -343,6 +343,7 @@ class Runs:
         message: str,
         task_setup_tools: bool | None = None,
         feedback: bool | None = None,
+        human_in_the_loop: bool | None = None,
         on_approval: Callable[[PermissionRequest], str] | None = None,
         on_question: Callable[[PermissionRequest], dict[str, str]] | None = None,
         poll_interval: float = 2.0,
@@ -355,6 +356,7 @@ class Runs:
             stream=False,
             task_setup_tools=task_setup_tools,
             feedback=feedback,
+            human_in_the_loop=human_in_the_loop,
         )
         return self.wait(
             cast(Run, run).id,
@@ -474,12 +476,20 @@ class Runs:
         stream: bool = True,
         task_setup_tools: bool | None = None,
         feedback: bool | None = None,
+        human_in_the_loop: bool | None = None,
     ) -> RunStream | Run:
         """Follow-up message on an existing run.
 
         Continues the SAME run — it re-opens the run (reusing ``run_id``), keeps
         the prior context, and does not create a new run or consume a new
         run-count slot. It only burns tokens.
+
+        Replies inherit the run's persisted settings: the permission mode keeps
+        applying, and AskUserQuestion stays enabled on runs created with
+        ``human_in_the_loop=True``. An unattended reply loop on such a run can
+        pause on a question — pass ``human_in_the_loop=False`` here to pin the
+        non-interactive behavior. When omitted, inherits the run's setting
+        (runs created before this setting was persisted stay non-interactive).
 
         With stream=True (default): returns iterable RunStream of events.
         With stream=False: returns Run immediately (status="running").
@@ -490,6 +500,8 @@ class Runs:
             body["task_setup_tools"] = task_setup_tools
         if feedback is not None:
             body["feedback"] = feedback
+        if human_in_the_loop is not None:
+            body["human_in_the_loop"] = human_in_the_loop
         if stream:
             resp = self._http.stream("POST", f"/runs/{run_id}/reply", json=body)
             return RunStream(resp)
