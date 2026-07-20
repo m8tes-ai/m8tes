@@ -137,7 +137,7 @@ for m in client.models.list().data:
 bot = client.agents.create(name="Ops", model="sonnet")   # or per run: runs.create(..., model="opus")
 ```
 
-Today that's the Claude models `sonnet`, `opus` (default), and `fable` (most capable, ~2x cost), plus OpenAI `gpt-5.5`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, and open-source `glm-5.2` / `deepseek-v3-2` served through the zero-data-retention gateway. `models.list()` is the live source of truth; omit `model` to use the `default`.
+Today that's the Claude models `sonnet`, `opus` (default), and `fable` (most capable, ~2x cost), plus OpenAI `gpt-5.5`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, and open-source `glm-5.2` / `deepseek-v3-2` served through the zero-data-retention gateway. `kimi-k3` (Moonshot K3, 1M context) is also selectable — **note it has no ZDR-capable host: Moonshot may retain inputs/outputs**, so check `zdr_supported` before sending customer data. `models.list()` is the live source of truth; omit `model` to use the `default`.
 
 ## Runs
 
