@@ -4448,12 +4448,18 @@ class TestV2Billing:
         assert bal.auto_reload_enabled is False  # off by default
         assert bal.auto_reload_threshold_cents is None
 
-    def test_set_auto_reload_rejected_for_tiers_account(self, v2_client):
-        # The integration account bills via tiers — auto-reload is prepaid-only (403).
-        from m8tes._exceptions import PermissionDeniedError
+    def test_set_auto_reload_requires_funded_wallet_with_saved_card(self, v2_client):
+        # Dual-meter (2026-07-20) removed the plan-vs-prepaid exclusivity walls, so a
+        # tiers account is no longer rejected *for being tiers*. Enabling auto-reload
+        # still requires a wallet (403 if none) AND a saved payment method
+        # (402 NO_SAVED_PAYMENT_METHOD). The integration account has no saved card, so
+        # enabling is still rejected — but which gate fires depends on whether the
+        # account has ever topped up, so accept either.
+        from m8tes._exceptions import M8tesError
 
-        with pytest.raises(PermissionDeniedError):
+        with pytest.raises(M8tesError) as exc:
             v2_client.billing.set_auto_reload(enabled=True, threshold_cents=500, amount_cents=2000)
+        assert exc.value.status_code in (402, 403)
 
     def test_set_auto_reload_requires_amounts_to_enable(self, v2_client):
         with pytest.raises(ValidationError):
