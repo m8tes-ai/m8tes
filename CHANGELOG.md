@@ -2,6 +2,14 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [2.7.1] - 2026-07-21
+
+### Changed
+- CLI help and display copy now says "agent" everywhere (141 strings across `m8tes mate/task/run/auth` help text, prompts, and output) — matching the canonical `agents` terminology from 2.6.0. All command names, aliases (`mate`, `teammate`, `m`), and API fields are unchanged; nothing breaks.
+
+### Added
+- Release-hygiene CI guards: every `pyproject.toml` version bump must have a matching CHANGELOG entry (2.7.0 initially shipped without one), and CLI display strings are pinned to "agent" terminology.
+
 ## [2.7.0] - 2026-07-17
 
 ### Added

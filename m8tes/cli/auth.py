@@ -344,14 +344,14 @@ class AuthCLI:
         print("=" * 60)
 
         print("\n📋 Next Steps:")
-        print("\n1️⃣  Create your first teammate:")
+        print("\n1️⃣  Create your first agent:")
         print("   m8tes mate create")
 
-        print("\n2️⃣  Run a task with your teammate:")
-        print('   m8tes mate task <teammate-id> "Your task here"')
+        print("\n2️⃣  Run a task with your agent:")
+        print('   m8tes mate task <agent-id> "Your task here"')
 
         print("\n3️⃣  Start an interactive chat session:")
-        print("   m8tes mate chat <teammate-id>")
+        print("   m8tes mate chat <agent-id>")
 
         print("\n📚 For more help:")
         print("   m8tes --help")
