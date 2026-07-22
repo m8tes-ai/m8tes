@@ -48,7 +48,7 @@ class CreateCommand(Command):
         """Add create-specific arguments."""
         # Non-interactive mode flags
         parser.add_argument(
-            "--mate-id", help="Teammate ID to assign task to (for non-interactive mode)"
+            "--mate-id", help="Agent ID to assign task to (for non-interactive mode)"
         )
         parser.add_argument("--name", help="Task name (for non-interactive mode)")
         parser.add_argument("--instructions", help="Task instructions (for non-interactive mode)")
@@ -134,7 +134,7 @@ class ListCommand(Command):
         """Add list-specific arguments."""
         parser.add_argument(
             "--mate-id",
-            help="Filter by teammate ID",
+            help="Filter by agent ID",
         )
         parser.add_argument(
             "--status",

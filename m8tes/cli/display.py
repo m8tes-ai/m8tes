@@ -111,7 +111,7 @@ class CompactDisplay(StreamDisplay):
                 # Clear the connecting message and show connected
                 # Use \r to go back to start of line, then clear with spaces
                 duration_sec = (event.duration_ms / 1000) if event.duration_ms else 0
-                print(f"\r✅ Connected to teammate! ({duration_sec:.1f}s)")
+                print(f"\r✅ Connected to agent! ({duration_sec:.1f}s)")
                 print()  # Blank line after connection
                 self.connection_shown = False
 

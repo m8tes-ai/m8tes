@@ -22,7 +22,7 @@ class MateCommandGroup(CommandGroup):
 
     name = "mate"
     aliases: ClassVar[list[str]] = ["teammate", "m"]
-    description = "Manage teammates"
+    description = "Manage agents"
     requires_auth = True
 
     def __init__(self) -> None:
@@ -44,13 +44,13 @@ class CreateCommand(Command):
 
     name = "create"
     aliases: ClassVar[list[str]] = ["c"]
-    description = "Create a new teammate"
+    description = "Create a new agent"
     requires_auth = True
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add create-specific arguments."""
         # Non-interactive mode flags
-        parser.add_argument("--name", help="Teammate name (for non-interactive mode)")
+        parser.add_argument("--name", help="Agent name (for non-interactive mode)")
         parser.add_argument(
             "--tools",
             nargs="+",
@@ -61,11 +61,11 @@ class CreateCommand(Command):
         )
         parser.add_argument(
             "--instructions",
-            help="Teammate instructions (for non-interactive mode)",
+            help="Agent instructions (for non-interactive mode)",
         )
         parser.add_argument(
             "--role",
-            help="Teammate role or persona (for non-interactive mode)",
+            help="Agent role or persona (for non-interactive mode)",
         )
         parser.add_argument(
             "--goals",
@@ -87,7 +87,7 @@ class CreateCommand(Command):
         parser.add_argument(
             "--enable-imessage",
             action="store_true",
-            help="Enable inbound Apple Messages routing for this teammate",
+            help="Enable inbound Apple Messages routing for this agent",
         )
         parser.add_argument(
             "--imessage-chat-guid",
@@ -102,7 +102,7 @@ class CreateCommand(Command):
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
         """Execute teammate creation flow."""
         if not client:
-            print("❌ Authentication required for teammate management")
+            print("❌ Authentication required for agent management")
             show_auth_guidance()
             return 1
 
@@ -157,10 +157,10 @@ class CreateCommand(Command):
             show_auth_guidance()
             return 1
         except (AgentError, NetworkError, ValidationError) as e:
-            print(f"❌ Teammate creation failed: {e}")
+            print(f"❌ Agent creation failed: {e}")
             return 1
         except KeyboardInterrupt:
-            print("\n👋 Teammate creation cancelled.")
+            print("\n👋 Agent creation cancelled.")
             return 1
 
 
@@ -169,7 +169,7 @@ class ListCommand(Command):
 
     name = "list"
     aliases: ClassVar[list[str]] = ["ls"]
-    description = "List all teammates"
+    description = "List all agents"
     requires_auth = True
 
     def add_arguments(self, parser: ArgumentParser) -> None:
@@ -177,13 +177,13 @@ class ListCommand(Command):
         parser.add_argument(
             "--include-disabled",
             action="store_true",
-            help="Include disabled teammates in the listing",
+            help="Include disabled agents in the listing",
         )
 
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
         """Execute teammate listing."""
         if not client:
-            print("❌ Authentication required for teammate management")
+            print("❌ Authentication required for agent management")
             show_auth_guidance()
             return 1
 
@@ -199,7 +199,7 @@ class ListCommand(Command):
             show_auth_guidance()
             return 1
         except (AgentError, NetworkError, ValidationError) as e:
-            print(f"❌ Error listing teammates: {e}")
+            print(f"❌ Error listing agents: {e}")
             return 1
 
 
@@ -208,17 +208,17 @@ class GetCommand(Command):
 
     name = "get"
     aliases: ClassVar[list[str]] = ["g"]
-    description = "Get teammate details by ID"
+    description = "Get agent details by ID"
     requires_auth = True
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add get-specific arguments."""
-        parser.add_argument("mate_id", help="Teammate ID to retrieve")
+        parser.add_argument("mate_id", help="Agent ID to retrieve")
 
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
         """Execute teammate get."""
         if not client:
-            print("❌ Authentication required for teammate management")
+            print("❌ Authentication required for agent management")
             show_auth_guidance()
             return 1
 
@@ -234,7 +234,7 @@ class GetCommand(Command):
             show_auth_guidance()
             return 1
         except (AgentError, NetworkError, ValidationError) as e:
-            print(f"❌ Error getting teammate: {e}")
+            print(f"❌ Error getting agent: {e}")
             return 1
 
 
@@ -302,7 +302,7 @@ class TaskCommand(Command):
             action="store_true",
             default=False,
             help=(
-                "Disable built-in same-scope management tools for teammates, tasks, "
+                "Disable built-in same-scope management tools for agents, tasks, "
                 "runs, approvals, files, and memories on this run."
             ),
         )
@@ -310,7 +310,7 @@ class TaskCommand(Command):
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
         """Execute teammate task."""
         if not client:
-            print("❌ Authentication required for teammate tasks")
+            print("❌ Authentication required for agent tasks")
             show_auth_guidance()
             return 1
 
@@ -363,7 +363,7 @@ class TaskCommand(Command):
             show_auth_guidance()
             return 1
         except (AgentError, NetworkError, ValidationError) as e:
-            print(f"❌ Teammate task failed: {e}")
+            print(f"❌ Agent task failed: {e}")
             return 1
         except KeyboardInterrupt:
             print("\n👋 Task cancelled.")
@@ -383,7 +383,7 @@ class ChatCommand(Command):
         parser.add_argument(
             "mate_id",
             nargs="?",
-            help="Teammate ID (optional, will auto-detect if not provided)",
+            help="Agent ID (optional, will auto-detect if not provided)",
         )
         parser.add_argument(
             "--resume",
@@ -401,7 +401,7 @@ class ChatCommand(Command):
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
         """Start interactive chat session."""
         if not client:
-            print("❌ Authentication required for teammate chat")
+            print("❌ Authentication required for agent chat")
             show_auth_guidance()
             return 1
 
@@ -415,7 +415,7 @@ class ChatCommand(Command):
                 try:
                     mate_id = int(args.mate_id)
                 except ValueError:
-                    print(f"❌ Invalid teammate ID: {args.mate_id}")
+                    print(f"❌ Invalid agent ID: {args.mate_id}")
                     return 1
 
             # Get or confirm mate_id (with auto-detection)
@@ -441,7 +441,7 @@ class ChatCommand(Command):
             show_auth_guidance()
             return 1
         except (AgentError, NetworkError, ValidationError) as e:
-            print(f"❌ Teammate chat failed: {e}")
+            print(f"❌ Agent chat failed: {e}")
             return 1
         except KeyboardInterrupt:
             print("\n👋 Chat session ended.")
@@ -453,30 +453,30 @@ class UpdateCommand(Command):
 
     name = "update"
     aliases: ClassVar[list[str]] = ["u"]
-    description = "Update teammate configuration"
+    description = "Update agent configuration"
     requires_auth = True
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add update-specific arguments."""
-        parser.add_argument("mate_id", help="Teammate ID to update")
+        parser.add_argument("mate_id", help="Agent ID to update")
         # Non-interactive mode flags
-        parser.add_argument("--name", help="New teammate name (for non-interactive mode)")
+        parser.add_argument("--name", help="New agent name (for non-interactive mode)")
         parser.add_argument(
-            "--instructions", help="New teammate instructions (for non-interactive mode)"
+            "--instructions", help="New agent instructions (for non-interactive mode)"
         )
         parser.add_argument(
             "--enable-imessage",
             action="store_true",
-            help="Enable inbound Apple Messages routing for this teammate",
+            help="Enable inbound Apple Messages routing for this agent",
         )
         parser.add_argument(
             "--disable-imessage",
             action="store_true",
-            help="Disable inbound Apple Messages routing for this teammate",
+            help="Disable inbound Apple Messages routing for this agent",
         )
         parser.add_argument(
             "--imessage-chat-guid",
-            help="Updated BlueBubbles chat GUID for this teammate",
+            help="Updated BlueBubbles chat GUID for this agent",
         )
         parser.add_argument(
             "--non-interactive",
@@ -487,7 +487,7 @@ class UpdateCommand(Command):
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
         """Execute teammate update."""
         if not client:
-            print("❌ Authentication required for teammate management")
+            print("❌ Authentication required for agent management")
             show_auth_guidance()
             return 1
 
@@ -544,7 +544,7 @@ class UpdateCommand(Command):
             show_auth_guidance()
             return 1
         except (AgentError, NetworkError, ValidationError) as e:
-            print(f"❌ Error updating teammate: {e}")
+            print(f"❌ Error updating agent: {e}")
             return 1
 
 
@@ -553,17 +553,17 @@ class EnableCommand(Command):
 
     name = "enable"
     aliases: ClassVar[list[str]] = ["e"]
-    description = "Enable a disabled teammate"
+    description = "Enable a disabled agent"
     requires_auth = True
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add enable-specific arguments."""
-        parser.add_argument("mate_id", help="Teammate ID to enable")
+        parser.add_argument("mate_id", help="Agent ID to enable")
 
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
         """Execute teammate enable."""
         if not client:
-            print("❌ Authentication required for teammate management")
+            print("❌ Authentication required for agent management")
             show_auth_guidance()
             return 1
 
@@ -582,7 +582,7 @@ class EnableCommand(Command):
             # Message already shown by enable_interactive
             return 1
         except Exception as e:
-            print(f"❌ Error enabling teammate: {e}")
+            print(f"❌ Error enabling agent: {e}")
             return 1
 
 
@@ -591,12 +591,12 @@ class DisableCommand(Command):
 
     name = "disable"
     aliases: ClassVar[list[str]] = ["dis"]
-    description = "Disable a teammate (keeps visible with flag, preserves history)"
+    description = "Disable a agent (keeps visible with flag, preserves history)"
     requires_auth = True
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add disable-specific arguments."""
-        parser.add_argument("mate_id", help="Teammate ID to disable")
+        parser.add_argument("mate_id", help="Agent ID to disable")
         parser.add_argument(
             "--force",
             action="store_true",
@@ -606,7 +606,7 @@ class DisableCommand(Command):
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
         """Execute teammate disable."""
         if not client:
-            print("❌ Authentication required for teammate management")
+            print("❌ Authentication required for agent management")
             show_auth_guidance()
             return 1
 
@@ -626,7 +626,7 @@ class DisableCommand(Command):
             # Message already shown by disable_interactive
             return 1
         except Exception as e:
-            print(f"❌ Error disabling teammate: {e}")
+            print(f"❌ Error disabling agent: {e}")
             return 1
 
 
@@ -635,12 +635,12 @@ class ArchiveCommand(Command):
 
     name = "archive"
     aliases: ClassVar[list[str]] = ["a", "arc"]
-    description = "Archive a teammate (hidden from listings, preserves history)"
+    description = "Archive a agent (hidden from listings, preserves history)"
     requires_auth = True
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add archive-specific arguments."""
-        parser.add_argument("mate_id", help="Teammate ID to archive")
+        parser.add_argument("mate_id", help="Agent ID to archive")
         parser.add_argument(
             "--force",
             action="store_true",
@@ -650,7 +650,7 @@ class ArchiveCommand(Command):
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
         """Execute teammate archiving."""
         if not client:
-            print("❌ Authentication required for teammate management")
+            print("❌ Authentication required for agent management")
             show_auth_guidance()
             return 1
 
@@ -670,5 +670,5 @@ class ArchiveCommand(Command):
             # Message already shown by archive_interactive
             return 1
         except Exception as e:
-            print(f"❌ Error archiving teammate: {e}")
+            print(f"❌ Error archiving agent: {e}")
             return 1

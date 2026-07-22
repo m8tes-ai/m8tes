@@ -62,7 +62,7 @@ class MateCLI:
         Flow:
             1. If mate_id provided → return it (explicit selection)
             2. Try auto-detect → show details with reason/timestamp
-            3. Prompt: "Use this teammate? [Y/n]"
+            3. Prompt: "Use this agent? [Y/n]"
             4. If yes → return detected ID
             5. If no or 404 → show mate list and prompt for ID
         """
@@ -76,7 +76,7 @@ class MateCLI:
 
             # Show detected teammate with details
             print()
-            print("🔍 Auto-detected teammate:")
+            print("🔍 Auto-detected agent:")
             print(f"   📋 {instance.name} (ID: {instance.id})")
 
             # Show reason for selection
@@ -98,12 +98,12 @@ class MateCLI:
             print()
 
             # Prompt for confirmation
-            if confirm_prompt("Use this teammate?", default=True):
+            if confirm_prompt("Use this agent?", default=True):
                 return instance.id
 
             # User declined - fall through to manual selection
             print()
-            print("📋 Available teammates:")
+            print("📋 Available agents:")
 
         except Exception as e:
             # Import AuthenticationError for specific handling
@@ -123,22 +123,22 @@ class MateCLI:
             # Handle 404/not found errors
             elif "404" in str(e) or "not found" in str(e).lower():
                 print()
-                print("⚠️  No enabled teammates found for auto-detection")
+                print("⚠️  No enabled agents found for auto-detection")
             # Handle other errors
             else:
                 print()
                 print(f"⚠️  Auto-detection failed: {e}")
 
             print()
-            print("📋 Available teammates:")
+            print("📋 Available agents:")
 
         # Show list of teammates and prompt for selection
         try:
             instances = self.client.instances.list()
 
             if not instances:
-                print("   No teammates found.")
-                print("💡 Create a teammate first: m8tes mate create")
+                print("   No agents found.")
+                print("💡 Create an agent first: m8tes mate create")
                 return None
 
             # Show teammate list
@@ -150,7 +150,7 @@ class MateCLI:
 
             # Prompt for selection
             selection = prompt(
-                "Select teammate (number or ID), or press Enter to cancel: ", allow_empty=True
+                "Select agent (number or ID), or press Enter to cancel: ", allow_empty=True
             )
 
             if not selection.strip():
@@ -174,7 +174,7 @@ class MateCLI:
                     if any(inst.id == mate_id for inst in instances):
                         return mate_id
                     else:
-                        print(f"❌ Teammate ID {mate_id} not found")
+                        print(f"❌ Agent ID {mate_id} not found")
                         return None
                 except ValueError:
                     print(f"❌ Invalid selection: {selection}")
@@ -192,7 +192,7 @@ class MateCLI:
                 return None
             # Handle other errors
             else:
-                print(f"❌ Failed to list teammates: {e}")
+                print(f"❌ Failed to list agents: {e}")
                 return None
 
     def create_interactive(self) -> None:
@@ -249,7 +249,7 @@ class MateCLI:
             imessage_chat_guid=imessage_chat_guid,
         )
 
-        print("✅ Teammate created successfully!")
+        print("✅ Agent created successfully!")
         self._show_mate_usage_guide(instance)
 
     def _create_mate(self) -> None:
@@ -259,29 +259,27 @@ class MateCLI:
         All fields must be explicitly configured by the user.
         No auto-detection or "vibe mode" - everything is explicit.
         """
-        print("🤝 Create New Teammate")
+        print("🤝 Create New Agent")
         print()
-        print("Configure your teammate by providing all required information.")
+        print("Configure your agent by providing all required information.")
         print()
 
         # Step 1: Role (optional)
         mate_role = None
-        role_input = prompt(
-            "Teammate role (optional, e.g., Campaign Optimizer): ", allow_empty=True
-        )
+        role_input = prompt("Agent role (optional, e.g., Campaign Optimizer): ", allow_empty=True)
         if role_input:
             mate_role = role_input
 
         # Step 2: Name (required)
-        mate_name = prompt("Teammate name: ")
+        mate_name = prompt("Agent name: ")
         if not mate_name.strip():
-            print("❌ Teammate name cannot be empty")
+            print("❌ Agent name cannot be empty")
             return
 
         # Step 3: Instructions (required)
         print()
-        print("Instructions: Describe what this teammate should do.")
-        print("Add clear instructions on role and responsibilities of the teammate.")
+        print("Instructions: Describe what this agent should do.")
+        print("Add clear instructions on role and responsibilities of the agent.")
         print("When you're finished press Enter twice")
         print()
 
@@ -326,15 +324,15 @@ class MateCLI:
                 return  # type: ignore[unreachable]
 
         if not tools:
-            print("⚠️  Warning: No tools selected. Teammate will have no tool access.")
+            print("⚠️  Warning: No tools selected. Agent will have no tool access.")
             if not confirm_prompt("Continue without tools?", default=False):
-                print("❌ Teammate creation cancelled")
+                print("❌ Agent creation cancelled")
                 return
 
         # Step 5: Goals & Metrics (optional, text)
         print()
         print("=" * 60)
-        print("Goals & Metrics (optional): Describe what success looks like for this teammate.")
+        print("Goals & Metrics (optional): Describe what success looks like for this agent.")
         print("=" * 60)
         print()
         print("Enter text and press Enter to finish. Leave blank to skip.")
@@ -359,7 +357,7 @@ class MateCLI:
         # Show summary
         print()
         print("=" * 60)
-        print("📋 Teammate Configuration Summary:")
+        print("📋 Agent Configuration Summary:")
         print("=" * 60)
         print(f"  Name: {mate_name}")
         if mate_role:
@@ -374,12 +372,12 @@ class MateCLI:
         print()
 
         # Confirm creation
-        if not confirm_prompt("Create this teammate?", default=True):
-            print("❌ Teammate creation cancelled")
+        if not confirm_prompt("Create this agent?", default=True):
+            print("❌ Agent creation cancelled")
             return
 
         # Create the teammate instance
-        print("⏳ Creating teammate...")
+        print("⏳ Creating agent...")
         instance = self.client.instances.create(
             name=mate_name,
             tools=tools,
@@ -388,7 +386,7 @@ class MateCLI:
             goals=goals,
         )
 
-        print("✅ Teammate created successfully!")
+        print("✅ Agent created successfully!")
         self._show_mate_usage_guide(instance)
 
     def _parse_tool_selection(self, tool_input: str) -> list[str] | None:
@@ -467,17 +465,17 @@ class MateCLI:
         Args:
             include_disabled: Include disabled teammates in listing
         """
-        print("👥 Your Teammates")
+        print("👥 Your Agents")
         print()
 
         # Use instances instead of agents (enabled first, then disabled if requested)
         instances = self.client.instances.list(include_disabled=include_disabled)
 
         if not instances:
-            print("No teammates found.")
-            print("💡 Create your first teammate with: m8tes mate create")
+            print("No agents found.")
+            print("💡 Create your first agent with: m8tes mate create")
             if not include_disabled:
-                print("💡 To see disabled teammates: m8tes mate list --include-disabled")
+                print("💡 To see disabled agents: m8tes mate list --include-disabled")
             return
 
         for instance in instances:
@@ -569,7 +567,7 @@ class MateCLI:
         """
         instance = self.client.instances.get(_parse_mate_id(mate_id))
 
-        print("🤝 Teammate Details")
+        print("🤝 Agent Details")
         print()
         print(f"  ID: {instance.id}")
         print(f"  Name: {instance.name}")
@@ -656,11 +654,11 @@ class MateCLI:
             has_tool_calls = bool(display.accumulator.get_tool_calls())
 
             if has_errors and output_format != "json":
-                print("\n❌ Teammate encountered errors:")
+                print("\n❌ Agent encountered errors:")
                 for error in display.accumulator.get_errors():
                     print(f"   {error}")
             elif not has_text and not has_tool_calls and output_format != "json":
-                print("\n⚠️  Warning: Teammate produced no output")
+                print("\n⚠️  Warning: Agent produced no output")
                 if not debug:
                     print("   This may indicate a configuration or API issue.")
                     print("   Run with --debug for more details.")
@@ -820,7 +818,7 @@ class MateCLI:
         # Get current teammate
         instance = self.client.instances.get(_parse_mate_id(mate_id))
 
-        print(f"🔧 Update Teammate: {instance.name} (ID: {instance.id})")
+        print(f"🔧 Update Agent: {instance.name} (ID: {instance.id})")
         print()
         print("Current configuration:")
         print(f"  Name: {instance.name}")
@@ -860,10 +858,10 @@ class MateCLI:
             return
 
         # Update instance
-        print("⏳ Updating teammate...")
+        print("⏳ Updating agent...")
         instance.update(name=new_name, instructions=new_instructions)
 
-        print("✅ Teammate updated successfully!")
+        print("✅ Agent updated successfully!")
 
     def update_non_interactive(
         self,
@@ -895,7 +893,7 @@ class MateCLI:
             imessage_chat_guid=imessage_chat_guid,
         )
 
-        print("✅ Teammate updated successfully!")
+        print("✅ Agent updated successfully!")
         print(f"   ID: {instance.id}")
         if name:
             print(f"   New Name: {name}")
@@ -915,24 +913,24 @@ class MateCLI:
             # Get teammate info
             instance = self.client.instances.get(_parse_mate_id(mate_id))
 
-            print(f"✅ Enable Teammate: {instance.name} (ID: {instance.id})")
+            print(f"✅ Enable Agent: {instance.name} (ID: {instance.id})")
             print()
             print(f"  Current status: {instance.status}")
             print()
 
             if instance.status == "enabled":
-                print("⚠️  Teammate is already enabled")
+                print("⚠️  Agent is already enabled")
                 return
 
             # Enable instance
-            print("⏳ Enabling teammate...")
+            print("⏳ Enabling agent...")
             instance.enable()
 
-            print("✅ Teammate enabled successfully!")
+            print("✅ Agent enabled successfully!")
             print(f"   Status: {instance.status}")
 
         except ValidationError as e:
-            print(f"❌ Failed to enable teammate: {e}")
+            print(f"❌ Failed to enable agent: {e}")
             raise
         except NetworkError as e:
             print(f"❌ Network error: {e}")
@@ -953,7 +951,7 @@ class MateCLI:
             # Get teammate info
             instance = self.client.instances.get(_parse_mate_id(mate_id))
 
-            print(f"⏸️  Disable Teammate: {instance.name} (ID: {instance.id})")
+            print(f"⏸️  Disable Agent: {instance.name} (ID: {instance.id})")
             print()
             if instance.run_count is not None:
                 print(f"  Run count: {instance.run_count}")
@@ -961,32 +959,32 @@ class MateCLI:
             print()
 
             if instance.status == "disabled":
-                print("⚠️  Teammate is already disabled")
+                print("⚠️  Agent is already disabled")
                 return
 
             # Confirm action
             if not force:
-                print("⚠️  This will disable the teammate (soft disable).")
-                print("   • Teammate will be marked as disabled")
+                print("⚠️  This will disable the agent (soft disable).")
+                print("   • Agent will be marked as disabled")
                 print("   • Still visible with --include-disabled flag")
                 print("   • Run history will be preserved")
-                print("   • Teammate can be re-enabled anytime")
+                print("   • Agent can be re-enabled anytime")
                 print()
-                if not confirm_prompt("Disable this teammate?", default=False):
+                if not confirm_prompt("Disable this agent?", default=False):
                     print("❌ Operation cancelled")
                     return
 
             # Disable instance
-            print("⏳ Disabling teammate...")
+            print("⏳ Disabling agent...")
             instance.disable()
 
-            print("✅ Teammate disabled successfully!")
+            print("✅ Agent disabled successfully!")
             print(f"   Status: {instance.status}")
             print("   Run history has been preserved.")
             print(f"💡 To re-enable: m8tes mate enable {instance.id}")
 
         except ValidationError as e:
-            print(f"❌ Failed to disable teammate: {e}")
+            print(f"❌ Failed to disable agent: {e}")
             raise
         except NetworkError as e:
             print(f"❌ Network error: {e}")
@@ -1007,7 +1005,7 @@ class MateCLI:
             # Get teammate info
             instance = self.client.instances.get(_parse_mate_id(mate_id))
 
-            print(f"🗑️  Archive Teammate: {instance.name} (ID: {instance.id})")
+            print(f"🗑️  Archive Agent: {instance.name} (ID: {instance.id})")
             print()
             if instance.run_count is not None:
                 print(f"  Run count: {instance.run_count}")
@@ -1016,41 +1014,41 @@ class MateCLI:
 
             # Confirm archiving
             if not force:
-                print("⚠️  This will archive the teammate (hidden from listings).")
-                print("   • Teammate will be archived and hidden from listings")
+                print("⚠️  This will archive the agent (hidden from listings).")
+                print("   • Agent will be archived and hidden from listings")
                 print("   • Run history will be preserved")
                 print("   • Use disable instead if you want to keep it visible")
                 print()
-                if not confirm_prompt("Archive this teammate?", default=False):
+                if not confirm_prompt("Archive this agent?", default=False):
                     print("❌ Operation cancelled")
                     return
 
             # Archive instance
-            print("⏳ Archiving teammate...")
+            print("⏳ Archiving agent...")
             success = instance.archive()
 
             if not success:
                 raise AgentError("Archive operation failed")
 
-            print("✅ Teammate archived successfully!")
+            print("✅ Agent archived successfully!")
             print("   Run history has been preserved.")
 
         except ValidationError as e:
             error_msg = str(e)
             if "not found" in error_msg.lower():
-                print(f"❌ Teammate not found: No teammate with ID {mate_id}")
-                print("   Use 'm8tes mate list' to see available teammates")
+                print(f"❌ Agent not found: No agent with ID {mate_id}")
+                print("   Use 'm8tes mate list' to see available agents")
             elif "access denied" in error_msg.lower():
                 print(
-                    f"❌ Access denied: Teammate {mate_id} belongs to another user "
+                    f"❌ Access denied: Agent {mate_id} belongs to another user "
                     "or was already archived"
                 )
-                print("   You can only archive teammates that you own")
-                print("   Use 'm8tes mate list' to see your teammates")
+                print("   You can only archive agents that you own")
+                print("   Use 'm8tes mate list' to see your agents")
             elif "403" in error_msg or "forbidden" in error_msg.lower():
-                print("❌ Access denied: You don't have permission to archive this teammate")
+                print("❌ Access denied: You don't have permission to archive this agent")
             else:
-                print(f"❌ Failed to archive teammate: {error_msg}")
+                print(f"❌ Failed to archive agent: {error_msg}")
             raise
         except NetworkError as e:
             print(f"❌ Network error: {e}")
@@ -1125,7 +1123,7 @@ class MateCLI:
                 if final_response:
                     print(f"\n{final_response}")
                 elif conversation_error and "404" in conversation_error:
-                    print("\n⚠️  No conversation data (teammate may have failed)")
+                    print("\n⚠️  No conversation data (agent may have failed)")
             else:
                 # Verbose: full summary
                 print()
@@ -1137,7 +1135,7 @@ class MateCLI:
                 if not messages and conversation_error:
                     print("\n⚠️  No conversation data available")
                     if "404" in conversation_error:
-                        print("   The teammate execution may have failed before generating output.")
+                        print("   The agent execution may have failed before generating output.")
                         if debug:
                             print(f"   Error: {conversation_error}")
                         else:
@@ -1147,7 +1145,7 @@ class MateCLI:
 
                 # Final response
                 if final_response:
-                    print("\n🤝 Teammate Response:")
+                    print("\n🤝 Agent Response:")
                     print(f"{final_response}")
 
                 # Tool executions (names only — the API tracks no per-call status)
@@ -1187,10 +1185,10 @@ class MateCLI:
             mode: Optional mode hint ('task', 'chat', or None for both)
         """
         print("\n" + "=" * 60)
-        print("🎉 Teammate Ready!")
+        print("🎉 Agent Ready!")
         print("=" * 60)
 
-        print("\n📋 Teammate Details:")
+        print("\n📋 Agent Details:")
         print(f"   ID: {instance.id}")
         print(f"   Name: {instance.name}")
         role_value = getattr(instance, "role", None)
@@ -1204,7 +1202,7 @@ class MateCLI:
             for line in goals_value.splitlines():
                 print(f"      {line}")
 
-        print("\n🚀 How to Use Your Teammate:")
+        print("\n🚀 How to Use Your Agent:")
 
         # Task mode examples
         if mode != "chat":
@@ -1225,9 +1223,9 @@ class MateCLI:
 
         # General commands
         print("\n📊 Other Commands:")
-        print("   m8tes mate list         # View all your teammates")
-        print(f"   m8tes mate get {instance.id}     # Get teammate details")
-        print(f"   m8tes mate update {instance.id}  # Update teammate configuration")
+        print("   m8tes mate list         # View all your agents")
+        print(f"   m8tes mate get {instance.id}     # Get agent details")
+        print(f"   m8tes mate update {instance.id}  # Update agent configuration")
 
         print("\n📚 Need Help?")
         print("   m8tes mate --help")

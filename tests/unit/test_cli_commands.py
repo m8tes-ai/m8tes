@@ -608,10 +608,9 @@ class TestMateCommands:
         assert mock_prompt.call_count >= 2
         prompt_calls = [str(call) for call in mock_prompt.call_args_list]
 
-        # First call should be for role
-        assert "role" in prompt_calls[0].lower() or "teammate role" in prompt_calls[0].lower()
-        # Second call should be for name
-        assert "name" in prompt_calls[1].lower() and "teammate name" in prompt_calls[1].lower()
+        # First call should be for role, second for name (copy says "agent" since 2.7.1)
+        assert "role" in prompt_calls[0].lower()
+        assert "agent name" in prompt_calls[1].lower()
 
         # Verify instance was created with correct data
         mock_client.instances.create.assert_called_once()
@@ -794,15 +793,16 @@ class TestRunCommands:
         assert args.limit == 25
 
     def test_list_teammate_runs_command_attributes(self):
-        """Test list teammate runs command uses 'teammate' not 'agent' terminology."""
+        """Display copy says 'agent' (canonical since 2026-07-17); 'teammate' survives
+        only as identifiers/aliases, never in help text."""
         from m8tes.cli.commands.run import ListTeammateRunsCommand
 
         cmd = ListTeammateRunsCommand()
         assert cmd.name == "list-mate"
         assert "lm" in cmd.aliases
         assert cmd.requires_auth
-        assert "teammate" in cmd.description.lower()
-        assert "agent" not in cmd.description.lower()
+        assert "agent" in cmd.description.lower()
+        assert "teammate" not in cmd.description.lower()
 
     def test_list_teammate_runs_command_arguments(self):
         """Test list teammate runs command uses mate_id parameter."""

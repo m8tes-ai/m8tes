@@ -45,11 +45,11 @@ class TaskCLI:
         # Step 1: Show available teammates and get mate_id
         instances = self.client.instances.list()
         if not instances:
-            print("❌ No teammates available. Create a teammate first.")
+            print("❌ No agents available. Create an agent first.")
             print("💡 Run: m8tes mate create")
             return
 
-        print("Available teammates:")
+        print("Available agents:")
         print()
         for instance in instances:
             status_emoji = "✅" if instance.status == "enabled" else "⏸️"
@@ -59,11 +59,11 @@ class TaskCLI:
         print()
 
         # Prompt for teammate ID
-        mate_id_str = prompt("Teammate ID: ")
+        mate_id_str = prompt("Agent ID: ")
         try:
             mate_id = int(mate_id_str)
         except ValueError:
-            print("❌ Teammate ID must be a number")
+            print("❌ Agent ID must be a number")
             return
 
         # Step 2: Task name (required)
@@ -112,7 +112,7 @@ class TaskCLI:
         print("=" * 60)
         print("📋 Task Configuration Summary:")
         print("=" * 60)
-        print(f"  Teammate ID: {mate_id}")
+        print(f"  Agent ID: {mate_id}")
         print(f"  Task Name: {task_name}")
         print(f"  Instructions: {instructions[:100]}{'...' if len(instructions) > 100 else ''}")
         if expected_output:
@@ -226,7 +226,7 @@ class TaskCLI:
             print(f"   ID: {task.id}")
             print(f"   Status: {task.status}")
             if task.agent_instance_id:
-                print(f"   Teammate: {task.agent_instance_id}")
+                print(f"   Agent: {task.agent_instance_id}")
 
             # Truncate instructions
             instructions = (task.instructions or "").strip()
@@ -255,7 +255,7 @@ class TaskCLI:
         print(f"  Name: {task.name}")
         print(f"  Status: {task.status}")
         if task.agent_instance_id:
-            print(f"  Teammate: {task.agent_instance_id}")
+            print(f"  Agent: {task.agent_instance_id}")
         print(f"  Instructions: {task.instructions}")
         if task.expected_output:
             print(f"  Expected output: {task.expected_output}")

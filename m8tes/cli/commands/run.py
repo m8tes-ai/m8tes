@@ -67,7 +67,7 @@ class GetRunCommand(Command):
 
             print("\n🔹 Basic Info:")
             print(f"   Status: {details.get('status', 'N/A')}")
-            print(f"   Teammate ID: {details.get('instance_id', 'N/A')}")
+            print(f"   Agent ID: {details.get('instance_id', 'N/A')}")
             if details.get("task_name"):
                 print(f"   Task: {details['task_name']}")
             print(f"   Description: {details.get('description') or 'No description'}")
@@ -121,7 +121,7 @@ class ListRunsCommand(Command):
 
             for run in runs:
                 print(f"🏃 Run {run.id} - {run.run_mode}")
-                print(f"   Teammate ID: {run.instance_id}")
+                print(f"   Agent ID: {run.instance_id}")
                 if run.description:
                     desc = (
                         run.description[:60] + "..."
@@ -143,12 +143,12 @@ class ListTeammateRunsCommand(Command):
 
     name = "list-mate"
     aliases: ClassVar[list[str]] = ["lm"]
-    description = "List runs for a specific teammate"
+    description = "List runs for a specific agent"
     requires_auth = True
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add list-mate-specific arguments."""
-        parser.add_argument("mate_id", help="Teammate ID")
+        parser.add_argument("mate_id", help="Agent ID")
         parser.add_argument("--limit", type=int, default=10, help="Maximum runs to return")
 
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
@@ -162,11 +162,11 @@ class ListTeammateRunsCommand(Command):
             limit = getattr(args, "limit", 10)
             runs = client.runs.list_for_instance(mate_id, limit=limit)
 
-            print(f"🏃 Runs for Teammate {mate_id} (showing {len(runs)})")
+            print(f"🏃 Runs for Agent {mate_id} (showing {len(runs)})")
             print()
 
             if not runs:
-                print("No runs found for this teammate.")
+                print("No runs found for this agent.")
                 return 0
 
             for run in runs:
@@ -188,7 +188,7 @@ class ListTeammateRunsCommand(Command):
             print(f"❌ Error listing runs: {e}")
             return 1
         except ValueError:
-            print("❌ Invalid teammate ID")
+            print("❌ Invalid agent ID")
             return 1
 
 
