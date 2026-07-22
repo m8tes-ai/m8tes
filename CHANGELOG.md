@@ -2,6 +2,14 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [2.7.0] - 2026-07-17
+
+### Added
+- `effort=` — user-settable reasoning effort (`"low" | "medium" | "high" | "xhigh" | "max"`) as a first-class execution knob alongside `model=`:
+  - `agents.create(effort=…)` sets the agent-level default; `agents.update(effort=None)` clears it back to the platform default (same null-reset semantics as `model=`).
+  - Per-run override on `runs.create`, `runs.create_and_wait`, `runs.stream_text`, and `tasks.create` — follow-ups and resumes inherit it.
+  - `Model.max_effort` on `client.models.list()` — the highest tier each model accepts (`"max"` on Claude models, `"high"` on others). Higher requested effort is clamped, never rejected.
+
 ## [2.6.0] - 2026-07-17
 
 ### Added
