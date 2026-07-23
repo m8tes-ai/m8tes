@@ -134,7 +134,7 @@ Pick the model per agent or per run via `model=`. List what's available (with pr
 for m in client.models.list().data:
     print(m.id, m.provider, m.pricing.input_per_mtok, "→", m.pricing.output_per_mtok, "/Mtok")
 
-bot = client.agents.create(name="Ops", model="sonnet")   # or per run: runs.create(..., model="opus")
+bot = client.agents.create(name="Ops", model="sonnet")  # or per run: runs.create(..., model="opus")
 ```
 
 Today that's the Claude models `sonnet`, `opus` (default), and `fable` (most capable, ~2x cost), plus OpenAI `gpt-5.5`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, and open-source `glm-5.2` / `deepseek-v3-2` served through the zero-data-retention gateway. `kimi-k3` (Moonshot K3, 1M context) is also selectable — **note it has no ZDR-capable host: Moonshot may retain inputs/outputs**, so check `zdr_supported` before sending customer data. `models.list()` is the live source of truth; omit `model` to use the `default`.
@@ -149,10 +149,14 @@ for event in client.runs.create(
     tools=["stripe", "slack"],
 ):
     match event.type:
-        case "text-delta":      print(event.delta, end="")
-        case "tool-call-start": print(f"\n  {event.tool_name}")
-        case "tool-result-end": print(f"  > {event.result[:100]}")
-        case "done":            print(f"\n  {event.stop_reason}")
+        case "text-delta":
+            print(event.delta, end="")
+        case "tool-call-start":
+            print(f"\n  {event.tool_name}")
+        case "tool-result-end":
+            print(f"  > {event.result[:100]}")
+        case "done":
+            print(f"\n  {event.stop_reason}")
 ```
 
 ### Non-streaming
@@ -254,7 +258,7 @@ run = client.runs.create(
     message="draft and send the weekly report",
     human_in_the_loop=True,
     permission_mode=PermissionMode.APPROVAL,
-    task_setup_tools=False,      # keep this run limited to public tools only
+    task_setup_tools=False,  # keep this run limited to public tools only
     stream=False,
 )
 run = client.runs.wait(
@@ -417,7 +421,7 @@ client.apps.disconnect("gemini", user_id="cust_123")
 # Platform-provisioned app (auth_type "platform_provisioned", e.g. twilio):
 # the platform allocates a dedicated resource (a phone number) for you.
 result = client.apps.provision("twilio", user_id="cust_123")
-print(result.phone_number)              # "+15551234567"
+print(result.phone_number)  # "+15551234567"
 client.apps.release("twilio", user_id="cust_123")  # release it back
 ```
 
