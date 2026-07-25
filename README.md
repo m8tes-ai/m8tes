@@ -12,7 +12,7 @@ Hosted runtime, 150+ integrations, scheduling, memory, and optional email or iMe
 ## Install
 
 ```bash
-pip install m8tes
+pip install -U "m8tes>=2.7"
 ```
 
 ## Quick start
@@ -538,11 +538,13 @@ client = M8tes(api_key="m8_...", timeout=300)  # custom timeout in seconds
 m8tes auth login                    # authenticate
 m8tes auth usage                    # account limits and current usage
 m8tes apps connect-api-key gemini KEY
-m8tes mate create --non-interactive --name "messages bot" --tools gmail --instructions "Help via iMessage" --enable-imessage --imessage-chat-guid "iMessage;-;+15551231234"
+m8tes agent create --non-interactive --name "messages bot" --tools gmail --instructions "Help via iMessage" --enable-imessage --imessage-chat-guid "iMessage;-;+15551231234"
 m8tes run set-permission-mode 42 approval
-m8tes mate task ID "message"        # run a task
-m8tes mate chat ID                  # interactive chat
+m8tes agent task ID "message"       # run a task
+m8tes agent chat ID                 # interactive chat
 ```
+
+`mate` is a permanent alias (`m8tes mate task …` still works).
 
 `m8tes run set-permission-mode` also works while a run is paused. Switching to `autonomous`
 resumes pending tool approvals, but `AskUserQuestion` still waits for an explicit answer.

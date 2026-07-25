@@ -138,7 +138,7 @@ class MateCLI:
 
             if not instances:
                 print("   No agents found.")
-                print("💡 Create an agent first: m8tes mate create")
+                print("💡 Create an agent first: m8tes agent create")
                 return None
 
             # Show teammate list
@@ -473,9 +473,9 @@ class MateCLI:
 
         if not instances:
             print("No agents found.")
-            print("💡 Create your first agent with: m8tes mate create")
+            print("💡 Create your first agent with: m8tes agent create")
             if not include_disabled:
-                print("💡 To see disabled agents: m8tes mate list --include-disabled")
+                print("💡 To see disabled agents: m8tes agent list --include-disabled")
             return
 
         for instance in instances:
@@ -981,7 +981,7 @@ class MateCLI:
             print("✅ Agent disabled successfully!")
             print(f"   Status: {instance.status}")
             print("   Run history has been preserved.")
-            print(f"💡 To re-enable: m8tes mate enable {instance.id}")
+            print(f"💡 To re-enable: m8tes agent enable {instance.id}")
 
         except ValidationError as e:
             print(f"❌ Failed to disable agent: {e}")
@@ -1037,14 +1037,14 @@ class MateCLI:
             error_msg = str(e)
             if "not found" in error_msg.lower():
                 print(f"❌ Agent not found: No agent with ID {mate_id}")
-                print("   Use 'm8tes mate list' to see available agents")
+                print("   Use 'm8tes agent list' to see available agents")
             elif "access denied" in error_msg.lower():
                 print(
                     f"❌ Access denied: Agent {mate_id} belongs to another user "
                     "or was already archived"
                 )
                 print("   You can only archive agents that you own")
-                print("   Use 'm8tes mate list' to see your agents")
+                print("   Use 'm8tes agent list' to see your agents")
             elif "403" in error_msg or "forbidden" in error_msg.lower():
                 print("❌ Access denied: You don't have permission to archive this agent")
             else:
@@ -1207,26 +1207,26 @@ class MateCLI:
         # Task mode examples
         if mode != "chat":
             print("\n1️⃣  Run a one-off task:")
-            print(f'   m8tes mate task {instance.id} "Your task here"')
+            print(f'   m8tes agent task {instance.id} "Your task here"')
 
             # Show tool-specific examples if Google Ads tools are available
             if hasattr(instance, "tools") and any(
                 "google_ads" in tool.lower() or "gaql" in tool.lower() for tool in instance.tools
             ):
                 print("\n   💡 Google Ads Example:")
-                print(f'   m8tes mate task {instance.id} "What\'s my daily Google Ads spend?"')
+                print(f'   m8tes agent task {instance.id} "What\'s my daily Google Ads spend?"')
 
         # Chat mode examples
         if mode != "task":
             print("\n2️⃣  Start an interactive chat session:")
-            print(f"   m8tes mate chat {instance.id}")
+            print(f"   m8tes agent chat {instance.id}")
 
         # General commands
         print("\n📊 Other Commands:")
-        print("   m8tes mate list         # View all your agents")
-        print(f"   m8tes mate get {instance.id}     # Get agent details")
-        print(f"   m8tes mate update {instance.id}  # Update agent configuration")
+        print("   m8tes agent list         # View all your agents")
+        print(f"   m8tes agent get {instance.id}     # Get agent details")
+        print(f"   m8tes agent update {instance.id}  # Update agent configuration")
 
         print("\n📚 Need Help?")
-        print("   m8tes mate --help")
+        print("   m8tes agent --help")
         print()

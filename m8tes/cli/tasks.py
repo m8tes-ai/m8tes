@@ -46,7 +46,7 @@ class TaskCLI:
         instances = self.client.instances.list()
         if not instances:
             print("❌ No agents available. Create an agent first.")
-            print("💡 Run: m8tes mate create")
+            print("💡 Run: m8tes agent create")
             return
 
         print("Available agents:")

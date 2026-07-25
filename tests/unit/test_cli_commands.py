@@ -471,8 +471,10 @@ class TestMateCommands:
     """Test cases for teammate management commands."""
 
     def test_mate_command_group_setup(self):
-        """Test that teammate command group has correct subcommands."""
+        """Test that agent command group has correct subcommands (mate is alias)."""
         group = MateCommandGroup()
+        assert group.name == "agent"
+        assert "mate" in group.aliases
         subcommands = group.get_subcommands()
 
         assert len(subcommands) == 9

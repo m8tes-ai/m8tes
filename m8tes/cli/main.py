@@ -12,7 +12,7 @@ from m8tes import __version__
 
 from ..client import M8tes
 from .registry import registry
-from .util import graceful_main
+from .util import SuggestingArgumentParser, graceful_main, suggest_commands
 
 
 def create_client(
@@ -48,8 +48,8 @@ def _real_main(argv: list[str]) -> int:
     # Discover and register all commands
     registry.auto_discover_commands()
 
-    # Create main parser
-    parser = argparse.ArgumentParser(
+    # Create main parser (suggests close matches on invalid choice)
+    parser = SuggestingArgumentParser(
         prog="m8tes",
         description="m8tes SDK - Ship agents. Skip the infrastructure.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -101,7 +101,13 @@ def _real_main(argv: list[str]) -> int:
     try:
         command = registry.get_command(args.command)
     except KeyError:
+        known = sorted({c.name for c in registry.get_primary_commands()})
+        suggestions = suggest_commands(args.command, known)
         print(f"❌ Unknown command: {args.command}")
+        if suggestions:
+            print(f"💡 Did you mean: {', '.join(suggestions)}?")
+        else:
+            print(f"Available: {', '.join(known)}")
         return 1
 
     # Create client if needed

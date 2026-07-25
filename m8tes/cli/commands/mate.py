@@ -1,7 +1,8 @@
 """
-Teammate management commands for the m8tes CLI.
+Agent management commands for the m8tes CLI.
 
-Provides commands for creating, listing, running, and checking teammate status.
+Primary command is ``agent`` (docs/API vocabulary). ``mate``, ``teammate``,
+``m``, and ``agents`` remain permanent aliases so existing scripts keep working.
 """
 
 from argparse import Action, ArgumentParser, Namespace
@@ -18,16 +19,16 @@ if TYPE_CHECKING:
 
 
 class MateCommandGroup(CommandGroup):
-    """Teammate management command group."""
+    """Agent management command group (``mate`` / ``teammate`` are aliases)."""
 
-    name = "mate"
-    aliases: ClassVar[list[str]] = ["teammate", "m"]
+    name = "agent"
+    aliases: ClassVar[list[str]] = ["mate", "teammate", "m", "agents"]
     description = "Manage agents"
     requires_auth = True
 
     def __init__(self) -> None:
         super().__init__()
-        # Register all teammate subcommands
+        # Register all agent subcommands
         self.add_subcommand(CreateCommand())
         self.add_subcommand(ListCommand())
         self.add_subcommand(GetCommand())
@@ -591,7 +592,7 @@ class DisableCommand(Command):
 
     name = "disable"
     aliases: ClassVar[list[str]] = ["dis"]
-    description = "Disable a agent (keeps visible with flag, preserves history)"
+    description = "Disable an agent (keeps visible with flag, preserves history)"
     requires_auth = True
 
     def add_arguments(self, parser: ArgumentParser) -> None:
@@ -635,7 +636,7 @@ class ArchiveCommand(Command):
 
     name = "archive"
     aliases: ClassVar[list[str]] = ["a", "arc"]
-    description = "Archive a agent (hidden from listings, preserves history)"
+    description = "Archive an agent (hidden from listings, preserves history)"
     requires_auth = True
 
     def add_arguments(self, parser: ArgumentParser) -> None:

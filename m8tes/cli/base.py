@@ -8,6 +8,8 @@ from abc import ABC, abstractmethod
 from argparse import ArgumentParser, Namespace
 from typing import TYPE_CHECKING, ClassVar, Optional
 
+from .util import SuggestingArgumentParser
+
 if TYPE_CHECKING:
     from ..client import M8tes
 
@@ -96,8 +98,16 @@ class CommandGroup(Command):
         if not self.subcommands:
             return
 
+        # Prefer SuggestingArgumentParser so invalid subcommands get "Did you mean?"
+        parser_class = (
+            SuggestingArgumentParser
+            if isinstance(parser, SuggestingArgumentParser)
+            else type(parser)
+        )
         subparsers = parser.add_subparsers(
-            dest=f"{self.name}_command", help=f"{self.description} commands"
+            dest=f"{self.name}_command",
+            help=f"{self.description} commands",
+            parser_class=parser_class,
         )
 
         for command in self.subcommands:
@@ -111,9 +121,14 @@ class CommandGroup(Command):
         """Execute the appropriate subcommand based on parsed arguments."""
         subcommand_name = getattr(args, f"{self.name}_command", None)
         if not subcommand_name:
-            # No subcommand specified, print help
+            # No subcommand specified, print help + one example
+            names = [cmd.name for cmd in self.subcommands]
             print(f"Error: No subcommand specified for '{self.name}'")
-            print(f"Available subcommands: {', '.join(cmd.name for cmd in self.subcommands)}")
+            print(f"Available subcommands: {', '.join(names)}")
+            if self.name == "agent":
+                print('Example: m8tes agent task "say hello"')
+            elif names:
+                print(f"Example: m8tes {self.name} {names[0]}")
             return 1
 
         # Find the matching subcommand
@@ -121,5 +136,13 @@ class CommandGroup(Command):
             if subcommand_name in command.get_all_names():
                 return command.execute(args, client)
 
+        from .util import suggest_commands
+
+        all_names = [n for cmd in self.subcommands for n in cmd.get_all_names()]
+        suggestions = suggest_commands(subcommand_name, all_names)
         print(f"Error: Unknown subcommand '{subcommand_name}' for '{self.name}'")
+        if suggestions:
+            print(f"💡 Did you mean: {', '.join(suggestions)}?")
+        else:
+            print(f"Available: {', '.join(cmd.name for cmd in self.subcommands)}")
         return 1

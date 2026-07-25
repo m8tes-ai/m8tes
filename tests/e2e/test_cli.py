@@ -128,7 +128,8 @@ def test_cli_help_commands(backend_server):
     )
     assert result.returncode == 0
     assert "auth" in result.stdout
-    assert "mate" in result.stdout
+    assert "agent" in result.stdout
+    assert "mate" in result.stdout  # permanent alias
 
     # Test auth help
     result = subprocess.run(
