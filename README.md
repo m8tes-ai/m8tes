@@ -84,7 +84,7 @@ for log in page.data:
 | File output and delivery | ✅ Generated files downloadable via API |
 | Webhook infrastructure for agent events | ✅ Outbound webhooks built in |
 | Per-user data isolation | ✅ Set `user_id`, we handle the rest |
-| An email inbox for your agent | ✅ Enable an @m8tes.ai inbox per agent |
+| An email inbox for your agent | ✅ Enable an @notifications.m8tes.ai inbox per agent |
 
 ## What's included
 

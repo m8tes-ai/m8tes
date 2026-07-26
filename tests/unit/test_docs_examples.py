@@ -250,7 +250,10 @@ def run_example(monkeypatch: pytest.MonkeyPatch, filename: str) -> CallRecorder:
 def test_readme_documents_opt_in_inbox_and_auth_usage_notes():
     readme = README_PATH.read_text()
 
-    assert "Enable an @m8tes.ai inbox per agent" in readme
+    # The domain matters: inboxes are issued on `notifications.m8tes.ai`
+    # (Settings.inbound_email_domain), not the bare apex. The README claimed `@m8tes.ai`
+    # and this assertion pinned the wrong value in place.
+    assert "Enable an @notifications.m8tes.ai inbox per agent" in readme
     assert "client.auth.get_usage()" in readme
     assert "POST /api/v2/token" in readme
     assert "invalidates the previous one" in readme
