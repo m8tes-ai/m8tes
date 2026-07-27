@@ -559,6 +559,38 @@ class RunFile:
 
 
 @dataclass
+class RunMessage:
+    """One conversation message on a run (GET /runs/{id}/messages).
+
+    Full transcript for UI reload / reconnect — role, prose content, and optional
+    structured content_blocks. Prefer runs.outcome() when you only need the closing
+    summary.
+    """
+
+    id: int
+    run_id: int
+    sequence: int
+    role: str
+    content: str
+    content_blocks: list[dict] | None
+    event_metadata: dict
+    created_at: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> RunMessage:
+        return cls(
+            id=data["id"],
+            run_id=data["run_id"],
+            sequence=data["sequence"],
+            role=data["role"],
+            content=data.get("content", ""),
+            content_blocks=data.get("content_blocks"),
+            event_metadata=data.get("event_metadata") or {},
+            created_at=data.get("created_at", ""),
+        )
+
+
+@dataclass
 class AuditLog:
     """A single API request audit record."""
 
@@ -775,6 +807,9 @@ class PermissionRequest:
     status: str
     created_at: str
     resolved_at: str | None
+    # SDK tool_use id of the gated call (None for older rows). Correlates the
+    # approval UI to the exact tool_use under parallel tool calls.
+    tool_use_id: str | None = None
     # True when the platform resolved the request itself: a question whose options
     # carried a "(Recommended)" label auto-continued after ~10 minutes without an
     # answer (or immediately for a non-blocking ask). Auto-selected answer values
@@ -792,6 +827,7 @@ class PermissionRequest:
             status=data["status"],
             created_at=data.get("created_at", ""),
             resolved_at=data.get("resolved_at"),
+            tool_use_id=data.get("tool_use_id"),
             auto_resolved=data.get("auto_resolved", False),
         )
 

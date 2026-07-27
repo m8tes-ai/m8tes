@@ -13,6 +13,7 @@ from .._types import (
     PermissionRequest,
     Run,
     RunFile,
+    RunMessage,
     RunOutcome,
     SyncPage,
 )
@@ -468,6 +469,22 @@ class Runs:
         resp = self._http.request("GET", f"/runs/{run_id}/outcome")
         return RunOutcome.from_dict(resp.json())
 
+    def messages(
+        self,
+        run_id: int,
+        *,
+        after_sequence: int | None = None,
+        limit: int = 500,
+    ) -> _list[RunMessage]:
+        """Full run transcript ordered by sequence (UI reload / reconnect).
+
+        Prefer :meth:`outcome` when you only need the closing summary. Use
+        ``after_sequence`` to fetch only messages newer than a known sequence.
+        """
+        params = _build_params(after_sequence=after_sequence, limit=limit)
+        resp = self._http.request("GET", f"/runs/{run_id}/messages", params=params or None)
+        return [RunMessage.from_dict(m) for m in resp.json()]
+
     def reply(
         self,
         run_id: int,
@@ -554,11 +571,19 @@ class Runs:
         resp = self._http.request("GET", f"/runs/{run_id}/permissions")
         return [PermissionRequest.from_dict(d) for d in resp.json()]
 
-    def answer(self, run_id: int, *, answers: dict[str, str]) -> dict[str, Any]:
+    def answer(
+        self,
+        run_id: int,
+        *,
+        answers: dict[str, str],
+        request_id: str | None = None,
+    ) -> dict[str, Any]:
         """Submit an answer to an agent's AskUserQuestion.
 
         Use this when the run is paused waiting for user input (AskUserQuestion).
         The answers dict maps question text (q["question"]) to the selected option label.
+        Pass ``request_id`` when multiple questions are pending so the answer targets
+        the right gate; omit to answer the first unanswered ask.
 
         Returns {"status": "ok", "resumed": bool}. When resumed is True, the run
         has been queued to continue from the point it paused.
@@ -566,7 +591,10 @@ class Runs:
         Raises ConflictError (409) unless the run is awaiting_approval — a
         running run conflicts too, not only terminal ones.
         """
-        resp = self._http.request("POST", f"/runs/{run_id}/answer", json={"answers": answers})
+        body: dict[str, Any] = {"answers": answers}
+        if request_id is not None:
+            body["request_id"] = request_id
+        resp = self._http.request("POST", f"/runs/{run_id}/answer", json=body)
         result: dict[str, Any] = resp.json()
         return result
 

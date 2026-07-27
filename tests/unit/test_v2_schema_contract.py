@@ -20,6 +20,7 @@ from m8tes._types import (
     PermissionRequest,
     Run,
     RunFile,
+    RunMessage,
     Task,
     Teammate,
     TeammateWebhook,
@@ -54,6 +55,7 @@ WebhookDeliveryResponse = _schemas.WebhookDeliveryResponse
 PermissionRequestResponse = _schemas.PermissionRequestResponse
 PermissionPolicyResponse = _schemas.PermissionPolicyResponse
 RunFileResponse = _schemas.RunFileResponse
+RunMessageResponse = _schemas.RunMessageResponse
 TeammateWebhookResponse = _schemas.TeammateWebhookResponse
 AppTriggerTypeSchemaResponse = _schemas.AppTriggerTypeResponse
 AuditLogResponse = _schemas.AuditLogResponse
@@ -80,6 +82,7 @@ SCHEMA_PAIRS = [
     (PermissionRequestResponse, PermissionRequest, set()),
     (PermissionPolicyResponse, PermissionPolicy, set()),
     (RunFileResponse, RunFile, set()),
+    (RunMessageResponse, RunMessage, set()),
     (TeammateWebhookResponse, TeammateWebhook, set()),
     (AppTriggerTypeSchemaResponse, AppTriggerType, set()),
     (AuditLogResponse, AuditLog, set()),
