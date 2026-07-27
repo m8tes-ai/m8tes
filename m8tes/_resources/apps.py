@@ -29,24 +29,41 @@ class Apps:
         self,
         *,
         user_id: str | None = None,
-        limit: int = 20,
+        limit: int | None = None,
         starting_after: int | str | None = None,
     ) -> SyncPage[App]:
-        """List available tools with connection status."""
-        params = _build_params(limit=limit, starting_after=starting_after)
-        if user_id:
-            params["user_id"] = user_id
+        """List available tools with connection status.
+
+        NOT paginated: ``GET /apps/`` accepts only ``user_id`` and returns the whole
+        catalog in one response (``has_more`` is always False).
+
+        ``limit`` and ``starting_after`` are accepted and IGNORED, and are never
+        sent. They used to be, and the API rejects both with a 422
+        ``unknown_query_parameter`` — but only a NON-DEFAULT value ever got that
+        far: ``_build_params`` drops ``limit`` at its old default of 20, so
+        ``apps.list()`` and ``apps.list(limit=20)`` both worked while
+        ``apps.list(limit=50)`` did not. Deleting them would therefore break
+        calls that were succeeding, so they stay as no-ops until a major
+        release. A value that would previously have failed warns; ``limit=20``
+        stays silent, because that call was already correct.
+
+        A SyncPage is still returned so every resource iterates the same way; it
+        simply has no next page to fetch.
+        """
+        if (limit is not None and limit != 20) or starting_after is not None:
+            import warnings
+
+            warnings.warn(
+                "apps.list() ignores limit/starting_after: GET /apps/ is not paginated "
+                "and returns the whole catalog. Passing a non-default limit used to "
+                "fail with a 422; these parameters will be removed in the next major.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        params = _build_params(user_id=user_id)
         resp = self._http.request("GET", "/apps/", params=params)
         body = resp.json()
-
-        def _fetch_next(**kw: object) -> SyncPage[App]:
-            return self.list(user_id=user_id, **kw)  # type: ignore[arg-type]
-
-        return SyncPage(
-            data=[App.from_dict(d) for d in body["data"]],
-            has_more=body["has_more"],
-            _fetch_next=_fetch_next,
-        )
+        return SyncPage(data=[App.from_dict(d) for d in body["data"]], has_more=body["has_more"])
 
     def is_connected(self, app_name: str, *, user_id: str | None = None) -> bool:
         """True if the app is connected for this account or end-user."""

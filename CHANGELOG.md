@@ -2,6 +2,17 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [2.7.3] - 2026-07-27
+
+### Fixed
+- `client.runs.poll()` and `client.runs.wait()` now treat `closed` as a terminal status. The server's `TERMINAL_RUN_STATUSES` has four members; both helpers hardcoded three, each with its own private copy of the set, so a run the server had already finished never satisfied the exit condition and the caller waited out the full `timeout` (300s by default) before getting a `TimeoutError` for a run that was done. The set is now one module-level constant, `runs.TERMINAL_STATUSES`, and a test compares it against `fastapi/app/models/run.py` on every run so the two cannot drift again. Comparing the Python and TypeScript SDKs to each other could never have found this — both shipped the identical three-element set.
+
+## [2.7.2] - 2026-07-26
+
+### Fixed
+- `client.apps.list()` no longer SENDS `limit` or `starting_after`. `GET /apps/` takes only `user_id` and returns the whole catalog, so a non-default value came back as a 422 `Unknown query parameter`. Not every call was affected: `_build_params` drops `limit` at its old default of 20, so `apps.list()` and `apps.list(limit=20)` both worked while `apps.list(limit=50)` did not. Both parameters therefore stay in the signature as accepted-and-ignored no-ops with a `DeprecationWarning` — deleting them in a patch release would have broken calls that were succeeding. They will be removed in the next major. `apps.list()`, `apps.list(user_id=...)`, `is_connected()`, and `auto_paging_iter()` are unchanged.
+- Integration coverage for the above: the parameterized forms are asserted to raise, the scoped call is exercised against a real server, and auto-paging is asserted to terminate on the unpaginated catalog. Found by building the TypeScript SDK against the same endpoint.
+
 ## [2.7.1] - 2026-07-21
 
 ### Changed

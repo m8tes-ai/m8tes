@@ -1095,14 +1095,90 @@ class TestApps:
                 "has_more": False,
             },
         )
-        result = Apps(http).list(limit=2)
+        result = Apps(http).list()
         assert len(result.data) == 1
         assert isinstance(result.data[0], App)
         assert result.data[0].name == "gmail"
-        assert "limit=2" in responses.calls[0].request.url
+        # GET /apps/ accepts ONLY user_id. This test used to call list(limit=2)
+        # and assert "limit=2" was on the wire — against a mock, so it passed
+        # while a real server answered 422 `Unknown query parameter`. Assert the
+        # opposite now: nothing but user_id may ever be sent.
+        url = responses.calls[0].request.url
+        assert "limit" not in url
+        assert "starting_after" not in url
 
     @responses.activate
-    def test_list_auto_paging(self, http):
+    def test_list_scoped_to_end_user(self, http):
+        responses.add(responses.GET, f"{BASE}/apps/", json={"data": [], "has_more": False})
+        Apps(http).list(user_id="cust_1")
+        assert "user_id=cust_1" in responses.calls[0].request.url
+
+    @responses.activate
+    def test_every_2_7_1_call_shape_still_works(self, http):
+        """Backwards-compatibility matrix for the 2.7.2 apps.list() change.
+
+        Removing `limit`/`starting_after` looked safe because the API rejects
+        them, but `_build_params` drops `limit` at its old default of 20 — so
+        `apps.list()` and `apps.list(limit=20)` were SUCCEEDING, and deleting the
+        parameters would have turned working code into a TypeError in a PATCH
+        release. Every shape a 2.7.1 user could have written is pinned here.
+        """
+        import warnings
+
+        cases = [
+            ({}, False),
+            ({"user_id": "u"}, False),
+            ({"limit": 20}, False),  # the old default: worked, so must stay silent
+            ({"limit": 50}, True),  # would have 422'd: warn
+            ({"starting_after": None}, False),
+            ({"starting_after": "x"}, True),
+        ]
+        for kwargs, should_warn in cases:
+            responses.add(responses.GET, f"{BASE}/apps/", json={"data": [], "has_more": False})
+            with warnings.catch_warnings(record=True) as caught:
+                warnings.simplefilter("always")
+                Apps(http).list(**kwargs)  # must never raise
+                warned = any(issubclass(c.category, DeprecationWarning) for c in caught)
+            url = responses.calls[-1].request.url
+            assert warned is should_warn, f"{kwargs}: warned={warned}, expected {should_warn}"
+            # Neither param may ever reach the API — it 422s on both.
+            assert "limit" not in url and "starting_after" not in url, f"{kwargs} leaked a param"
+
+    @responses.activate
+    def test_list_keeps_pagination_params_accepted_but_ignored(self, http):
+        """Removing them outright would break calls that were SUCCEEDING.
+
+        `_build_params` drops `limit` at its old default of 20, so
+        `apps.list(limit=20)` and `apps.list(starting_after=None)` both worked;
+        only a non-default value reached the API and 422'd. So the params stay,
+        warn, and are never sent.
+        """
+        responses.add(responses.GET, f"{BASE}/apps/", json={"data": [], "has_more": False})
+        responses.add(responses.GET, f"{BASE}/apps/", json={"data": [], "has_more": False})
+
+        # The previously-working call must neither raise NOR warn: limit=20 was
+        # the old default and never reached the API, so that code was correct.
+        import warnings
+
+        with warnings.catch_warnings():
+            warnings.simplefilter("error")
+            Apps(http).list(limit=20)
+        assert "limit" not in responses.calls[0].request.url
+
+        with pytest.warns(DeprecationWarning, match="not paginated"):
+            Apps(http).list(limit=50, starting_after="gmail")
+        assert "limit" not in responses.calls[1].request.url
+        assert "starting_after" not in responses.calls[1].request.url
+
+    @responses.activate
+    def test_list_does_not_page(self, http):
+        """The catalog is unpaginated, so iterating must finish on page one.
+
+        This replaced a test that mocked a SECOND /apps/ page and asserted the
+        client sent `starting_after=gmail`. The real API answers that with a 422,
+        and never sets has_more=True on this route, so the old test was pinning
+        behaviour that could only exist against the mock.
+        """
         responses.add(
             responses.GET,
             f"{BASE}/apps/",
@@ -1115,31 +1191,14 @@ class TestApps:
                         "connected": True,
                     }
                 ],
-                "has_more": True,
-            },
-        )
-        responses.add(
-            responses.GET,
-            f"{BASE}/apps/",
-            json={
-                "data": [
-                    {
-                        "name": "slack",
-                        "display_name": "Slack",
-                        "category": "chat",
-                        "connected": False,
-                    }
-                ],
                 "has_more": False,
             },
         )
 
-        page = Apps(http).list(limit=1, user_id="cust_1")
-        apps = list(page.auto_paging_iter())
-
-        assert [app.name for app in apps] == ["gmail", "slack"]
-        assert "starting_after=gmail" in responses.calls[1].request.url
-        assert "user_id=cust_1" in responses.calls[1].request.url
+        page = Apps(http).list(user_id="cust_1")
+        assert [app.name for app in page.auto_paging_iter()] == ["gmail"]
+        assert len(responses.calls) == 1
+        assert "user_id=cust_1" in responses.calls[0].request.url
 
     @responses.activate
     def test_connect(self, http):

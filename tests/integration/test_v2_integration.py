@@ -2828,6 +2828,30 @@ class TestAppsReadOnly:
         page = v2_client.apps.list()
         assert isinstance(page, SyncPage)
 
+    def test_list_apps_sends_only_user_id(self, v2_client):
+        """GET /apps/ accepts ONLY user_id; anything else is a 422.
+
+        Regression: apps.list() used to take limit/starting_after and send them.
+        The default call slipped through because _build_params drops limit at its
+        default of 20, so apps.list() worked while apps.list(limit=50) returned
+        `Unknown query parameter: 'limit'`. Both params are gone now, and the
+        scoped call still has to work against a real server.
+        """
+        assert isinstance(v2_client.apps.list(user_id=_uid()), SyncPage)
+        # The params stay accepted (deleting them would break calls that were
+        # succeeding) but must never reach the API, which 422s on them.
+        with pytest.warns(DeprecationWarning):
+            assert isinstance(v2_client.apps.list(limit=50), SyncPage)
+        with pytest.warns(DeprecationWarning):
+            assert isinstance(v2_client.apps.list(starting_after="gmail"), SyncPage)
+
+    def test_auto_paging_over_apps_terminates(self, v2_client):
+        """The catalog is unpaginated (has_more always False), so iterating must
+        finish rather than request a second page the API would reject."""
+        page = v2_client.apps.list()
+        assert page.has_more is False
+        assert len(list(page.auto_paging_iter())) == len(page.data)
+
 
 @pytest.mark.integration
 class TestAppsWritable:

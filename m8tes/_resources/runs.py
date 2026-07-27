@@ -21,6 +21,17 @@ from ._utils import _build_params, _resolve_agent_id
 
 _list = list  # preserve builtin; shadowed by .list() method
 
+# Mirrors TERMINAL_RUN_STATUSES in fastapi/app/models/run.py — the source of truth.
+#
+# "closed" was missing here for as long as poll()/wait() existed, and the set was
+# duplicated inside each of them, so a closed run never satisfied the exit
+# condition and the caller waited out the entire timeout on a run the server had
+# already finished. Comparing against the TypeScript SDK could not find it: that
+# one shipped the same three-element set. Only the server settles it, which is
+# what test_v2_poll.py::TestTerminalStatuses::test_matches_the_server_exactly now
+# does on every run. One constant, so the two helpers cannot drift apart again.
+TERMINAL_STATUSES = frozenset({"completed", "failed", "cancelled", "closed"})
+
 if TYPE_CHECKING:
     from .._http import HTTPClient
 
@@ -176,7 +187,6 @@ class Runs:
 
         from .._exceptions import APIError
 
-        _TERMINAL = {"completed", "failed", "cancelled"}
         deadline = _time.monotonic() + timeout
         while True:
             try:
@@ -186,7 +196,7 @@ class Runs:
                     raise TimeoutError(f"Run {run_id} did not complete within {timeout}s") from None
                 _time.sleep(interval)
                 continue
-            if run.status in _TERMINAL:
+            if run.status in TERMINAL_STATUSES:
                 return run
             if _time.monotonic() >= deadline:
                 raise TimeoutError(f"Run {run_id} did not complete within {timeout}s")
@@ -229,7 +239,6 @@ class Runs:
 
         from .._exceptions import APIError
 
-        _TERMINAL = {"completed", "failed", "cancelled"}
         deadline = _time.monotonic() + timeout
 
         while True:
@@ -241,7 +250,7 @@ class Runs:
                 _time.sleep(interval)
                 continue
 
-            if run.status in _TERMINAL:
+            if run.status in TERMINAL_STATUSES:
                 return run
 
             if run.status == "awaiting_approval":

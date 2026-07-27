@@ -102,3 +102,63 @@ class TestPoll:
         responses.add(responses.GET, f"{BASE}/runs/1", json=err, status=500)
         with pytest.raises(TimeoutError, match="did not complete"):
             Runs(http).poll(1, interval=0.01, timeout=0.05)
+
+
+class TestTerminalStatuses:
+    """`closed` is a terminal run status the SDK used to spin on.
+
+    The server's TERMINAL_RUN_STATUSES (fastapi/app/models/run.py) has four
+    members; both poll() and wait() hardcoded three, each with its own copy of
+    the set. A closed run therefore never satisfied the exit condition and the
+    caller waited out the full timeout on a run that had already finished.
+
+    SDK-to-SDK comparison could never catch this — the TypeScript SDK shipped
+    the identical three-element set. Only comparing against the server finds it,
+    so that comparison is now a test rather than a habit.
+    """
+
+    def test_closed_is_terminal(self):
+        from m8tes._resources.runs import TERMINAL_STATUSES
+
+        assert "closed" in TERMINAL_STATUSES
+
+    @responses.activate
+    def test_poll_returns_a_closed_run_instead_of_timing_out(self, http):
+        responses.add(responses.GET, f"{BASE}/runs/1", json={"id": 1, "status": "closed"})
+        run = Runs(http).poll(1, interval=0.01, timeout=0.5)
+        assert run.status == "closed"
+
+    @responses.activate
+    def test_wait_returns_a_closed_run_instead_of_timing_out(self, http):
+        responses.add(responses.GET, f"{BASE}/runs/1", json={"id": 1, "status": "closed"})
+        run = Runs(http).wait(1, interval=0.01, timeout=0.5)
+        assert run.status == "closed"
+
+    def test_matches_the_server_exactly(self):
+        """Drift guard against fastapi/app/models/run.py, the source of truth.
+
+        Mirrors packages/sdk/test/server-drift.test.ts so neither SDK can drift
+        alone. Skips when the backend isn't in the tree (published-package CI).
+        """
+        from pathlib import Path
+        import re
+
+        from m8tes._resources.runs import TERMINAL_STATUSES
+
+        here = Path(__file__).resolve()
+        repo = next((p for p in here.parents if (p / "fastapi").is_dir()), None)
+        if repo is None:
+            pytest.skip("backend not present in this checkout")
+        src = (repo / "fastapi" / "app" / "models" / "run.py").read_text()
+
+        block = src.split("TERMINAL_RUN_STATUSES", 1)[1]
+        block = block[: block.index(")")]
+        members = re.findall(r"RunStatus\.(\w+)\.value", block)
+        assert len(members) >= 3, "failed to parse TERMINAL_RUN_STATUSES from the backend"
+
+        enum_src = src.split("class RunStatus", 1)[1]
+        values = dict(re.findall(r"^\s{4}(\w+)\s*=\s*[\"'](\w+)[\"']", enum_src, re.M))
+        expected = {values[m] for m in members}
+        assert expected == TERMINAL_STATUSES, (
+            f"SDK terminal statuses {sorted(TERMINAL_STATUSES)} != server {sorted(expected)}"
+        )
