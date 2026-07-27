@@ -2492,6 +2492,45 @@ class TestRunGetCancelReply:
         with pytest.raises(NotFoundError):
             v2_client.runs.reply(999999, message="Ghost", stream=False)
 
+    def test_reply_with_tools_override(self, v2_client):
+        """Reply accepts a tools override (V2 parity slice 1): a valid tool name
+        is resolved server-side; an unknown one is a 422 (BadRequestError family)."""
+        tm = v2_client.teammates.create(name="ReplyToolsHost")
+        try:
+            run = v2_client.runs.create(teammate_id=tm.id, message="Initial", stream=False)
+            reply = v2_client.runs.reply(
+                run.id, message="Use gmail now", stream=False, tools=["gmail"]
+            )
+            assert isinstance(reply, Run)
+            with pytest.raises(M8tesError):
+                v2_client.runs.reply(
+                    run.id, message="Bad tool", stream=False, tools=["not-a-real-tool"]
+                )
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_reply_with_files(self, v2_client):
+        """Reply with attachments routes through /reply/with-files (slice 2).
+        Requires sandbox execution — skips cleanly where the backend has it off (400)."""
+        tm = v2_client.teammates.create(name="ReplyFilesHost")
+        try:
+            run = v2_client.runs.create(teammate_id=tm.id, message="Initial", stream=False)
+            try:
+                reply = v2_client.runs.reply(
+                    run.id,
+                    message="Compare with this file",
+                    stream=False,
+                    files=[("notes.txt", b"alpha beta")],
+                )
+                assert isinstance(reply, Run)
+                assert reply.id == run.id
+            except M8tesError as e:
+                if getattr(e, "status_code", None) == 400 and "sandbox" in str(e).lower():
+                    pytest.skip("sandbox execution disabled in this environment")
+                raise
+        finally:
+            v2_client.teammates.delete(tm.id)
+
 
 # ── Run Files ────────────────────────────────────────────────────────
 

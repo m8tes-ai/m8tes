@@ -2,6 +2,13 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [2.8.0] - 2026-07-27
+
+### Added
+- `client.runs.reply()` / `reply_and_wait()` accept `tools=` — override the app toolset for this and later replies on the run (names from `client.apps.list()`; omitted or `[]` inherits the run's current set). Same resolver and 422 behavior as `runs.create`.
+- `client.runs.reply()` / `reply_and_wait()` accept `permission_mode=` — override the execution mode for this and later replies (omitted inherits the run's persisted mode). Restores V1 follow-up parity for mode switches on finished runs.
+- `client.runs.reply()` / `reply_and_wait()` accept `files=` — attach documents to a follow-up (same path/tuple/file-object shapes as `create`). Uploads use the new multipart `POST /runs/{id}/reply/with-files` endpoint; earlier uploads keep their names (same-named re-uploads get a collision suffix).
+
 ## [2.7.3] - 2026-07-27
 
 ### Fixed

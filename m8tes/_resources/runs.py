@@ -351,6 +351,9 @@ class Runs:
         run_id: int,
         *,
         message: str,
+        tools: _list[str] | None = None,
+        files: _list | None = None,
+        permission_mode: str | None = None,
         task_setup_tools: bool | None = None,
         feedback: bool | None = None,
         human_in_the_loop: bool | None = None,
@@ -364,6 +367,9 @@ class Runs:
             run_id,
             message=message,
             stream=False,
+            tools=tools,
+            files=files,
+            permission_mode=permission_mode,
             task_setup_tools=task_setup_tools,
             feedback=feedback,
             human_in_the_loop=human_in_the_loop,
@@ -500,6 +506,9 @@ class Runs:
         *,
         message: str,
         stream: bool = True,
+        tools: _list[str] | None = None,
+        files: _list | None = None,
+        permission_mode: str | None = None,
         task_setup_tools: bool | None = None,
         feedback: bool | None = None,
         human_in_the_loop: bool | None = None,
@@ -517,17 +526,41 @@ class Runs:
         non-interactive behavior. When omitted, inherits the run's setting
         (runs created before this setting was persisted stay non-interactive).
 
+        Pass ``tools`` (names from client.apps.list()) to change the app toolset
+        for this and later replies; omitted or ``[]`` inherits the run's current
+        set. Pass ``permission_mode`` ("autonomous" | "approval" | "plan") to
+        override the mode for this and later replies; omitted inherits the mode
+        the run last ran with. Pass ``files`` (paths, bytes, or file objects — same shapes as
+        ``create``) to attach documents to the follow-up; earlier uploads keep
+        their names (a same-named re-upload gets a collision suffix).
+
         With stream=True (default): returns iterable RunStream of events.
         With stream=False: returns Run immediately (status="running").
             Poll GET /runs/{id} until status is terminal to get output.
         """
-        body = {"message": message, "stream": stream}
+        body: dict = {"message": message, "stream": stream}
+        if tools is not None:
+            body["tools"] = tools
+        if permission_mode is not None:
+            body["permission_mode"] = permission_mode
         if task_setup_tools is not None:
             body["task_setup_tools"] = task_setup_tools
         if feedback is not None:
             body["feedback"] = feedback
         if human_in_the_loop is not None:
             body["human_in_the_loop"] = human_in_the_loop
+        if files:
+            file_parts = [("files", _to_file_part(f)) for f in files]
+            form = {"payload": json.dumps(body)}
+            if stream:
+                resp = self._http.stream(
+                    "POST", f"/runs/{run_id}/reply/with-files", data=form, files=file_parts
+                )
+                return RunStream(resp)
+            resp = self._http.request(
+                "POST", f"/runs/{run_id}/reply/with-files", data=form, files=file_parts
+            )
+            return Run.from_dict(resp.json())
         if stream:
             resp = self._http.stream("POST", f"/runs/{run_id}/reply", json=body)
             return RunStream(resp)
