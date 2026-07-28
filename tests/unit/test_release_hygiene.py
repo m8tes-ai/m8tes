@@ -85,3 +85,56 @@ def test_cli_help_copy_says_agents_not_teammates():
         "CLI display strings must say 'agent' (and 'an agent'), not 'teammate':\n"
         + "\n".join(offenders)
     )
+
+
+# Identifiers that must never appear anywhere in this tree: four real ad-account
+# customer IDs that shipped in test fixtures until 2026-07-27 (found in a
+# pre-publication sweep; sync-sdk.yml scrubs them from the public repo's history —
+# this guard keeps them out of its future), plus the personal identity the sync's
+# fail-closed check aborts on (catching it here fails CI fast instead of breaking
+# the publish). Built from fragments so this file never contains them itself:
+# this entire directory publishes to the public m8tes-ai/m8tes repo on every push.
+_BANNED_LITERALS = tuple(
+    "".join(parts)
+    for parts in (
+        ("974-", "100-", "3352"),
+        ("9741", "0033", "52"),
+        ("6179", "7307", "54"),
+        ("5284", "1514", "31"),
+        ("6197", "4682", "92"),
+        ("el", "mar"),
+    )
+)
+
+
+def _tracked_files():
+    """Exactly the set of files sync-sdk.yml publishes: git-tracked, this dir."""
+    import subprocess
+
+    out = subprocess.run(
+        ["git", "ls-files", "-z"],
+        cwd=SDK_ROOT,
+        capture_output=True,
+        check=True,
+    ).stdout
+    return [SDK_ROOT / name.decode() for name in out.split(b"\0") if name]
+
+
+def test_no_leaked_identifiers_anywhere_in_tree():
+    """No banned identifier may exist in any tracked file (content, either common
+    encoding, or the path itself) — the tracked tree is public via sync-sdk.yml."""
+    banned_bytes = [b.encode() for b in _BANNED_LITERALS]
+    banned_utf16 = [b.encode(enc) for b in _BANNED_LITERALS for enc in ("utf-16-le", "utf-16-be")]
+    offenders = []
+    for path in _tracked_files():
+        rel = str(path.relative_to(SDK_ROOT))
+        if any(b in rel.lower() for b in _BANNED_LITERALS):
+            offenders.append(f"{rel}: path contains a banned identifier")
+        # A tracked file the guard cannot read is a guard hole, not a skip.
+        raw = path.read_bytes().lower()
+        if any(b in raw for b in banned_bytes) or any(b in raw for b in banned_utf16):
+            offenders.append(f"{rel}: contains a banned identifier")
+    assert not offenders, (
+        "Banned identifiers found in sdk/py (this tree is PUBLIC via sync-sdk.yml):\n"
+        + "\n".join(offenders)
+    )

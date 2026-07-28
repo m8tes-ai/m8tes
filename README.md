@@ -5,9 +5,9 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Ship autonomous agents. Skip the infrastructure.**
+**Give every customer their own AI agent — through one API.**
 
-Hosted runtime, 150+ integrations, scheduling, memory, and optional email or iMessage inboxes. Ship autonomous agents to production in minutes.
+Hosted runtime, 150+ integrations, scheduling, memory, human-in-the-loop approvals, and per-user isolation via `user_id`. Ship autonomous agents to production in minutes.
 
 ## Install
 
@@ -560,6 +560,10 @@ See [CLI documentation](https://m8tes.ai/docs/cli) for all commands and options.
 - [PyPI](https://pypi.org/project/m8tes/)
 - support@m8tes.ai
 
+## Contributing
+
+Bug reports and feature requests are welcome — [open an issue](https://github.com/m8tes-ai/m8tes/issues); we review weekly. We don't currently accept external pull requests: this repo is synced from our internal monorepo, so changes land through our own pipeline. If something blocks you, an issue (or support@m8tes.ai) is the fastest path to a fix.
+
 ## License
 
-MIT — see [LICENSE](LICENSE) for details.
+MIT — see [LICENSE](LICENSE) for details. The m8tes name and logo are trademarks of m8tes; the MIT license does not grant trademark rights.
