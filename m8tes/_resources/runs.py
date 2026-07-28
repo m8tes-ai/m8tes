@@ -32,6 +32,28 @@ _list = list  # preserve builtin; shadowed by .list() method
 # does on every run. One constant, so the two helpers cannot drift apart again.
 TERMINAL_STATUSES = frozenset({"completed", "failed", "cancelled", "closed"})
 
+
+def _raise_if_failed(run: Run) -> None:
+    """Raise RunFailedError for a run that finished `failed`.
+
+    Shared by poll/wait/create_and_wait so the three agree. The message prefers
+    the server's `error` (populated from the run's classified failure) and falls
+    back to `output`, because a failed run's `output` is where the platform's
+    generic "an error occurred" sentence lands. `.details` carries `error_code`
+    so callers can branch on the machine token instead of parsing prose.
+    """
+    if run.status != "failed":
+        return
+    from .._exceptions import RunFailedError
+
+    detail = getattr(run, "error", None) or getattr(run, "output", None) or "no detail provided"
+    code = getattr(run, "error_code", None)
+    raise RunFailedError(
+        f"Run {run.id} failed: {detail}",
+        details={"run_id": run.id, "error_code": code, "error": getattr(run, "error", None)},
+    )
+
+
 if TYPE_CHECKING:
     from .._http import HTTPClient
 
@@ -177,11 +199,22 @@ class Runs:
         resp = self._http.stream("GET", f"/runs/{run_id}/stream")
         return RunStream(resp, raise_on_error=raise_on_error)
 
-    def poll(self, run_id: int, *, interval: float = 2.0, timeout: float = 300.0) -> Run:
+    def poll(
+        self,
+        run_id: int,
+        *,
+        interval: float = 2.0,
+        timeout: float = 300.0,
+        raise_on_error: bool = False,
+    ) -> Run:
         """Poll until the run reaches a terminal status. Returns the completed Run.
 
         For runs with human_in_the_loop=True, use wait() instead — it handles
         awaiting_approval pauses via callbacks so the run can continue.
+
+        `raise_on_error=True` turns a `failed` run into RunFailedError instead of
+        a returned Run, matching `runs.create(..., raise_on_error=True)` on the
+        streaming path. Off by default so this stays non-breaking.
         """
         import time as _time
 
@@ -197,6 +230,8 @@ class Runs:
                 _time.sleep(interval)
                 continue
             if run.status in TERMINAL_STATUSES:
+                if raise_on_error:
+                    _raise_if_failed(run)
                 return run
             if _time.monotonic() >= deadline:
                 raise TimeoutError(f"Run {run_id} did not complete within {timeout}s")
@@ -210,6 +245,7 @@ class Runs:
         on_question: Callable[[PermissionRequest], dict[str, str]] | None = None,
         interval: float = 2.0,
         timeout: float = 300.0,
+        raise_on_error: bool = False,
     ) -> Run:
         """Wait for a run to complete, handling human-in-the-loop pauses via callbacks.
 
@@ -251,6 +287,8 @@ class Runs:
                 continue
 
             if run.status in TERMINAL_STATUSES:
+                if raise_on_error:
+                    _raise_if_failed(run)
                 return run
 
             if run.status == "awaiting_approval":
@@ -304,11 +342,19 @@ class Runs:
         on_question: Callable[[PermissionRequest], dict[str, str]] | None = None,
         poll_interval: float = 2.0,
         poll_timeout: float = 300.0,
+        raise_on_error: bool = False,
     ) -> Run:
         """Create a run and wait until it completes. Returns the finished Run.
 
         Pass on_approval= and on_question= to handle human-in-the-loop pauses inline.
         Without callbacks, HITL runs will raise RuntimeError when they pause for input.
+
+        `raise_on_error=True` raises RunFailedError instead of returning a run
+        whose status is `failed`. Worth setting: the default returns normally, so
+        `print(result.output)` prints the platform's failure sentence in exactly
+        the place the agent's answer belongs. Mirrors
+        `runs.create(..., raise_on_error=True)` on the streaming path; off by
+        default so this stays non-breaking.
         """
         teammate_id = _resolve_agent_id(teammate_id, agent_id)
         initial = cast(
@@ -341,6 +387,7 @@ class Runs:
             on_question=on_question,
             interval=poll_interval,
             timeout=poll_timeout,
+            raise_on_error=raise_on_error,
         )
         if initial.email_address and not final.email_address:
             final.email_address = initial.email_address

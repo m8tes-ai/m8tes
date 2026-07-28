@@ -2,6 +2,13 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [2.9.0] - 2026-07-27
+
+### Added
+- `raise_on_error=` on `runs.poll()`, `runs.wait()`, and `runs.create_and_wait()`. When true, a run that finishes `failed` raises `RunFailedError` instead of being returned, with `.details` carrying `run_id`, `error`, and `error_code` so you can branch on the machine token instead of parsing prose. This mirrors `runs.create(..., raise_on_error=True)` on the streaming path, and it is **off by default** so nothing existing changes behavior.
+
+  Worth turning on. Without it `create_and_wait` returns normally on a failed run, so the documented `print(result.output)` prints the platform's failure sentence in exactly the spot the agent's answer belongs — a failed run reads as a successful one with a strange answer. Server-side, the run's `error`/`error_code` are now populated for in-stream failures (they were previously null on genuinely failed runs), so there is real detail to raise with.
+
 ## [2.8.0] - 2026-07-27
 
 ### Added
