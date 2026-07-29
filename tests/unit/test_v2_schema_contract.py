@@ -8,6 +8,7 @@ Runs in CI without a backend — pure import-time introspection.
 import dataclasses
 import importlib.util
 from pathlib import Path
+import sys
 
 import pytest
 
@@ -40,6 +41,14 @@ if not _schemas_path.exists():
     pytest.skip(
         "backend schemas.py not available (standalone SDK checkout)", allow_module_level=True
     )
+# schemas.py imports one shared cross-layer contract (`app.contracts.tool_name`, the
+# constrained tool-name type v1 and v2 must agree on), so the backend root has to be
+# importable. `app/contracts/` is dependency-free by charter — stdlib + pydantic only —
+# precisely so this standalone load keeps working without the backend's dependencies.
+_backend_root = _schemas_path.parents[3]
+if str(_backend_root) not in sys.path:
+    sys.path.insert(0, str(_backend_root))
+
 _spec = importlib.util.spec_from_file_location("v2_schemas", _schemas_path)
 _schemas = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_schemas)
@@ -117,3 +126,21 @@ def test_response_fields_match_sdk_type(api_model, sdk_type, exclusions):
         )
 
     assert not errors, "\n".join(errors)
+
+
+def test_v2_schemas_load_without_the_backend_dependency_stack():
+    """This module is loaded by `importlib` with only the SDK's own dependencies present —
+    no `pydantic_settings`, no SQLAlchemy. A plain `from app.schemas...` import in
+    schemas.py breaks that at COLLECTION time, taking the whole SDK suite red (it did:
+    2026-07-28, adding a shared tool-name type). Anything schemas.py imports must live
+    under `app/contracts/`, which is dependency-free by charter.
+    """
+    import importlib
+
+    assert "pydantic_settings" not in sys.modules, (
+        "loading the v2 schemas dragged in the backend settings stack — a heavy import "
+        "crept into schemas.py or into app/contracts/"
+    )
+    # The shared contract itself must import cleanly on the SDK's dependency set.
+    contract = importlib.import_module("app.contracts.tool_name")
+    assert contract.TOOL_NAME_MAX_LENGTH == 255
