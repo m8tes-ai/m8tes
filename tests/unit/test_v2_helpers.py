@@ -190,6 +190,126 @@ class TestRunsWait:
         with pytest.raises(TimeoutError):
             Runs(http).wait(1, interval=0.01, timeout=0.05)
 
+    @staticmethod
+    def _gate_refusal(status, error_code, message):
+        details = {"error_code": error_code} if error_code else {}
+        return {
+            "status": status,
+            "json": {"error": {"message": message, "code": status, "details": details}},
+        }
+
+    @pytest.mark.parametrize(
+        ("status", "error_code"),
+        [(404, "gate_cancelled"), (409, "run_not_active")],
+    )
+    @responses.activate
+    def test_gate_that_dies_mid_wait_does_not_abort_the_wait(
+        self, http, caplog, status, error_code
+    ):
+        """A gate that dies HARMLESSLY between the list and the approve must not sink wait().
+
+        Nothing the caller asked for was contradicted: the gate was cancelled, or the
+        run finished under it. wait() owes the caller the RUN's outcome, not the gate's,
+        so it keeps polling and returns the real result — logged, never silent.
+        """
+        responses.add(responses.GET, f"{BASE}/runs/1", json=RUN_APPROVAL)
+        responses.add(responses.GET, f"{BASE}/runs/1/permissions", json=[PERMISSION_TOOL])
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/1/approve",
+            **self._gate_refusal(status, error_code, f"Permission request req_1 is {error_code}"),
+        )
+        responses.add(responses.GET, f"{BASE}/runs/1", json=RUN_DONE)
+
+        run = Runs(http).wait(1, on_approval=lambda req: "allow", interval=0.01)
+
+        assert run.status == "completed"
+        assert "req_1" in caplog.text and error_code in caplog.text
+
+    @responses.activate
+    def test_wait_propagates_a_decision_another_approver_contradicted(self, http):
+        """THE regression this whole PR exists to prevent, one layer up.
+
+        wait() lists a pending gate, the callback says "deny", and another approver
+        ALLOWS it concurrently. The tool then runs and the run completes. If wait()
+        swallowed that 404 it would hand back a completed run to a caller who believes
+        they blocked the tool that just executed — a false confirmation identical in
+        kind to the 200 this PR removed from the endpoint, and strictly worse because
+        it is silent. An opposite decision must reach the caller.
+        """
+        from m8tes._exceptions import NotFoundError
+
+        responses.add(responses.GET, f"{BASE}/runs/1", json=RUN_APPROVAL)
+        responses.add(responses.GET, f"{BASE}/runs/1/permissions", json=[PERMISSION_TOOL])
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/1/approve",
+            **self._gate_refusal(
+                404,
+                "gate_resolved_otherwise",
+                "Permission request req_1 is allowed and cannot be denied",
+            ),
+        )
+        responses.add(responses.GET, f"{BASE}/runs/1", json=RUN_DONE)
+
+        with pytest.raises(NotFoundError, match="cannot be denied") as exc:
+            Runs(http).wait(1, on_approval=lambda req: "deny", interval=0.01)
+        assert exc.value.code == "gate_resolved_otherwise"
+
+    @responses.activate
+    def test_wait_propagates_an_uncoded_refusal(self, http):
+        """Fail closed: an unidentifiable refusal is treated as harmful.
+
+        An older server (or a new refusal reason nobody taught this client about) sends
+        a 404 with no `error_code`. It cannot be told apart from a contradiction, so it
+        must NOT be swallowed — the allowlist is the safety boundary and silence is the
+        failure mode that costs the most.
+        """
+        from m8tes._exceptions import NotFoundError
+
+        responses.add(responses.GET, f"{BASE}/runs/1", json=RUN_APPROVAL)
+        responses.add(responses.GET, f"{BASE}/runs/1/permissions", json=[PERMISSION_TOOL])
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/1/approve",
+            **self._gate_refusal(404, None, "Permission request not found or already resolved"),
+        )
+        responses.add(responses.GET, f"{BASE}/runs/1", json=RUN_DONE)
+
+        with pytest.raises(NotFoundError):
+            Runs(http).wait(1, on_approval=lambda req: "allow", interval=0.01)
+
+    @responses.activate
+    def test_approve_surfaces_resumed_false(self, http):
+        """'allowed' is not 'running again' — the SDK must carry the resume signal."""
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/1/approve",
+            json={**PERMISSION_TOOL, "status": "allowed", "resumed": False},
+        )
+        req = Runs(http).approve(1, request_id="req_1", decision="allow")
+        assert req.status == "allowed"
+        assert req.resumed is False
+
+    @responses.activate
+    def test_approve_surfaces_a_dead_gate_to_a_direct_caller(self, http):
+        """approve() itself must still raise — only wait()'s poll loop tolerates it."""
+        from m8tes._exceptions import NotFoundError
+
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/1/approve",
+            status=404,
+            json={
+                "error": {
+                    "message": "Permission request req_1 is cancelled and cannot be approved",
+                    "code": 404,
+                }
+            },
+        )
+        with pytest.raises(NotFoundError, match="cannot be approved"):
+            Runs(http).approve(1, request_id="req_1", decision="allow")
+
     @responses.activate
     def test_skips_non_pending_permissions(self, http):
         """Already-resolved permission requests are skipped."""

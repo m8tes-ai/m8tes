@@ -817,6 +817,12 @@ class PermissionRequest:
     # an auto-resolved question via runs.answer() raises ConflictError
     # ("auto_continued") — send a follow-up message to redirect instead.
     auto_resolved: bool = False
+    # Set only by runs.approve(): True when the decision actually spawned a resume,
+    # False when it did not (the run was not paused, or the resume lost its status
+    # CAS to a concurrent terminal transition). None on listings, which resume
+    # nothing. `status == "allowed"` alone never means the mate picked the work
+    # back up — check this before telling a human it did.
+    resumed: bool | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> PermissionRequest:
@@ -829,6 +835,7 @@ class PermissionRequest:
             resolved_at=data.get("resolved_at"),
             tool_use_id=data.get("tool_use_id"),
             auto_resolved=data.get("auto_resolved", False),
+            resumed=data.get("resumed"),
         )
 
     @property

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Generator
 import json
+import logging
 from typing import TYPE_CHECKING, Any, cast
 
 from .._streaming import RunStream
@@ -19,7 +20,25 @@ from .._types import (
 )
 from ._utils import _build_params, _resolve_agent_id
 
+logger = logging.getLogger(__name__)
+
 _list = list  # preserve builtin; shadowed by .list() method
+
+# Gate refusals wait() may ride out. Mirrors the codes POST /runs/{id}/approve puts in
+# `error.details.error_code` (fastapi/app/routers/v2/runs.py::approve_permission).
+#
+# Membership is the SAFETY boundary, so it is an allowlist, not a denylist: anything
+# unrecognised — including an OLD server that sends no code at all — propagates. A
+# refusal wait() cannot positively identify as harmless is treated as harmful, because
+# the one it must never swallow (`gate_resolved_otherwise`: another approver decided the
+# OPPOSITE way) is indistinguishable from the benign ones without this code.
+#
+# `run_not_active` is benign ONLY because the server raises it exclusively for a gate
+# that is still OPEN on a finished run. If a contradicted decision could ever report
+# `run_not_active`, a lost denial would be silently swallowed here — so that split is a
+# contract, pinned server-side by
+# `test_a_contradicted_decision_on_a_terminal_run_is_not_reported_as_benign`.
+_BENIGN_GATE_REFUSALS = frozenset({"gate_cancelled", "run_not_active"})
 
 # Mirrors TERMINAL_RUN_STATUSES in fastapi/app/models/run.py — the source of truth.
 #
@@ -273,7 +292,7 @@ class Runs:
         """
         import time as _time
 
-        from .._exceptions import APIError
+        from .._exceptions import APIError, ConflictError, NotFoundError
 
         deadline = _time.monotonic() + timeout
 
@@ -311,7 +330,34 @@ class Runs:
                                 "or use runs.approve() manually."
                             )
                         decision = on_approval(req)
-                        self.approve(run_id, request_id=req.request_id, decision=decision)
+                        # The gate can die between the list and this call. Two very
+                        # different things look alike here, so branch on the server's
+                        # machine-readable code, never on the message:
+                        #
+                        #   benign — the gate was cancelled, or the run went terminal
+                        #   under us. Nothing was contradicted, and wait() owes the
+                        #   caller the RUN's outcome, not the gate's. Log and keep
+                        #   polling; the next get() returns the real result.
+                        #
+                        #   CONTRADICTED — another approver decided the OTHER way, so
+                        #   this caller's decision did NOT happen and the opposite one
+                        #   is what runs. Swallowing that would re-create, one layer up,
+                        #   exactly the false confirmation the 404 exists to prevent:
+                        #   wait() would return a completed run to a caller who believes
+                        #   they denied the tool that just executed. It must propagate.
+                        try:
+                            self.approve(run_id, request_id=req.request_id, decision=decision)
+                        except (NotFoundError, ConflictError) as exc:
+                            if exc.code not in _BENIGN_GATE_REFUSALS:
+                                raise
+                            logger.warning(
+                                "Run %s: '%s' on permission gate %s was refused (%s) — %s",
+                                run_id,
+                                decision,
+                                req.request_id,
+                                exc.code,
+                                exc,
+                            )
 
             if _time.monotonic() >= deadline:
                 raise TimeoutError(f"Run {run_id} did not complete within {timeout}s")
@@ -695,7 +741,20 @@ class Runs:
         decision: str = "allow",
         remember: bool = False,
     ) -> PermissionRequest:
-        """Approve or deny a pending tool permission request."""
+        """Approve or deny a pending tool permission request.
+
+        Re-sending the SAME decision is idempotent, and may be used to upgrade
+        ``remember`` to True (it never downgrades an existing grant).
+
+        A refusal is never a hiccup — nothing ran, so never treat it as approved. Check
+        ``exc.code`` to tell them apart:
+
+        * ``ConflictError`` / ``run_not_active`` — the run finished; no decision applies.
+        * ``NotFoundError`` / ``gate_cancelled`` — the gate was cancelled under you.
+        * ``NotFoundError`` / ``gate_resolved_otherwise`` — **another approver decided
+          the OPPOSITE way.** Yours did not happen and the other one is what runs.
+        * ``NotFoundError`` / ``gate_not_found`` — no such gate on this run.
+        """
         body = {"request_id": request_id, "decision": decision, "remember": remember}
         resp = self._http.request("POST", f"/runs/{run_id}/approve", json=body)
         return PermissionRequest.from_dict(resp.json())
