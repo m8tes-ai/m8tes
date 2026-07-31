@@ -1824,6 +1824,33 @@ class TestAuditLogs:
         finally:
             other_client.close()
 
+    def test_auth_filter_partitions_by_how_the_request_authenticated(self, v2_client):
+        """`auth` splits key-authenticated calls from everything else.
+
+        NOTE on the fixture: `v2_client` authenticates with the token from
+        `POST /api/v1/auth/register`, whose `api_key` field is the JWT access token,
+        NOT an `m8_` key. So this suite's own traffic is JWT-authenticated and lands
+        on the `dashboard` side of the partition — which is what makes the positive
+        assertion below meaningful rather than vacuous.
+        """
+        v2_client.runs.list(limit=1)
+
+        dash_rows = v2_client.audit_logs.list(auth="dashboard", limit=50)
+        assert dash_rows.data, "this suite's JWT traffic must show up under auth=dashboard"
+        assert all(log.api_key_prefix is None for log in dash_rows.data)
+
+        # Nothing here was made with an m8_ key, so the other side must be empty.
+        api_rows = v2_client.audit_logs.list(auth="api_key", limit=50)
+        assert all(log.api_key_prefix for log in api_rows.data)
+
+        # Disjoint partitions, and `all` contains both.
+        api_ids = {log.id for log in api_rows.data}
+        dash_ids = {log.id for log in dash_rows.data}
+        assert api_ids.isdisjoint(dash_ids)
+
+        all_ids = {log.id for log in v2_client.audit_logs.list(auth="all", limit=50).data}
+        assert dash_ids <= all_ids
+
 
 # ── Runs (list/get only — no execution) ─────────────────────────────
 

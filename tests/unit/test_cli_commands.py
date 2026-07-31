@@ -908,6 +908,8 @@ class TestRunCommands:
                 "POST",
                 "--status-code",
                 "201",
+                "--auth",
+                "api_key",
             ]
         )
         assert args.limit == 5
@@ -915,6 +917,7 @@ class TestRunCommands:
         assert args.resource_type == "run"
         assert args.method == "POST"
         assert args.status_code == 201
+        assert args.auth == "api_key"
 
     @patch("m8tes.cli.commands.run.v2_client_from_args")
     def test_audit_logs_command_execute_success(self, mock_v2_client_from_args):
@@ -947,6 +950,7 @@ class TestRunCommands:
             resource_type="run",
             method="POST",
             status_code=201,
+            auth="api_key",
             limit=20,
         )
 
@@ -958,5 +962,6 @@ class TestRunCommands:
             resource_type="run",
             method="POST",
             status_code=201,
+            auth="api_key",
             limit=20,
         )

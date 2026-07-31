@@ -350,6 +350,7 @@ class TestAuditLogs:
             resource_type="run",
             method="post",
             status_code=201,
+            auth="api_key",
             limit=10,
             starting_after=5,
         )
@@ -358,8 +359,41 @@ class TestAuditLogs:
         assert "resource_type=run" in url
         assert "method=POST" in url
         assert "status_code=201" in url
+        assert "auth=api_key" in url
         assert "limit=10" in url
         assert "starting_after=5" in url
+
+    @responses.activate
+    def test_auth_filter_is_omitted_when_not_set(self, http):
+        """Default must stay server-side `all` — the SDK must not pin a client default."""
+        responses.add(responses.GET, f"{BASE}/audit-logs/", json={"data": [], "has_more": False})
+        AuditLogs(http).list()
+        assert "auth=" not in responses.calls[0].request.url
+
+    @responses.activate
+    def test_auth_filter_survives_pagination(self, http):
+        """Page 2 must carry the filter — otherwise it silently widens to every row.
+
+        auto_paging_iter re-issues the request through `_fetch_next`; a filter that is
+        threaded into the first call only would leak dashboard rows from page 2 on.
+        """
+        row = {
+            "id": 1,
+            "method": "GET",
+            "path": "/api/v2/runs",
+            "status_code": 200,
+            "duration_ms": 5,
+            "action": "list",
+            "resource_type": "run",
+            "resource_id": None,
+            "api_key_prefix": "m8_test_pref",
+            "created_at": "2026-03-05T10:00:00Z",
+        }
+        responses.add(responses.GET, f"{BASE}/audit-logs/", json={"data": [row], "has_more": True})
+        responses.add(responses.GET, f"{BASE}/audit-logs/", json={"data": [], "has_more": False})
+        list(AuditLogs(http).list(auth="api_key", limit=1).auto_paging_iter())
+        assert len(responses.calls) == 2
+        assert "auth=api_key" in responses.calls[1].request.url
 
 
 class TestRuns:

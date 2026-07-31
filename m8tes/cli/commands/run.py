@@ -454,6 +454,11 @@ class AuditLogsCommand(Command):
             help="Filter by HTTP method",
         )
         parser.add_argument("--status-code", type=int, help="Filter by status code")
+        parser.add_argument(
+            "--auth",
+            choices=["all", "api_key", "dashboard"],
+            help="Filter by how the request was authenticated (default: all)",
+        )
 
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
         if not client:
@@ -467,6 +472,7 @@ class AuditLogsCommand(Command):
                     resource_type=getattr(args, "resource_type", None),
                     method=getattr(args, "method", None),
                     status_code=getattr(args, "status_code", None),
+                    auth=getattr(args, "auth", None),
                     limit=getattr(args, "limit", 20),
                 )
 

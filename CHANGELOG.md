@@ -2,6 +2,13 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [2.10.0] - 2026-07-31
+
+### Added
+- `auth=` on `audit_logs.list()` and `--auth` on `m8tes run audit-logs`. Filters the trail by how each request was authenticated: `api_key` for calls made with an `m8_` key (your SDK and CLI traffic), `dashboard` for web-app sessions and auth events, `all` for everything.
+
+  Useful because `audit_logs` is a shared table: the backend records every `/api/v2` request regardless of auth method, so an unfiltered list mixes your integration's calls with whatever the m8tes web app did while you were logged in. `auth="api_key"` is the view you want when answering "what did MY code do". The server default stays `all`, so existing calls are unchanged.
+
 ## [2.9.0] - 2026-07-27
 
 ### Added
