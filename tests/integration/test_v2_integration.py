@@ -17,6 +17,7 @@ Run: pytest tests/integration/test_v2_integration.py -v -m integration
 
 import contextlib
 import os
+import re
 import uuid
 
 import pytest
@@ -5026,11 +5027,33 @@ class TestSlackInboundAndLessons:
         finally:
             v2_client.teammates.delete(t.id)
 
-    def test_enable_slack_without_handle_rejected(self, v2_client):
-        from m8tes._exceptions import ValidationError
+    def test_enable_slack_without_handle_derives_one(self, v2_client):
+        """Was a 422. Slack was the only channel that rejected enable-without-a-slug while
+        email auto-generated one, which made the UI toggle un-enablable in one pass.
 
-        with pytest.raises(ValidationError):
-            v2_client.teammates.create(name="NoHandle", inbound_slack_enabled=True)
+        `name` is deliberately OMITTED. Passing one makes `body.name` and the resolved name
+        the same value, so the assertion could not tell "derives from the resolved name"
+        from "derives from body.name" — the exact wrong-field bug this pins. With no name,
+        the server falls back to generate_teammate_name() and only the resolved name works.
+        """
+        t = v2_client.teammates.create(inbound_slack_enabled=True)
+        try:
+            assert t.inbound_slack_enabled is True
+            expected = re.sub(r"[^a-z0-9]+", "-", t.name.lower()).strip("-") or "mate"
+            assert t.slack_slug == expected[:58].rstrip("-")
+        finally:
+            v2_client.teammates.delete(t.id)
+
+    def test_update_enable_slack_without_handle_derives_one(self, v2_client):
+        # uuid-suffixed like the sibling above: delete only marks the agent archived, and
+        # the taken-slug set does not filter on status, so a fixed base burns a slug per run.
+        name = f"Sentry Triage {uuid.uuid4().hex[:6]}"
+        t = v2_client.teammates.create(name=name)
+        try:
+            updated = v2_client.teammates.update(t.id, inbound_slack_enabled=True)
+            assert updated.slack_slug == re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+        finally:
+            v2_client.teammates.delete(t.id)
 
     def test_task_enable_lessons_round_trips(self, v2_client):
         t = v2_client.teammates.create(name="LessonBot")
