@@ -87,6 +87,36 @@ def test_cli_help_copy_says_agents_not_teammates():
     )
 
 
+# Everything under sdk/py that a developer reads: the whole published package (docstrings
+# and comments, not just CLI display literals), the README that renders on PyPI, and the
+# examples. Excludes tests — this file has to contain "a agent" to test for it.
+_PROSE_GLOBS = (("m8tes", "*.py"), ("examples", "*.py"), ("examples", "*.md"))
+
+
+def _published_prose_files():
+    yield SDK_ROOT / "README.md"
+    for subdir, pattern in _PROSE_GLOBS:
+        yield from (SDK_ROOT / subdir).rglob(pattern)
+
+
+def test_published_prose_says_an_agent_not_a_agent():
+    """No "a agent" anywhere a developer reads — docstrings, comments, README, examples.
+
+    The narrow CLI guard above was green while 19 instances of this exact error sat in
+    README.md, examples/, _types.py and _resources/ and shipped to PyPI (found by the
+    2026-08-01 live DX audit). It walks only `m8tes/cli` and inspects only AST display
+    literals, so it could not see a docstring or a markdown table — it was pointed at the
+    one directory where the error had not occurred. This guard reads raw file text across
+    the whole published tree, which is where the prose actually lives.
+    """
+    offenders = []
+    for path in _published_prose_files():
+        for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if re.search(r"\ba agent\b", line, re.IGNORECASE):
+                offenders.append(f"{path.relative_to(SDK_ROOT)}:{lineno}: {line.strip()[:80]}")
+    assert not offenders, "Write 'an agent', not 'a agent':\n" + "\n".join(offenders)
+
+
 # Identifiers that must never appear anywhere in this tree: four real ad-account
 # customer IDs that shipped in test fixtures until 2026-07-27 (found in a
 # pre-publication sweep; sync-sdk.yml scrubs them from the public repo's history —

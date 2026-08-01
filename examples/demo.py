@@ -1,5 +1,5 @@
 """
-m8tes demo: create a agent, schedule it, give it an email inbox, run it live.
+m8tes demo: create an agent, schedule it, give it an email inbox, run it live.
 
 Shows the full setup in one script: agent creation, scheduling, email trigger,
 and a live streaming run. Run this once and the agent is deployed.
@@ -13,7 +13,7 @@ from m8tes import M8tes, PermissionMode
 
 client = M8tes()
 
-# 1. create a agent with an email inbox
+# 1. create an agent with an email inbox
 agent = client.agents.create(
     name="ops assistant",
     tools=["stripe", "linear", "slack"],

@@ -14,7 +14,7 @@ from m8tes import M8tes
 
 client = M8tes()
 
-# ── Create a agent that generates reports ───────────────────────────────────
+# ── Create an agent that generates reports ───────────────────────────────────
 
 reporter = client.agents.create(
     name="weekly reporter",

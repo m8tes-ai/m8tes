@@ -2,7 +2,7 @@
 
 Each server exposes one or more typed REST endpoints (``tool_defs``) that the agent calls
 by name. Egress happens server-side, IP-pinned, with your secret injected and never shown
-to the agent. Attach a server to a agent by passing its ``slug`` in ``tools=[...]``:
+to the agent. Attach a server to an agent by passing its ``slug`` in ``tools=[...]``:
 
     srv = client.mcp_servers.create(
         name="acme billing", url="https://api.acme.com/v1",

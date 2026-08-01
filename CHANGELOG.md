@@ -2,6 +2,13 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [2.10.1] - 2026-08-01
+
+### Fixed
+- "a agent" → "an agent" in 20 developer-facing places: `README.md` (which renders on PyPI), `examples/` (9, including `examples/README.md` and `demo.py`), `_types.py` (6), and `_resources/` (`models.py`, `mcp_servers.py`, `bridges.py`). Left over from the 2.7.1 teammate→agent sweep and published since.
+
+  A guard for this exact string already existed and was green: `test_release_hygiene.py`'s CLI check greps display literals for `\ba agent\b`, but it walks only `m8tes/cli` and inspects only `ast` display-string nodes — so it could not see a docstring, a comment, or a markdown table, and it was pointed at the one directory where the error had not occurred. A second guard now reads raw file text across the whole published tree (`m8tes/**/*.py`, `README.md`, `examples/**`). Verified by reintroducing the error in `examples/demo.py`: the new guard fails, the old one still passes.
+
 ## [2.10.0] - 2026-07-31
 
 ### Added

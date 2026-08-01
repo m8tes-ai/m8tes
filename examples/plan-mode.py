@@ -14,7 +14,7 @@ from m8tes import M8tes, PermissionMode, PermissionRequest
 
 client = M8tes()
 
-# ── Create a agent with write-access tools ──────────────────────────────────
+# ── Create an agent with write-access tools ──────────────────────────────────
 
 agent = client.agents.create(
     name="ops agent",

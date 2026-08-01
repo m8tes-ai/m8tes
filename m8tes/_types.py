@@ -74,7 +74,7 @@ class ModelPricing:
 
 @dataclass
 class Model:
-    """A selectable model. Pass ``id`` as ``model`` on a agent or a run."""
+    """A selectable model. Pass ``id`` as ``model`` on an agent or a run."""
 
     id: str
     name: str
@@ -283,7 +283,7 @@ class RunUsage:
 
 @dataclass
 class Run:
-    """A run (execution) of a agent."""
+    """A run (execution) of an agent."""
 
     id: int
     teammate_id: int | None
@@ -351,7 +351,7 @@ class Run:
 
 @dataclass
 class Task:
-    """A reusable task definition attached to a agent."""
+    """A reusable task definition attached to an agent."""
 
     id: int
     teammate_id: int
@@ -369,7 +369,7 @@ class Task:
     webhook_url: str | None = None
     webhook_enabled: bool = False
     # Template propagation metadata (null on custom tasks). Set when a task
-    # was seeded from a agent template — see /api/v2/teammate-templates
+    # was seeded from an agent template — see /api/v2/teammate-templates
     # and Teammates.create(from_template=...).
     source_template_task_slug: str | None = None
     is_modified: bool = False
@@ -475,7 +475,7 @@ class AppTriggerType:
 
 @dataclass
 class TeammateDocument:
-    """A agent's persistent document (e.g. latest-report).
+    """An agent's persistent document (e.g. latest-report).
 
     `content` is None on list responses — fetch one document to get its text.
     """
@@ -1457,7 +1457,7 @@ class McpServer:
     """A user-defined custom tool server (BYO REST endpoints exposed as agent tools).
 
     The auth secret is write-only (set on create/update, never returned) — ``has_secret``
-    reports whether one is stored. Attach to a agent by passing ``slug`` in the
+    reports whether one is stored. Attach to an agent by passing ``slug`` in the
     agent's ``tools=[...]`` list.
     """
 

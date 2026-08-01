@@ -1,7 +1,7 @@
 """Bridges resource — per-account BlueBubbles (Apple Messages) server connections.
 
 A bridge holds a customer's BlueBubbles server URL + password + webhook secret.
-Bind a agent to a bridge via ``agents.create/update(bridge_id=...)``. The
+Bind an agent to a bridge via ``agents.create/update(bridge_id=...)``. The
 webhook secret is generated server-side and returned ONCE (on create / rotate_secret);
 the password is write-only and never returned.
 """

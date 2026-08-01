@@ -339,7 +339,7 @@ print(task.webhook_url)  # POST here to trigger (shown once)
 mate = client.agents.create(name="inbox bot", email_inbox=True)
 print(mate.email_address)  # forward emails here
 
-# iMessage — route one BlueBubbles chat to a agent
+# iMessage — route one BlueBubbles chat to an agent
 messages_bot = client.agents.create(
     name="messages bot",
     inbound_imessage_enabled=True,
