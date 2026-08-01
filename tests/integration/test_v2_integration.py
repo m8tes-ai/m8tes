@@ -4338,7 +4338,13 @@ class TestAuthEndpoints:
         # New signups default to the time-boxed trial plan (free was removed).
         assert data["plan"] == "trial"
         assert isinstance(data["runs_used"], int)
-        assert data["runs_limit"] == 5
+        # KEEP IN SYNC with fastapi/app/services/billing/plan_catalog.py (`trial`
+        # included_runs). #923 raised it 5 -> 50 and left this at 5, so `main` shipped red
+        # here. It cannot be derived over HTTP the way a paid plan can: GET
+        # /api/v2/billing/plans deliberately serves PAID plans only, so the trial number
+        # has no public endpoint to read. Filed in TODOS.md — exposing it (or asserting via
+        # a fixture that reads the catalog) is the real fix.
+        assert data["runs_limit"] == 50
         assert "cost_used" in data
         assert "cost_limit" in data
         assert "period_end" in data
