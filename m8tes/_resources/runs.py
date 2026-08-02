@@ -6,7 +6,9 @@ from collections.abc import Callable, Generator
 import json
 import logging
 from typing import TYPE_CHECKING, Any, cast
+import uuid
 
+from .._http import IDEMPOTENCY_HEADER, REPLAY_HEADER
 from .._streaming import RunStream
 from .._types import (
     PermissionMode,
@@ -50,6 +52,21 @@ _BENIGN_GATE_REFUSALS = frozenset({"gate_cancelled", "run_not_active"})
 # what test_v2_poll.py::TestTerminalStatuses::test_matches_the_server_exactly now
 # does on every run. One constant, so the two helpers cannot drift apart again.
 TERMINAL_STATUSES = frozenset({"completed", "failed", "cancelled", "closed"})
+
+
+def idempotency_headers(key: str | None) -> dict[str, str]:
+    """Headers for a run-creating POST — minting a key when the caller gave none.
+
+    A key is ALWAYS sent. Runs are billable, so a POST that times out is otherwise
+    unanswerable: retry and you may pay twice, don't and you may drop the request.
+    With a key the server binds it to the run it created and replays that same run
+    for every repeat, which is what lets `_http` retry these POSTs at all.
+
+    Auto-minting costs the caller nothing: two deliberate identical runs are two
+    calls, and each mints its own key. Pass `idempotency_key=` to reuse one across
+    process restarts (a job runner re-driving the same unit of work).
+    """
+    return {IDEMPOTENCY_HEADER: key or str(uuid.uuid4())}
 
 
 def _raise_if_failed(run: Run) -> None:
@@ -124,6 +141,7 @@ class Runs:
         output_schema: dict | None = None,
         files: _list | None = None,
         raise_on_error: bool = False,
+        idempotency_key: str | None = None,
     ) -> RunStream | Run:
         """Create and execute a run.
 
@@ -151,6 +169,13 @@ class Runs:
         run.output_data instead of parsing prose. Inline your definitions — $ref/$defs are not
         supported. output_data is None when the model produced no structured result, so always
         None-check it. The schema sticks to the run: replies and retries stay structured.
+
+        Every call sends an ``Idempotency-Key``, minted per call unless you pass
+        ``idempotency_key=``. That is what makes this POST safe to retry: a request
+        that times out may already have started a billable run, and re-sending the
+        same key returns THAT run instead of starting (and charging for) a second.
+        Supply your own key to make a retry safe across process restarts — a job
+        runner re-driving the same unit of work should pass its job id.
         """
         teammate_id = _resolve_agent_id(teammate_id, agent_id)
         body: dict = {"message": message, "stream": stream}
@@ -187,21 +212,62 @@ class Runs:
         if output_schema is not None:
             body["output_schema"] = output_schema
 
+        headers = idempotency_headers(idempotency_key)
+
         if files:
             file_parts = [("files", _to_file_part(f)) for f in files]
             form = {"payload": json.dumps(body)}
             if stream:
-                resp = self._http.stream("POST", "/runs/with-files", data=form, files=file_parts)
-                return RunStream(resp, raise_on_error=raise_on_error)
-            resp = self._http.request("POST", "/runs/with-files", data=form, files=file_parts)
+                resp = self._http.stream(
+                    "POST", "/runs/with-files", data=form, files=file_parts, headers=headers
+                )
+                return self._stream_or_replay(resp, raise_on_error=raise_on_error)
+            resp = self._http.request(
+                "POST", "/runs/with-files", data=form, files=file_parts, headers=headers
+            )
             return Run.from_dict(resp.json())
 
         if stream:
-            resp = self._http.stream("POST", "/runs/", json=body)
-            return RunStream(resp, raise_on_error=raise_on_error)
+            resp = self._http.stream("POST", "/runs/", json=body, headers=headers)
+            return self._stream_or_replay(resp, raise_on_error=raise_on_error)
 
-        resp = self._http.request("POST", "/runs/", json=body)
+        resp = self._http.request("POST", "/runs/", json=body, headers=headers)
         return Run.from_dict(resp.json())
+
+    def _stream_or_replay(self, resp: Any, *, raise_on_error: bool) -> RunStream:
+        """Turn a streaming POST's response into a stream, following a replay.
+
+        A replayed create/reply answers with JSON (the run), not SSE — a run that
+        already finished has no live stream to hand back, and the server will not
+        pretend otherwise. So when the retry was answered from an existing run, join
+        that run's stream instead, which is the same reconnect path ``stream()``
+        uses. The caller sees an ordinary RunStream and never learns a retry happened.
+
+        A run that has ALREADY finished by the time the retry lands has nothing to
+        join, so this raises rather than yielding an empty stream that would read as
+        "the agent said nothing". The window is the retry backoff (sub-second), and
+        the error names the run so the caller can fetch its result — which is still
+        strictly better than the pre-idempotency outcome, where a timed-out create
+        left them unable to learn the run existed at all.
+        """
+        if not resp.headers.get(REPLAY_HEADER):
+            return RunStream(resp, raise_on_error=raise_on_error)
+        run = Run.from_dict(resp.json())
+        resp.close()
+        logger.debug("Idempotent replay of run %s; joining its stream", run.id)
+        if run.status in TERMINAL_STATUSES:
+            from .._exceptions import ConflictError
+
+            raise ConflictError(
+                f"Run {run.id} was already created by an earlier attempt with this "
+                f"idempotency key and has finished (status={run.status}), so there is "
+                f"no stream to join. You were charged once. Fetch the result with "
+                f"client.runs.get({run.id}).",
+                status_code=409,
+                code="idempotent_replay_terminal",
+                details={"run_id": run.id, "status": run.status},
+            )
+        return self.stream(run.id, raise_on_error=raise_on_error)
 
     def stream(self, run_id: int, *, raise_on_error: bool = False) -> RunStream:
         """Join an in-progress run's live SSE stream (reconnect / resume).
@@ -605,6 +671,7 @@ class Runs:
         task_setup_tools: bool | None = None,
         feedback: bool | None = None,
         human_in_the_loop: bool | None = None,
+        idempotency_key: str | None = None,
     ) -> RunStream | Run:
         """Follow-up message on an existing run.
 
@@ -630,6 +697,10 @@ class Runs:
         With stream=True (default): returns iterable RunStream of events.
         With stream=False: returns Run immediately (status="running").
             Poll GET /runs/{id} until status is terminal to get output.
+
+        Like ``create``, every call sends an ``Idempotency-Key`` (minted per call
+        unless you pass ``idempotency_key=``), so a reply that times out can be
+        re-sent without appending the follow-up — or billing its tokens — twice.
         """
         body: dict = {"message": message, "stream": stream}
         if tools is not None:
@@ -642,22 +713,31 @@ class Runs:
             body["feedback"] = feedback
         if human_in_the_loop is not None:
             body["human_in_the_loop"] = human_in_the_loop
+        headers = idempotency_headers(idempotency_key)
         if files:
             file_parts = [("files", _to_file_part(f)) for f in files]
             form = {"payload": json.dumps(body)}
             if stream:
                 resp = self._http.stream(
-                    "POST", f"/runs/{run_id}/reply/with-files", data=form, files=file_parts
+                    "POST",
+                    f"/runs/{run_id}/reply/with-files",
+                    data=form,
+                    files=file_parts,
+                    headers=headers,
                 )
-                return RunStream(resp)
+                return self._stream_or_replay(resp, raise_on_error=False)
             resp = self._http.request(
-                "POST", f"/runs/{run_id}/reply/with-files", data=form, files=file_parts
+                "POST",
+                f"/runs/{run_id}/reply/with-files",
+                data=form,
+                files=file_parts,
+                headers=headers,
             )
             return Run.from_dict(resp.json())
         if stream:
-            resp = self._http.stream("POST", f"/runs/{run_id}/reply", json=body)
-            return RunStream(resp)
-        resp = self._http.request("POST", f"/runs/{run_id}/reply", json=body)
+            resp = self._http.stream("POST", f"/runs/{run_id}/reply", json=body, headers=headers)
+            return self._stream_or_replay(resp, raise_on_error=False)
+        resp = self._http.request("POST", f"/runs/{run_id}/reply", json=body, headers=headers)
         return Run.from_dict(resp.json())
 
     def cancel(self, run_id: int) -> Run:

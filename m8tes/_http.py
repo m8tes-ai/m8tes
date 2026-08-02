@@ -1,6 +1,7 @@
 """Thin HTTP client wrapping requests.Session with auth, error mapping, and retry."""
 
 import logging
+import re
 import time
 from typing import Any
 
@@ -15,6 +16,62 @@ _MAX_RETRIES = 3
 _INITIAL_BACKOFF = 0.5  # seconds
 _RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 _SAFE_RETRY_METHODS = {"GET", "HEAD", "PUT", "DELETE", "OPTIONS"}
+
+# Header that makes a POST safe to repeat. The server binds the key to the run the
+# first request produced and replays that run for every repeat, so re-sending
+# cannot start (or bill) a second one.
+IDEMPOTENCY_HEADER = "Idempotency-Key"
+# Set by the API when the response is a replay rather than a fresh result.
+REPLAY_HEADER = "Idempotent-Replay"
+
+
+# The ONLY routes whose POST the server makes idempotent. Retry eligibility is
+# checked against this list as well as the header, because the header alone is not
+# evidence the server will honour it: a caller who sets `Idempotency-Key` at client
+# level (or passes it to an unrelated POST) would otherwise make EVERY POST
+# retryable — including `tasks.create`, which has no server-side idempotency, so a
+# timed-out create would be re-sent and duplicate the task. Found in review.
+#
+# Matched against the path RELATIVE to base_url, and fully anchored. An earlier
+# version matched suffixes, which also accepted `/foo/reply` and `/foo/runs` — the
+# low-level transport is public (`client.request(...)`), so an unsupported path
+# could have been retried on a route that ignores the key. Anchoring is the whole
+# point of the check, so it must not be approximate.
+_IDEMPOTENT_POST_PATHS = (
+    re.compile(r"^/runs/?$"),
+    re.compile(r"^/runs/with-files/?$"),
+    re.compile(r"^/runs/\d+/reply/?$"),
+    re.compile(r"^/runs/\d+/reply/with-files/?$"),
+    re.compile(r"^/tasks/\d+/runs/?$"),
+)
+
+
+def _is_idempotent_route(path: str) -> bool:
+    """True when the server implements Idempotency-Key for this POST path.
+
+    `path` is relative to base_url (what the resource methods pass), never the full
+    URL — matching a full URL cannot be anchored, which is how the suffix version
+    let `/foo/reply` through.
+    """
+    clean = path.split("?", 1)[0]
+    return any(p.match(clean) for p in _IDEMPOTENT_POST_PATHS)
+
+
+def _is_retryable(method: str, path: str, kwargs: dict) -> bool:
+    """Whether this request may be re-sent after a timeout or 5xx.
+
+    GET/HEAD/PUT/DELETE/OPTIONS always are. A POST is retryable ONLY when it both
+    carries an `Idempotency-Key` AND targets a route the server makes idempotent.
+    Without a key, a POST that timed out may already have started a billable run and
+    re-sending it would charge twice; with a key on a route that ignores it, the
+    retry is just a duplicate side effect wearing a safety label.
+    """
+    if method.upper() in _SAFE_RETRY_METHODS:
+        return True
+    headers = kwargs.get("headers") or {}
+    has_key = any(k.lower() == IDEMPOTENCY_HEADER.lower() for k in headers)
+    return has_key and _is_idempotent_route(path)
+
 
 # Canonical hosted API. Shared by the v2 client, the module-level auth helpers,
 # and error hints so a host change is a one-line edit.
@@ -124,7 +181,7 @@ class HTTPClient:
         self._timeout = timeout
 
     def _request_with_retry(
-        self, method: str, url: str, *, is_stream: bool = False, **kwargs: Any
+        self, method: str, url: str, *, path: str = "", is_stream: bool = False, **kwargs: Any
     ) -> requests.Response:
         """Send request with retry on 429/5xx. Respects Retry-After header."""
         if "files" in kwargs:
@@ -133,6 +190,7 @@ class HTTPClient:
             headers = dict(kwargs.get("headers") or {})
             headers.setdefault("Content-Type", None)
             kwargs["headers"] = headers
+        retryable = _is_retryable(method, path, kwargs)
         last_exc: Exception | None = None
         for attempt in range(_MAX_RETRIES):
             try:
@@ -142,11 +200,11 @@ class HTTPClient:
             except (requests.Timeout, requests.ConnectionError) as e:
                 last_exc = e
                 logger.warning("Request failed (attempt %d/%d): %s", attempt + 1, _MAX_RETRIES, e)
-                # Only retry idempotent methods. A POST/PATCH that timed out may have already
-                # reached the server (e.g. started a billable run), so re-sending it risks
-                # duplicate runs / charges / side effects — fail immediately and let the caller
-                # decide. Mirrors the status-code retry guard below.
-                if method.upper() not in _SAFE_RETRY_METHODS or attempt >= _MAX_RETRIES - 1:
+                # This is the case idempotency keys exist for: the request may have
+                # reached the server and started a billable run, and we cannot tell.
+                # With a key, re-sending returns that same run; without one, fail
+                # immediately and let the caller decide. Mirrors the status guard below.
+                if not retryable or attempt >= _MAX_RETRIES - 1:
                     raise APIError(str(e), status_code=None) from e
                 time.sleep(_INITIAL_BACKOFF * (2**attempt))
                 continue
@@ -156,7 +214,7 @@ class HTTPClient:
 
             if (
                 resp.status_code not in _RETRYABLE_STATUS
-                or method.upper() not in _SAFE_RETRY_METHODS
+                or not retryable
                 or attempt == _MAX_RETRIES - 1
             ):
                 _raise_for_status(resp, method=method, path=url)
@@ -183,8 +241,10 @@ class HTTPClient:
 
     def request(self, method: str, path: str, **kwargs: Any) -> requests.Response:
         """Send request and raise typed exception on error."""
-        return self._request_with_retry(method, f"{self._base_url}{path}", **kwargs)
+        return self._request_with_retry(method, f"{self._base_url}{path}", path=path, **kwargs)
 
     def stream(self, method: str, path: str, **kwargs: Any) -> requests.Response:
         """Send request with stream=True for SSE parsing."""
-        return self._request_with_retry(method, f"{self._base_url}{path}", is_stream=True, **kwargs)
+        return self._request_with_retry(
+            method, f"{self._base_url}{path}", path=path, is_stream=True, **kwargs
+        )

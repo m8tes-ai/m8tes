@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, cast
 from .._streaming import RunStream
 from .._types import LessonList, PermissionRequest, Run, SyncPage, Task, TeammateWebhook, Trigger
 from ._utils import _build_params, _resolve_agent_id
+from .runs import Runs, idempotency_headers
 
 _list = list  # preserve builtin; shadowed by .list() method
 
@@ -259,6 +260,7 @@ class Tasks:
         permission_mode: str | None = None,
         model: str | None = None,
         effort: str | None = None,
+        idempotency_key: str | None = None,
     ) -> RunStream | Run:
         """Execute a saved task, creating a new run.
 
@@ -275,6 +277,11 @@ class Tasks:
 
         If the saved task is already scoped to an end user, omitting user_id
         inherits that scope. Passing a different user_id is rejected.
+
+        Every call sends an ``Idempotency-Key`` (minted per call unless you pass
+        ``idempotency_key=``), so a request that times out can be re-sent without
+        starting — or billing — a second run. Pass your own key to keep a retry
+        safe across process restarts, e.g. a scheduler's job id.
         """
         body: dict = {"stream": stream}
         if memory is not None:
@@ -298,11 +305,14 @@ class Tasks:
         if effort is not None:
             body["effort"] = effort
 
+        headers = idempotency_headers(idempotency_key)
         if stream:
-            resp = self._http.stream("POST", f"/tasks/{task_id}/runs", json=body)
-            return RunStream(resp)
+            resp = self._http.stream("POST", f"/tasks/{task_id}/runs", json=body, headers=headers)
+            # Shares the create path's replay handling: a replayed streaming call
+            # answers with JSON, so join the existing run's stream instead.
+            return Runs(self._http)._stream_or_replay(resp, raise_on_error=False)
 
-        resp = self._http.request("POST", f"/tasks/{task_id}/runs", json=body)
+        resp = self._http.request("POST", f"/tasks/{task_id}/runs", json=body, headers=headers)
         return Run.from_dict(resp.json())
 
     def run_and_wait(
@@ -342,8 +352,6 @@ class Tasks:
             model=model,
             effort=effort,
         )
-        from .runs import Runs
-
         return Runs(self._http).wait(
             cast(Run, run).id,
             on_approval=on_approval,

@@ -2,6 +2,17 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [2.11.0] - 2026-08-01
+
+### Added
+- `runs.create()`, `runs.reply()`, and `tasks.run()` now send an `Idempotency-Key` on every call, so those POSTs are safe to retry. Previously they were not retried at all: a request that timed out might already have started a billable run, so re-sending risked charging twice — the SDK chose the opposite failure (a dropped request) on your behalf. With a key the server replays the run the first attempt created, so neither failure applies.
+
+  A key is generated per call. Pass `idempotency_key=` to supply your own when a retry must survive a process restart — a job runner re-driving the same unit of work should pass its job id. Reusing a key with a *different* request is a `409` (`exc.code == "idempotency_key_reuse"`), never a silent replay of a call you did not make.
+
+### Changed
+- POSTs carrying an `Idempotency-Key` are now retried on network errors and `429`/`5xx`, with the same backoff as `GET`. Any POST without one still fails immediately, unchanged.
+- A replayed streaming `create`/`reply`/`tasks.run` is answered as JSON rather than SSE (a run that already exists has no fresh stream), and the SDK transparently joins that run's stream instead — you still get a `RunStream`. If the run has already finished there is nothing to join, so it raises `ConflictError` with `code="idempotent_replay_terminal"` and the run id in `.details`; fetch the result with `runs.get(id)`. You are charged once either way.
+
 ## [2.10.1] - 2026-08-01
 
 ### Fixed
