@@ -36,6 +36,7 @@ class Billing:
         user_id: str | None = None,
         teammate_id: int | None = None,
         agent_id: int | None = None,
+        surface: str | None = None,
         group_by: str | None = None,
     ) -> UsageTimeseries:
         """Daily token + USD usage buckets, zero-filled over the window (UTC days).
@@ -46,12 +47,18 @@ class Billing:
         per-model slices in `.models` (history predating model attribution folds
         into "unknown"). Cost mirrors `usage().cost_used` semantics, so the
         series always reconciles with period totals and prepaid debits.
+
+        Pass `surface="api"` for end-user-scoped (embedding) work only, or
+        `surface="platform"` for first-party work. This filters on the surface a
+        run was CREATED on, not the meter it settled on. Omit for every surface,
+        which is the default and the historical behaviour.
         """
         params = _build_params(
             start_date=start_date,
             end_date=end_date,
             user_id=user_id,
             teammate_id=_resolve_agent_id(teammate_id, agent_id),
+            surface=surface,
             group_by=group_by,
         )
         resp = self._http.request("GET", "/usage/timeseries", params=params)

@@ -2,6 +2,17 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [2.12.0] - 2026-08-02
+
+### Added
+- `billing.usage_timeseries(surface=...)` scopes the series to one billing surface: `"api"` for end-user-scoped (embedding) work, `"platform"` for first-party work. Omitting it returns every surface, which is the existing behaviour and still the default.
+
+  This filters the surface a run was **created** on (`Run.billing_surface`), not the meter it finally settled on — settlement can differ for own-subscription turns and plan finalisation. Cost in this series is also the same estimate `usage().cost_used` uses, not reconciled ledger debits, so read it as usage rather than as a wallet statement.
+
+- `Run.billing_surface` and `Run.channel`. These answer different questions and you usually want both: a first-party API-key call is `channel="api"` but `billing_surface="platform"`, because the surface keys off embedding while the channel records transport. Filtering a "show me my API traffic" view on `billing_surface` alone silently hides your own calls.
+
+- `Balance.starter_credit_cents` and `Balance.has_paid_topup`, so a client can tell a new account its starter grant is free and stop saying so once real money has been added, without hardcoding the amount. `TokenTransaction` gained `id` and `receipt_url` — the Stripe receipt now rides on the ledger row it belongs to, so one table can show both (`billing.receipts()` is unchanged and still available).
+
 ## [2.11.0] - 2026-08-01
 
 ### Added

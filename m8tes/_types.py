@@ -321,6 +321,15 @@ class Run:
     output_data: dict | None = None
     # Token counts + USD cost for this run; None until metrics arrive.
     usage: RunUsage | None = None
+    # Which meter the run settles on: "api" (prepaid balance — end-user-scoped /
+    # embedding work) or "platform" (subscription plan — first-party work, INCLUDING
+    # the account's own API-key calls). Stamped at creation.
+    billing_surface: str = "platform"
+    # Where the run came in: "api", "app", "cli", "email", "slack", "imessage",
+    # "webhook". Attribution only, never billing — a first-party API-key call is
+    # channel "api" but billing_surface "platform", so the two answer different
+    # questions and filtering a developer view on surface alone hides your own traffic.
+    channel: str | None = None
 
     @property
     def agent_id(self) -> int | None:
@@ -1226,6 +1235,11 @@ class TokenTransaction:
     run_id: int | None
     description: str | None
     created_at: str
+    # Stable row id, and the Stripe-hosted receipt for rows that were actually paid
+    # for. `receipt_url` is None on debits and on grants/adjustments, which have no
+    # payment behind them. Same value `billing.receipts()` serves.
+    id: int | None = None
+    receipt_url: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> TokenTransaction:
@@ -1236,6 +1250,8 @@ class TokenTransaction:
             run_id=data.get("run_id"),
             description=data.get("description"),
             created_at=data["created_at"],
+            id=data.get("id"),
+            receipt_url=data.get("receipt_url"),
         )
 
 
@@ -1259,6 +1275,12 @@ class Balance:
     auto_reload_enabled: bool = False
     auto_reload_threshold_cents: int | None = None
     auto_reload_amount_cents: int | None = None
+    # The one-time welcome grant every signup receives, in cents, and whether this
+    # account has ever paid for a top-up. Together they let a client say "your first
+    # $X is on us" and stop saying it once real money has been added — without
+    # hardcoding the amount or string-matching the grant's description.
+    starter_credit_cents: int = 0
+    has_paid_topup: bool = False
 
     @classmethod
     def from_dict(cls, data: dict) -> Balance:
@@ -1272,6 +1294,8 @@ class Balance:
             auto_reload_enabled=data.get("auto_reload_enabled", False),
             auto_reload_threshold_cents=data.get("auto_reload_threshold_cents"),
             auto_reload_amount_cents=data.get("auto_reload_amount_cents"),
+            starter_credit_cents=data.get("starter_credit_cents", 0),
+            has_paid_topup=data.get("has_paid_topup", False),
         )
 
 
