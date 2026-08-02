@@ -304,6 +304,10 @@ class Run:
     # accepted; `error_code` is the machine-readable failure class when known.
     error_code: str | None = None
     retryable: bool = False
+    # Which credential paid for the run: "oauth_subscription" = the account's own
+    # Claude Pro/Max subscription (prepaid balance untouched); "gateway_virtual_key"
+    # / "api_key" = billed to the prepaid balance or plan. None until routed.
+    auth_method: str | None = None
     retry_of_run_id: int | None = None
     retry_count: int = 0
     # Scheduled-run auto-retry: how many automatic retries this lineage has used,
@@ -339,6 +343,7 @@ class Run:
             email_address=data.get("email_address"),
             task_id=data.get("task_id"),
             error_code=data.get("error_code"),
+            auth_method=data.get("auth_method"),
             retryable=data.get("retryable", False),
             retry_of_run_id=data.get("retry_of_run_id"),
             retry_count=data.get("retry_count", 0),
