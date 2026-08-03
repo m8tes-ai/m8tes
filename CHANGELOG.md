@@ -2,6 +2,15 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [2.12.1] - 2026-08-03
+
+### Fixed
+- A stream frame whose `type` is not a string (a list or dict) raised `TypeError` out of the enum lookup — `except ValueError` never caught it, and `parse_sse_line` catches only `JSONDecodeError`, so one malformed frame ended the caller's entire stream iteration. It now degrades to `unknown` like any other unrecognized frame, keyed on the type NAME rather than a `repr()` of the payload. Pre-existing; found reviewing the warning below.
+
+- An unrecognized stream event type is now logged once (`WARNING`, logger `m8tes.streaming`) instead of being collapsed into `type="unknown"` in silence. A live run streams frames this SDK has no enum member for; callers `match` on `event.type`, so an unnamed frame was indistinguishable from a bug, and nothing recorded which type it had been. The frame still degrades to `unknown` and the full payload is still on `event.raw` — only the silence changed. Warned once per distinct type, since one run emits hundreds of frames.
+
+- `keywords` in `pyproject.toml` said `ai-teammates`, which PyPI renders on the project page and indexes for search. "AI teammate" is banned product voice (the entity is an agent, or a Mate); it had shipped on every release through 2.12.0. Two guards already scanned for voice errors — one reads CLI display literals, the other README/examples prose — and neither opens `pyproject.toml`, so the packaging metadata was the one published surface nothing checked. `test_pypi_metadata_uses_product_voice` now reads it.
+
 ## [2.12.0] - 2026-08-02
 
 ### Added

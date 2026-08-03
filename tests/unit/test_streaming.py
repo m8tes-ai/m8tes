@@ -4,6 +4,8 @@ Unit tests for AI SDK streaming protocol parser.
 
 import json
 
+import pytest
+
 from m8tes.streaming import (
     AISDKStreamParser,
     DoneEvent,
@@ -740,3 +742,115 @@ class TestFullStreamParsing:
         assert len(events) == 2
         assert isinstance(events[0], MessageStartEvent)
         assert isinstance(events[1], DoneEvent)
+
+
+class TestUnknownEventObservability:
+    """An event type the SDK does not know must not vanish silently.
+
+    Live prod streams carry frames this parser has no enum member for; they were
+    collapsed to ``unknown`` with no log, so a developer matching on ``event.type``
+    saw a flood of ``unknown`` with no way to tell a new feature from a bug, and
+    nothing anywhere recorded which type it was.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _isolate_warned_types(self):
+        """Structural isolation, not remembered-per-test.
+
+        `_warned_unknown_types` is process-wide class state and the suite runs
+        under pytest-randomly, so a test that forgets to reset it silently
+        becomes order-dependent — and its failure mode is passing while proving
+        nothing (an earlier test already emitted the warning).
+        """
+        saved = set(StreamEvent._warned_unknown_types)
+        StreamEvent._warned_unknown_types.clear()
+        yield
+        StreamEvent._warned_unknown_types.clear()
+        StreamEvent._warned_unknown_types.update(saved)
+
+    @staticmethod
+    def _warnings(caplog):
+        """Only OUR logger's warnings — caplog's handler sits on the root."""
+        import logging
+
+        return [
+            r
+            for r in caplog.records
+            if r.levelno == logging.WARNING and r.name == "m8tes.streaming"
+        ]
+
+    def test_unrecognized_type_warns_with_the_raw_type(self, caplog):
+        import logging
+
+        with caplog.at_level(logging.WARNING, logger="m8tes.streaming"):
+            events = StreamEvent.from_dict({"type": "brand-new-frame", "foo": 1})
+
+        assert events[0].type == StreamEventType.UNKNOWN
+        # the raw payload stays reachable so the developer can inspect it
+        assert events[0].raw == {"type": "brand-new-frame", "foo": 1}
+        assert "brand-new-frame" in caplog.text
+
+    def test_warns_once_per_type_not_once_per_event(self, caplog):
+        import logging
+
+        with caplog.at_level(logging.WARNING, logger="m8tes.streaming"):
+            for _ in range(5):
+                StreamEvent.from_dict({"type": "noisy-frame"})
+            StreamEvent.from_dict({"type": "other-frame"})
+
+        warnings = self._warnings(caplog)
+        assert len(warnings) == 2, f"expected one warning per distinct type, got {len(warnings)}"
+
+    def test_known_types_never_warn(self, caplog):
+        import logging
+
+        with caplog.at_level(logging.WARNING, logger="m8tes.streaming"):
+            StreamEvent.from_dict({"type": "text-delta", "delta": "hi"})
+            # snake_case Claude-native frames are deliberately supported passthrough
+            StreamEvent.from_dict({"type": "content_block_stop"})
+
+        assert self._warnings(caplog) == []
+
+    def test_the_dedupe_set_is_capped(self, caplog):
+        """The key is server-supplied, so an endpoint emitting a distinct type per
+        frame would grow this set for the life of the process."""
+        import logging
+
+        from m8tes.streaming import _MAX_WARNED_UNKNOWN_TYPES
+
+        with caplog.at_level(logging.WARNING, logger="m8tes.streaming"):
+            for i in range(_MAX_WARNED_UNKNOWN_TYPES + 25):
+                StreamEvent.from_dict({"type": f"frame-{i}"})
+
+        assert len(StreamEvent._warned_unknown_types) == _MAX_WARNED_UNKNOWN_TYPES
+        assert len(self._warnings(caplog)) == _MAX_WARNED_UNKNOWN_TYPES
+        # parsing still works past the cap — only the bookkeeping stops
+        assert StreamEvent.from_dict({"type": "frame-past-cap"})[0].type == StreamEventType.UNKNOWN
+
+    def test_a_long_type_name_is_truncated_before_being_remembered(self):
+        """The string is server-chosen and is both retained for the process
+        lifetime and echoed into a log line, so its length is not our choice."""
+        from m8tes.streaming import _MAX_EVENT_TYPE_CHARS
+
+        events = StreamEvent.from_dict({"type": "z" * 5000})
+        assert events[0].type == StreamEventType.UNKNOWN
+        remembered = next(iter(StreamEvent._warned_unknown_types))
+        assert len(remembered) == _MAX_EVENT_TYPE_CHARS
+        # the untruncated payload is still reachable for debugging
+        assert len(events[0].raw["type"]) == 5000
+
+    def test_a_non_string_type_keys_on_its_type_name_not_its_payload(self):
+        """repr() of a server-supplied payload would be unbounded in size AND vary
+        per frame, so it would both bloat and defeat the dedupe set it keys."""
+        StreamEvent.from_dict({"type": {"a": "x" * 5000}})
+        StreamEvent.from_dict({"type": {"b": "y" * 5000}})
+        assert StreamEvent._warned_unknown_types == {"<non-string dict>"}
+
+    @pytest.mark.parametrize("bad", [{}, [], 7, None, {"nested": ["x"]}])
+    def test_a_non_string_type_degrades_instead_of_killing_the_stream(self, bad):
+        """An unhashable `type` raised TypeError out of the enum lookup AND the
+        dedupe set. `parse_sse_line` catches only JSONDecodeError, so one bad
+        frame from the server ended the caller's entire iteration."""
+        events = StreamEvent.from_dict({"type": bad})
+        assert events[0].type == StreamEventType.UNKNOWN
+        assert events[0].raw == {"type": bad}

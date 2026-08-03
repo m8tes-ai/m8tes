@@ -13,6 +13,8 @@ Two invariants the 2026-07-21 live DX audit found violated:
 from pathlib import Path
 import re
 
+import pytest
+
 SDK_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -115,6 +117,76 @@ def test_published_prose_says_an_agent_not_a_agent():
             if re.search(r"\ba agent\b", line, re.IGNORECASE):
                 offenders.append(f"{path.relative_to(SDK_ROOT)}:{lineno}: {line.strip()[:80]}")
     assert not offenders, "Write 'an agent', not 'a agent':\n" + "\n".join(offenders)
+
+
+# Terms VOICE.md bans for the product entity. "Mate" is the product term; the API,
+# DB and permanent aliases still say Teammate, so this guards PROSE and PUBLISHED
+# METADATA only — never identifiers.
+_BANNED_VOICE = (
+    (r"\bai[- ]teammates?\b", "say 'agent' or 'Mate', never 'AI teammate'"),
+    (r"\bhir(e|es|ed|ing)\b", "we don't 'hire' agents — configure/put to work"),
+)
+
+
+def test_pypi_metadata_uses_product_voice():
+    """The packaging metadata is a developer-facing surface, and nothing guarded it.
+
+    `keywords` carried "ai-teammates" to PyPI for every release up to 2.12.0 — visible
+    on the project page and in PyPI search (found by the 2026-08-03 live DX audit).
+    The two guards above read CLI display literals and prose files; neither opens
+    pyproject.toml, so the one string shipped on every published artifact was the one
+    string nothing checked.
+    """
+    text = (SDK_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    # description/keywords/name are what PyPI renders; scanning the whole file is
+    # fine because dependency names never match these patterns.
+    offenders = [
+        f"{lineno}: {line.strip()[:90]}  ({why})"
+        for lineno, line in enumerate(text.splitlines(), 1)
+        for pattern, why in _BANNED_VOICE
+        if re.search(pattern, line, re.IGNORECASE)
+    ]
+    assert not offenders, "pyproject.toml breaks VOICE.md:\n" + "\n".join(offenders)
+    # Absence alone is satisfied by deleting the field. Pin that the metadata a
+    # developer actually sees on PyPI still exists.
+    assert re.search(r"^keywords = \[", text, re.MULTILINE), "keywords field vanished"
+    assert "agent-platform" in text, "the replacement keyword is gone"
+
+
+@pytest.mark.parametrize(
+    ("sample", "should_match"),
+    [
+        ("ai-teammates", True),
+        ('keywords = ["ai-teammates"]', True),
+        ("Our AI Teammate roster", True),
+        ("hire an agent", True),
+        ("we hired three", True),
+        ("hiring an agent", True),
+        ("agents, automation, llm", False),
+        ("the agent runs on a schedule", False),
+        ("higher throughput", False),  # must not fire on 'hi' inside another word
+    ],
+)
+def test_banned_voice_patterns_actually_match(sample, should_match):
+    """The guards above only ever assert ABSENCE, so a mistyped or over-escaped
+    pattern is indistinguishable from a clean tree and would report success
+    forever. This is the half that fails when a pattern is wrong: the `hire`
+    branch in particular matches nothing anywhere in sdk/py today, so without it
+    that pattern would never once be exercised."""
+    hit = any(re.search(p, sample, re.IGNORECASE) for p, _ in _BANNED_VOICE)
+    assert hit is should_match, f"{sample!r} -> {hit}, expected {should_match}"
+
+
+def test_published_prose_uses_product_voice():
+    """Same ban across the prose that ships: README (renders on PyPI) and examples."""
+    offenders = [
+        f"{path.relative_to(SDK_ROOT)}:{lineno}: {line.strip()[:80]}  ({why})"
+        for path in _published_prose_files()
+        for lineno, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1)
+        for pattern, why in _BANNED_VOICE
+        if re.search(pattern, line, re.IGNORECASE)
+    ]
+    assert not offenders, "Published prose breaks VOICE.md:\n" + "\n".join(offenders)
 
 
 # Identifiers that must never appear anywhere in this tree: four real ad-account

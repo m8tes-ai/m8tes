@@ -12,9 +12,16 @@ from dataclasses import dataclass
 from enum import StrEnum
 import json
 import logging
-from typing import Any
+from typing import Any, ClassVar
 
 logger = logging.getLogger(__name__)
+
+#: Ceiling on distinct unrecognized event types we remember (and warn about).
+#: The key comes from the server, so this bounds a hostile or buggy peer.
+_MAX_WARNED_UNKNOWN_TYPES = 128
+
+#: Ceiling on the length of a single remembered/logged type name.
+_MAX_EVENT_TYPE_CHARS = 64
 
 
 class StreamEventType(StrEnum):
@@ -94,6 +101,10 @@ class StreamEvent:
     type: StreamEventType
     raw: dict[str, Any]
 
+    #: Event types already reported via `logger.warning`, so a long stream warns
+    #: once per unrecognized type instead of once per frame. Process-wide by design.
+    _warned_unknown_types: ClassVar[set[str]] = set()
+
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> list["StreamEvent"]:
         """Parse event from JSON dictionary.
@@ -109,14 +120,48 @@ class StreamEvent:
             # Skip system messages entirely
             return []
 
-        # Get event type from flat format
-        event_type_str = data.get("type", "unknown")
+        # Get event type from flat format. The value is whatever JSON the server
+        # sent, so it is not necessarily a string — and an unhashable one (list,
+        # dict) raises TypeError, not ValueError, out of BOTH the enum lookup and
+        # the dedupe set below. That escapes `parse_sse_line` (which catches only
+        # JSONDecodeError) and kills the caller's whole stream over one bad frame.
+        # Coerce first so a malformed frame degrades to UNKNOWN like any other.
+        raw_type = data.get("type", "unknown")
+        # A non-string becomes its TYPE NAME, not its repr: the value is
+        # server-supplied and unbounded in size, and it is used as a dedupe-set key
+        # held for the process lifetime — repr() of a large payload would store it
+        # forever, and vary per frame, defeating the dedupe it is keyed into.
+        event_type_str = (
+            # Truncated: this string is retained in a process-lifetime set and
+            # echoed into a log line, and its length is the server's choice.
+            raw_type[:_MAX_EVENT_TYPE_CHARS]
+            if isinstance(raw_type, str)
+            else f"<non-string {type(raw_type).__name__}>"
+        )
 
         # Map string to enum
         try:
             event_type = StreamEventType(event_type_str)
         except ValueError:
+            # Degrading to UNKNOWN is fine (a newer server may add frames an older
+            # SDK cannot name), but doing it SILENTLY is not: callers match on
+            # event.type, so an unnamed frame is indistinguishable from a bug.
+            # Warn once per distinct type — a stream emits hundreds of frames.
             event_type = StreamEventType.UNKNOWN
+            # Capped: the key is server-supplied, so an endpoint emitting a distinct
+            # type per frame would otherwise grow this set for the life of the
+            # process. Past the cap we stop recording and stop warning — the first
+            # 128 already told the story. Parsing is unaffected either way.
+            if (
+                event_type_str not in cls._warned_unknown_types
+                and len(cls._warned_unknown_types) < _MAX_WARNED_UNKNOWN_TYPES
+            ):
+                cls._warned_unknown_types.add(event_type_str)
+                logger.warning(
+                    "Unrecognized stream event type %r — exposed as 'unknown'; the full "
+                    "payload is on event.raw. Upgrading the m8tes SDK may add support.",
+                    event_type_str,
+                )
 
         event: StreamEvent
 

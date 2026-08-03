@@ -1,6 +1,6 @@
 [project]
 name = "m8tes"
-version = "2.12.0"
+version = "2.12.1"
 description = "Python SDK for building autonomous AI agents with 150+ integrations, hosted execution, schedules, and human-in-the-loop"
 readme = "README.md"
 requires-python = ">=3.11.9"
@@ -8,7 +8,7 @@ license = "MIT"
 authors = [
     {name = "m8tes.ai", email = "support@m8tes.ai"}
 ]
-keywords = ["ai", "agents", "automation", "llm", "sdk", "autonomous-agents", "ai-agent", "mcp", "claude", "anthropic", "ai-teammates", "workflow-automation"]
+keywords = ["ai", "agents", "automation", "llm", "sdk", "autonomous-agents", "ai-agent", "mcp", "claude", "anthropic", "agent-platform", "workflow-automation"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
