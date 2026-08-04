@@ -103,6 +103,39 @@ def test_update_memory():
 
 
 @responses.activate
+def test_memory_carries_agent_instance_id():
+    """`list()` mixes agent-private and account-wide memories; this is how you tell them apart."""
+    responses.add(
+        responses.GET,
+        f"{BASE}/memories/",
+        json={
+            "data": [
+                {
+                    "id": 1,
+                    "user_id": None,
+                    "content": "private",
+                    "source": "agent",
+                    "created_at": "",
+                    "agent_instance_id": 42,
+                },
+                {
+                    "id": 2,
+                    "user_id": None,
+                    "content": "account-wide",
+                    "source": "api",
+                    "created_at": "",
+                    "agent_instance_id": None,
+                },
+            ],
+            "has_more": False,
+        },
+    )
+    http = HTTPClient(api_key="m8_test", base_url=BASE, timeout=5)
+    rows = Memories(http).list().data
+    assert [m.agent_instance_id for m in rows] == [42, None]
+
+
+@responses.activate
 def test_create_sends_the_audience_and_reads_it_back():
     """A classification you can set but not read back is one you cannot trust."""
     responses.add(

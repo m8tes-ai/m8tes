@@ -126,3 +126,37 @@ class TestPermissionMode:
         from m8tes import PermissionMode as ExportedPermissionMode
 
         assert ExportedPermissionMode is PermissionMode
+
+
+class TestRunAcknowledgementAndRetryFields:
+    """Declared-but-unmapped is the failure these cover.
+
+    `test_v2_schema_contract.py` asserts the dataclass has a field for everything
+    `DevRunResponse` publishes — but it never calls `from_dict`, so a field can exist on
+    the type, be absent from the mapping, and read `None` forever while every contract
+    test stays green. Verified: deleting the `from_dict` line for either field below
+    leaves that suite passing.
+    """
+
+    def test_notified_at_round_trips(self):
+        """With only `last_viewed_at`, an emailed run looks unread forever."""
+        run = Run.from_dict(
+            {
+                "id": 1,
+                "teammate_id": 2,
+                "status": "completed",
+                "notified_at": "2026-08-01T09:00:00Z",
+            }
+        )
+        assert run.notified_at == "2026-08-01T09:00:00Z"
+
+    def test_repeats_actions_round_trips_and_distinguishes_false_from_none(self):
+        """`False` ("safe to retry") and `None` ("not computed") must not collapse."""
+        assert Run.from_dict({"id": 1, "status": "failed", "repeats_actions": True}).repeats_actions
+        assert (
+            Run.from_dict({"id": 1, "status": "failed", "repeats_actions": False}).repeats_actions
+            is False
+        )
+        # Absent on a list read: unknown, NOT "took no actions". A client that treats the
+        # two the same skips a confirmation for a run that may have sent an email.
+        assert Run.from_dict({"id": 1, "status": "failed"}).repeats_actions is None

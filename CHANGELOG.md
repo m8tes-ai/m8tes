@@ -2,6 +2,15 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [2.14.0] - 2026-08-04
+
+### Added
+- `Run.repeats_actions` — would retrying this run repeat an action it already took (an email sent, a Slack message posted)? Read it before offering a retry, and treat the three values as distinct: `True` means confirm first, `False` means the run only read and a retry is safe, and `None` means **not computed**, never "no actions".
+
+  Only `runs.get()` computes it, and only for a run that can actually be retried (`failed` or `cancelled`). `runs.list()` always returns `None` for it — the answer costs one query per run, so a list would pay that per row. Fetch the single run before acting on the answer.
+
+- `Run.notified_at` — when the run's result was delivered out-of-band, e.g. a scheduled run that emailed its summary. Pair it with `last_viewed_at` to ask "has the owner caught up on this run?": either one alone answers wrong, because a run that was emailed and never opened in-app has still been read.
+
 ## [2.13.0] - 2026-08-03
 
 ### Added
@@ -24,6 +33,21 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 ## [2.12.0] - 2026-08-02
 
 ### Added
+- `Run` now carries the operational fields the API previously only exposed on the legacy v1 surface: `task_name`, `trigger_source`, `channel`, `run_mode`, `archived`, `share_token`, `sandbox_state`, `started_at`, `last_activity_at`. What a run *is* operationally — what it was called, how it was triggered, whether it is shared or archived, and where its sandbox got to.
+- `RunMessage` now carries per-turn cost and timing: `input_tokens`, `output_tokens`, `cache_creation_tokens`, `cache_read_tokens`, `claude_cost_usd`, `sandbox_cost_usd`, `execution_time_ms`, `error_message`. This is the only place spend is attributable to a single turn.
+
+  Both are additive, so existing code is unaffected. Internals (`sandbox_id`, `claude_session_id`, `sandbox_metrics`, `last_sequence`) stay unpublished on purpose — implementation details should not become public contract.
+
+
+### Added
+- `client.permissions` now reaches the **account-level scope**: `user_id` is optional on `create()`, `list()`, and `delete()`, and omitting it targets the policies that apply to runs carrying no `user_id`. Same convention `client.memories` already used.
+
+  This closes a real hole rather than adding a convenience. Account-level policies are written by the product itself — every time someone picks "always allow" on a first-party run, the backend stores one with `end_user_id` NULL, and every later run reads it back to auto-approve that tool. But `user_id` was a **required** query parameter on list and delete, so those policies could be granted and then never listed or revoked through the API. A standing auto-approval you cannot see or take back.
+
+  `PermissionPolicy.user_id` is now `str | None` for the same reason — an account-level policy has no end-user id.
+
+### Fixed
+- Listing permissions no longer fails on an account-level policy. The API's response model typed `user_id` as a required string, so a NULL `end_user_id` raised a validation error server-side (500) instead of returning the row.
 - `billing.usage_timeseries(surface=...)` scopes the series to one billing surface: `"api"` for end-user-scoped (embedding) work, `"platform"` for first-party work. Omitting it returns every surface, which is the existing behaviour and still the default.
 
   This filters the surface a run was **created** on (`Run.billing_surface`), not the meter it finally settled on — settlement can differ for own-subscription turns and plan finalisation. Cost in this series is also the same estimate `usage().cost_used` uses, not reconciled ledger debits, so read it as usage rather than as a wallet statement.

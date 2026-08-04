@@ -117,6 +117,9 @@ class Teammate:
     status: str
     created_at: str
     updated_at: str | None = None
+    # Added 2026-08-02 — template provenance + org visibility.
+    template_slug: str | None = None
+    visibility: str | None = None
     inbound_email_enabled: bool = False
     email_address: str | None = None
     inbound_imessage_enabled: bool = False
@@ -157,6 +160,8 @@ class Teammate:
             allowed_senders=data.get("allowed_senders"),
             default_permission_mode=data.get("default_permission_mode", "autonomous"),
             inbound_email_enabled=data.get("inbound_email_enabled", False),
+            template_slug=data.get("template_slug"),
+            visibility=data.get("visibility"),
             email_address=data.get("email_address"),
             inbound_imessage_enabled=data.get("inbound_imessage_enabled", False),
             imessage_chat_guid=data.get("imessage_chat_guid"),
@@ -321,6 +326,38 @@ class Run:
     output_data: dict | None = None
     # Token counts + USD cost for this run; None until metrics arrive.
     usage: RunUsage | None = None
+    # Operational fields (2026-08-02): what the run was called, how it was triggered,
+    # whether it is shared or archived, and where its sandbox got to. Pinned against
+    # DevRunResponse by tests/unit/test_v2_schema_contract.py.
+    task_name: str | None = None
+    trigger_source: str | None = None
+    run_mode: str | None = None
+    archived: bool = False
+    share_token: str | None = None
+    sandbox_state: str | None = None
+    description: str | None = None
+    retention_mode: str | None = None
+    started_at: str | None = None
+    last_activity_at: str | None = None
+    # The server's own verdict on the run (2026-08-03). `stop_reason` distinguishes a
+    # refused or truncated run from a clean one — without it a UI renders both the same.
+    # `retry_blocked_reason` is why runs.retry() would be refused, so a client can say so
+    # instead of offering a call that will fail; `retryable` is the same fact as a boolean.
+    stop_reason: str | None = None
+    is_expired: bool = False
+    retry_blocked_reason: str | None = None
+    retry_blocked_message: str | None = None
+    # When this run's result was delivered out-of-band (a scheduled run emails its
+    # summary). Pairs with `last_viewed_at`: together they answer "has the owner caught
+    # up?", and either alone answers it wrong — an emailed run that was never opened
+    # in-app is read, not unread.
+    notified_at: str | None = None
+    # Would retrying repeat an action this run already took? Only `get()` computes it
+    # (one query per run, so `list()` would be an N+1) and only for a retryable run —
+    # None means "not computed here", NOT "no actions taken". Treat None as unknown and
+    # confirm before retrying.
+    repeats_actions: bool | None = None
+    last_viewed_at: str | None = None
     # Which meter the run settles on: "api" (prepaid balance — end-user-scoped /
     # embedding work) or "platform" (subscription plan — first-party work, INCLUDING
     # the account's own API-key calls). Stamped at creation.
@@ -360,6 +397,24 @@ class Run:
             next_retry_at=data.get("next_retry_at"),
             output_data=data.get("output_data"),
             usage=RunUsage.from_dict(data["usage"]) if data.get("usage") else None,
+            task_name=data.get("task_name"),
+            trigger_source=data.get("trigger_source"),
+            channel=data.get("channel"),
+            run_mode=data.get("run_mode"),
+            archived=bool(data.get("archived", False)),
+            share_token=data.get("share_token"),
+            sandbox_state=data.get("sandbox_state"),
+            description=data.get("description"),
+            retention_mode=data.get("retention_mode"),
+            started_at=data.get("started_at"),
+            last_activity_at=data.get("last_activity_at"),
+            stop_reason=data.get("stop_reason"),
+            is_expired=data.get("is_expired", False),
+            retry_blocked_reason=data.get("retry_blocked_reason"),
+            retry_blocked_message=data.get("retry_blocked_message"),
+            notified_at=data.get("notified_at"),
+            repeats_actions=data.get("repeats_actions"),
+            last_viewed_at=data.get("last_viewed_at"),
         )
 
 
@@ -379,6 +434,13 @@ class Task:
     created_at: str
     updated_at: str | None = None
     app_trigger_count: int = 0
+    # Added 2026-08-02 — provenance + approval behaviour, matching DevTaskResponse.
+    permission_mode: str | None = None
+    source: str | None = None
+    # Board position and the onboarding flag. Published because the console reads a
+    # task THROUGH v2 — a field withheld here simply arrives as None.
+    workflow_stage: str | None = None
+    is_bootstrap: bool = False
     email_notifications: bool = True
     webhook_url: str | None = None
     webhook_enabled: bool = False
@@ -416,6 +478,10 @@ class Task:
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at"),
             app_trigger_count=data.get("app_trigger_count", 0),
+            permission_mode=data.get("permission_mode"),
+            source=data.get("source"),
+            workflow_stage=data.get("workflow_stage"),
+            is_bootstrap=bool(data.get("is_bootstrap", False)),
             email_notifications=data.get("email_notifications", True),
             webhook_url=data.get("webhook_url"),
             webhook_enabled=data.get("webhook_enabled", False),
@@ -589,6 +655,16 @@ class RunMessage:
     content_blocks: list[dict] | None
     event_metadata: dict
     created_at: str
+    # Per-turn cost and timing (2026-08-02). The only place spend is attributable to a
+    # single turn. Pinned against RunMessageResponse by tests/unit/test_v2_schema_contract.py.
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    cache_creation_tokens: int | None = None
+    cache_read_tokens: int | None = None
+    claude_cost_usd: str | None = None
+    sandbox_cost_usd: str | None = None
+    execution_time_ms: int | None = None
+    error_message: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> RunMessage:
@@ -601,6 +677,14 @@ class RunMessage:
             content_blocks=data.get("content_blocks"),
             event_metadata=data.get("event_metadata") or {},
             created_at=data.get("created_at", ""),
+            input_tokens=data.get("input_tokens"),
+            output_tokens=data.get("output_tokens"),
+            cache_creation_tokens=data.get("cache_creation_tokens"),
+            cache_read_tokens=data.get("cache_read_tokens"),
+            claude_cost_usd=data.get("claude_cost_usd"),
+            sandbox_cost_usd=data.get("sandbox_cost_usd"),
+            execution_time_ms=data.get("execution_time_ms"),
+            error_message=data.get("error_message"),
         )
 
 
@@ -799,6 +883,9 @@ class Memory:
     content: str
     source: str
     created_at: str
+    # Which agent this memory is private to, or None for an account-wide one. `list()`
+    # returns both kinds together, so this is how you tell them apart.
+    agent_instance_id: int | None = None
     # "personal" (about the person) or "company" (about their business). None means
     # UNCLASSIFIED — what every memory written before this field existed is, and what a
     # server too old to send it will leave you with. Read `scope` to tell that apart from
@@ -818,6 +905,7 @@ class Memory:
             content=data["content"],
             source=data.get("source", "api"),
             created_at=data.get("created_at", ""),
+            agent_instance_id=data.get("agent_instance_id"),
             audience=data.get("audience"),
             scope=data.get("scope", "account"),
         )
@@ -887,7 +975,8 @@ class PermissionPolicy:
     """A pre-configured tool permission policy."""
 
     id: int
-    user_id: str
+    # None for an account-level policy (one that applies to runs carrying no user_id).
+    user_id: str | None
     tool_name: str
     created_at: str
 
@@ -895,7 +984,7 @@ class PermissionPolicy:
     def from_dict(cls, data: dict) -> PermissionPolicy:
         return cls(
             id=data["id"],
-            user_id=data["user_id"],
+            user_id=data.get("user_id"),
             tool_name=data["tool_name"],
             created_at=data.get("created_at", ""),
         )
