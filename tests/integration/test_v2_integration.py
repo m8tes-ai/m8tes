@@ -4254,11 +4254,23 @@ class TestAuthEndpoints:
             json={"email": email, "password": "TestPassword123!", "first_name": "SDKTest"},
         ).json()["api_key"]
 
-        resp = requests.get(
-            f"{backend_url}/api/v2/agents",
-            headers={"Authorization": f"Bearer {api_key}"},
+        headers = {"Authorization": f"Bearer {api_key}"}
+
+        # Scoped, because API signups default to STRICT multi-tenant mode and strict mode
+        # rejects a read that resolved no end-user scope. This is the quickstart's shape.
+        assert (
+            requests.get(
+                f"{backend_url}/api/v2/agents?user_id=customer_1", headers=headers
+            ).status_code
+            == 200
         )
-        assert resp.status_code == 200
+
+        # And the unscoped call a developer following an older snippet would make: a 422
+        # that names both ways out. Asserted live, because the first-run cost of
+        # strict-by-default should not be discoverable only from a unit test.
+        unscoped = requests.get(f"{backend_url}/api/v2/agents", headers=headers)
+        assert unscoped.status_code == 422
+        assert "require_end_user_id=False" in unscoped.json()["error"]["message"]
 
     def test_signup_duplicate_email_returns_409(self, backend_url):
         """Second signup with the same email returns 409 Conflict."""

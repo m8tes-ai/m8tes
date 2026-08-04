@@ -454,7 +454,7 @@ for run in page.data:
     print(run.id, run.status)
 
 # auto-paginate through all results
-for run in client.runs.list().auto_paging_iter():
+for run in client.runs.list(user_id="customer_123").auto_paging_iter():
     print(run.id, run.status)
 ```
 
