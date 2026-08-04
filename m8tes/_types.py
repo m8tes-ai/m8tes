@@ -799,6 +799,16 @@ class Memory:
     content: str
     source: str
     created_at: str
+    # "personal" (about the person) or "company" (about their business). None means
+    # UNCLASSIFIED — what every memory written before this field existed is, and what a
+    # server too old to send it will leave you with. Read `scope` to tell that apart from
+    # a memory that cannot carry one.
+    audience: str | None = None
+    # Where the memory lives: "personal", "company", "teammate" or "account". A
+    # teammate-scoped memory always reports audience=None because its audience IS its
+    # agent — without this you cannot tell one from an unclassified account memory, and
+    # trying to classify it is refused. Defaults to "account" against an older server.
+    scope: str = "account"
 
     @classmethod
     def from_dict(cls, data: dict) -> Memory:
@@ -808,6 +818,8 @@ class Memory:
             content=data["content"],
             source=data.get("source", "api"),
             created_at=data.get("created_at", ""),
+            audience=data.get("audience"),
+            scope=data.get("scope", "account"),
         )
 
 

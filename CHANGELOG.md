@@ -2,6 +2,16 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [2.13.0] - 2026-08-03
+
+### Added
+- `memories.create(audience=...)` and `memories.update(audience=...)`, plus `Memory.audience`. Records whether an account-level memory is about the **person** (`"personal"`) or about their **business** (`"company"`).
+
+  Until now `user_id=None` meant both at once. With one human per account they are the same thing; the moment a second human shares one they are not, and splitting rows that have already mixed is far harder than recording the distinction as you write it.
+
+  `Memory.scope` comes back on every response — `personal`, `company`, `account` or `teammate`. Read it rather than `audience` to tell a memory nobody has classified (`audience=None`, `scope="account"`) from one an agent keeps for itself (`audience=None`, `scope="teammate"`), which can never carry a classification; asking to classify one is refused rather than quietly ignored.
+
+  Optional, and nothing about injection changes today: both audiences are read by every agent, exactly as before. Omitting it sends no field at all, so existing calls are unaffected and existing memories read back `audience=None` — a permanent "unclassified" state, not a gap awaiting a backfill. A content-only `update()` leaves the classification alone; pass `audience` to correct one.
 ## [2.12.1] - 2026-08-03
 
 ### Fixed

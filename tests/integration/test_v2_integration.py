@@ -1266,6 +1266,24 @@ class TestMemoriesCRUD:
         finally:
             v2_client.memories.delete(mem.id)
 
+    def test_audience_round_trips_and_can_be_corrected(self, v2_client):
+        """Classify at write time, read it back, and fix a mistake without re-creating."""
+        mem = v2_client.memories.create(content=f"Account fact {_uid()}", audience="personal")
+        try:
+            assert mem.audience == "personal"
+            assert any(
+                m.id == mem.id and m.audience == "personal" for m in v2_client.memories.list().data
+            )
+            # Audience alone — no content round-trip.
+            corrected = v2_client.memories.update(mem.id, audience="company")
+            assert corrected.audience == "company"
+            assert corrected.content == mem.content, "an audience-only edit left the text alone"
+            # A content-only edit must not erase the classification.
+            edited = v2_client.memories.update(mem.id, content=f"{mem.content} (edited)")
+            assert edited.audience == "company"
+        finally:
+            v2_client.memories.delete(mem.id)
+
     def test_update_end_user_memory(self, v2_client):
         user_id = _uid()
         mem = v2_client.memories.create(user_id=user_id, content="Prefers dark mode")

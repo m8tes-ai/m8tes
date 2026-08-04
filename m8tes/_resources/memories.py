@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from .._types import Memory, SyncPage
 from ._utils import _build_params
@@ -21,8 +21,19 @@ class Memories:
     def __init__(self, http: HTTPClient):
         self._http = http
 
-    def create(self, *, content: str, user_id: str | None = None) -> Memory:
+    def create(
+        self,
+        *,
+        content: str,
+        user_id: str | None = None,
+        audience: Literal["personal", "company"] | None = None,
+    ) -> Memory:
         """Create a memory (account-level when ``user_id`` is omitted).
+
+        ``audience`` records whether the fact is about the person (``"personal"``)
+        or their business (``"company"``). Optional — omit it when you cannot
+        tell. Both are read by every agent today; the classification is for
+        visibility rules, not for what gets injected now.
 
         Raises ConflictError (409) when the scope is at the memory capacity
         limit, or when a memory with identical content already exists in it.
@@ -30,6 +41,8 @@ class Memories:
         body: dict = {"content": content}
         if user_id is not None:
             body["user_id"] = user_id
+        if audience is not None:
+            body["audience"] = audience
         resp = self._http.request("POST", "/memories/", json=body)
         return Memory.from_dict(resp.json())
 
@@ -62,13 +75,34 @@ class Memories:
             _fetch_next=_fetch_next,
         )
 
-    def update(self, memory_id: int, *, content: str, user_id: str | None = None) -> Memory:
-        """Correct a memory's content in place (instead of delete + re-create)."""
+    def update(
+        self,
+        memory_id: int,
+        *,
+        content: str | None = None,
+        user_id: str | None = None,
+        audience: Literal["personal", "company"] | None = None,
+    ) -> Memory:
+        """Correct a memory's content, its classification, or both, in place.
+
+        Both are optional and at least one is required (``ValueError`` otherwise).
+        Omitting ``content`` leaves the text alone — correcting only a classification
+        should not make you send back text you may have read minutes ago, which is
+        how a concurrent edit gets clobbered by a stale copy. Omitting ``audience``
+        likewise leaves the classification alone, so a content edit never erases it.
+        """
+        if content is None and audience is None:
+            raise ValueError("Pass content, audience, or both.")
+        body: dict = {}
+        if content is not None:
+            body["content"] = content
+        if audience is not None:
+            body["audience"] = audience
         resp = self._http.request(
             "PATCH",
             f"/memories/{memory_id}",
             params=_build_params(user_id=user_id),
-            json={"content": content},
+            json=body,
         )
         return Memory.from_dict(resp.json())
 
