@@ -887,8 +887,9 @@ class Memory:
     # returns both kinds together, so this is how you tell them apart.
     agent_instance_id: int | None = None
     # "personal" (about the person) or "company" (about their business). None means
-    # UNCLASSIFIED — what every memory written before this field existed is, and what a
-    # server too old to send it will leave you with. Read `scope` to tell that apart from
+    # UNCLASSIFIED. Memories predating the field were classified as "personal", so a null
+    # today is one nobody has classified since — or a server too old to send the field.
+    # Read `scope` to tell that apart from
     # a memory that cannot carry one.
     audience: str | None = None
     # Where the memory lives: "personal", "company", "teammate" or "account". A
