@@ -820,11 +820,16 @@ class Runs:
         request_id: str,
         decision: str = "allow",
         remember: bool = False,
+        reason: str | None = None,
     ) -> PermissionRequest:
         """Approve or deny a pending tool permission request.
 
         Re-sending the SAME decision is idempotent, and may be used to upgrade
-        ``remember`` to True (it never downgrades an existing grant).
+        ``remember`` to True (it never downgrades an existing grant). An
+        allow+remember decision also stores a cross-run always-allow policy for the
+        tool; the response's ``remembered`` reports whether that actually persisted
+        (False when the backend refused — e.g. a force-gated tool, whose policy the
+        runtime would never consult).
 
         A refusal is never a hiccup — nothing ran, so never treat it as approved. Check
         ``exc.code`` to tell them apart:
@@ -834,8 +839,18 @@ class Runs:
         * ``NotFoundError`` / ``gate_resolved_otherwise`` — **another approver decided
           the OPPOSITE way.** Yours did not happen and the other one is what runs.
         * ``NotFoundError`` / ``gate_not_found`` — no such gate on this run.
+
+        ``reason`` is optional steering in your own words, mainly with
+        ``decision="deny"`` — e.g. ``"use the staging board instead"``. The agent
+        reads it and adapts rather than silently skipping the action.
         """
-        body = {"request_id": request_id, "decision": decision, "remember": remember}
+        body: dict[str, object] = {
+            "request_id": request_id,
+            "decision": decision,
+            "remember": remember,
+        }
+        if reason is not None:
+            body["reason"] = reason
         resp = self._http.request("POST", f"/runs/{run_id}/approve", json=body)
         return PermissionRequest.from_dict(resp.json())
 

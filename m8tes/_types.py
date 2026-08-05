@@ -938,6 +938,12 @@ class PermissionRequest:
     # nothing. `status == "allowed"` alone never means the mate picked the work
     # back up — check this before telling a human it did.
     resumed: bool | None = None
+    # Set only by runs.approve(): True when an allow+remember decision persisted a
+    # cross-run always-allow policy, False when it did not (remember was not
+    # requested, or the backend refused — force-gated tools skip allowlists, so the
+    # stored policy would be inert). None on listings and on older servers.
+    # `status == "allowed"` alone never means "always allowed from now on".
+    remembered: bool | None = None
     # Set only when a SUBAGENT asked, so an approver can tell the Mate apart from
     # work it delegated. Display metadata: the decision keys on the ACTION.
     agent_type: str | None = None
@@ -975,6 +981,7 @@ class PermissionRequest:
             tool_use_id=data.get("tool_use_id"),
             auto_resolved=data.get("auto_resolved", False),
             resumed=data.get("resumed"),
+            remembered=data.get("remembered"),
         )
 
     @property

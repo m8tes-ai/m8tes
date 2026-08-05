@@ -280,6 +280,29 @@ class TestRunsWait:
             Runs(http).wait(1, on_approval=lambda req: "allow", interval=0.01)
 
     @responses.activate
+    def test_deny_reason_rides_the_request_body(self, http):
+        """The optional steering must reach the wire — and stay OFF it when not given,
+        so an older backend never sees an unknown field."""
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/1/approve",
+            json={**PERMISSION_TOOL, "status": "denied"},
+        )
+        Runs(http).approve(
+            1, request_id="req_1", decision="deny", reason="use the staging board instead"
+        )
+        body = json.loads(responses.calls[0].request.body)
+        assert body["reason"] == "use the staging board instead"
+
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/1/approve",
+            json={**PERMISSION_TOOL, "status": "denied"},
+        )
+        Runs(http).approve(1, request_id="req_1", decision="deny")
+        assert "reason" not in json.loads(responses.calls[1].request.body)
+
+    @responses.activate
     def test_approve_surfaces_resumed_false(self, http):
         """'allowed' is not 'running again' — the SDK must carry the resume signal."""
         responses.add(
@@ -290,6 +313,30 @@ class TestRunsWait:
         req = Runs(http).approve(1, request_id="req_1", decision="allow")
         assert req.status == "allowed"
         assert req.resumed is False
+
+    @responses.activate
+    def test_approve_surfaces_a_refused_remember(self, http):
+        """'allowed' is not 'always allowed' — the SDK must carry the persist signal.
+
+        The backend refuses to store an always-allow policy for a force-gated or
+        comma-carrying tool and reports remembered=false; dropping the field here
+        would make the SDK confirm a preapproval that was never stored.
+        """
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/1/approve",
+            json={**PERMISSION_TOOL, "status": "allowed", "remembered": False},
+        )
+        req = Runs(http).approve(1, request_id="req_1", decision="allow", remember=True)
+        assert req.status == "allowed"
+        assert req.remembered is False
+        # And an older server that sends no field parses as None, never False.
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/1/approve",
+            json={**PERMISSION_TOOL, "status": "allowed"},
+        )
+        assert Runs(http).approve(1, request_id="req_1", decision="allow").remembered is None
 
     @responses.activate
     def test_approve_surfaces_a_dead_gate_to_a_direct_caller(self, http):

@@ -2,6 +2,11 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [2.15.0] - 2026-08-04
+
+### Added
+- `PermissionRequest.remembered` — set only by `runs.approve()`: `True` when an allow+`remember=True` decision persisted a cross-run always-allow policy, `False` when it did not (remember not requested, or the backend refused — e.g. a force-gated tool, whose stored policy the runtime would never consult). `None` on listings and on older servers. `status == "allowed"` alone never means "always allowed from now on" — check this before saying so.
+- `runs.approve(..., reason=...)` — optional steering in your own words, mainly with `decision="deny"` (e.g. `"use the staging board instead"`). The agent reads it and adapts rather than silently skipping the action. Omitted from the request when not given, so older backends see no unknown field.
 ## [2.14.1] - 2026-08-04
 
 ### Fixed
