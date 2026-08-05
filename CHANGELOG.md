@@ -2,6 +2,11 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [2.14.1] - 2026-08-04
+
+### Fixed
+- A 4xx or 5xx error now reports the server's message instead of a stringified dict. The backend wraps every error — v1 included — in `{"error": {"code", "message", "request_id"}}`, and the legacy client read the outer `error` value, so it raised `ValidationError`/`NetworkError` whose text was the whole dict. Errors written to be acted on arrived as punctuation: the strict-multi-tenant 422 tells you to call `/api/v2` and pass `user_id`, and the CLI printed it as `{'code': ..., 'message': ...}`. A 4xx also now carries the server's own `code` (e.g. `OVERAGE_UNAVAILABLE`) rather than the generic `validation_error`, and `details` is the same shape on 4xx and 5xx, so `details["request_id"]` resolves on both.
+
 ## [2.14.0] - 2026-08-04
 
 ### Added

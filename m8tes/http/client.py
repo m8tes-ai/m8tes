@@ -301,6 +301,15 @@ class HTTPClient:
                         "error", "Request validation failed"
                     )
 
+                    # The backend wraps every error — v1 included — in the v2 envelope
+                    # {"error": {"code", "message", "request_id"}}. Without this, `error_msg`
+                    # is that dict and the CLI prints a stringified dict at the user, so a
+                    # carefully written refusal (e.g. the strict-multi-tenant 422, which
+                    # tells you to use /api/v2 and pass user_id) arrives as punctuation.
+                    if isinstance(error_msg, dict):
+                        error_data = error_msg
+                        error_msg = error_msg.get("message") or "Request validation failed"
+
                     if "oauth" in str(error_msg).lower():
                         raise OAuthError(
                             error_msg,
@@ -323,8 +332,17 @@ class HTTPClient:
             try:
                 error_data = response.json()
                 if "error" in error_data:
+                    # Same envelope, same unwrap as the 4xx branch above — the backend wraps
+                    # 500s too, so reading the outer value hands NetworkError a dict.
+                    server_error = error_data.get("error")
+                    if isinstance(server_error, dict):
+                        # `details` must be the SAME shape both branches expose, or
+                        # `details["request_id"]` resolves on a 422 and is None on a 500 —
+                        # the case where you actually need the id for support.
+                        error_data = server_error
+                        server_error = server_error.get("message")
                     raise NetworkError(
-                        error_data.get("error", "Server error. Please try again later."),
+                        server_error or "Server error. Please try again later.",
                         code="server_error",
                         details=error_data,
                     )

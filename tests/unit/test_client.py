@@ -429,6 +429,106 @@ class TestM8tesRequestMethod:
             authenticated_client._request("POST", "/test")
 
     @patch("requests.Session.request")
+    def test_nested_error_envelope_surfaces_the_message_not_the_dict(
+        self, mock_request, authenticated_client
+    ):
+        """The backend wraps v1 errors in the v2 envelope, so the message is NESTED.
+
+        Measured against a live stack: `GET /api/v1/runs/` on a strict multi-tenant account
+        returns `{"error": {"code", "message", "request_id"}, "detail": ...}`. Read naively,
+        `error_msg` becomes that dict and the CLI prints a stringified dict at the user —
+        which is how a refusal that names the fix arrives as punctuation.
+        """
+        mock_response = Mock()
+        mock_response.status_code = 422
+        mock_response.json.return_value = {
+            "error": {
+                "code": "validation_error",
+                "message": "This account requires user_id on every request. Use /api/v2.",
+                "request_id": "req_abc123",
+            },
+            "detail": "This account requires user_id on every request. Use /api/v2.",
+        }
+        mock_response.headers.get.side_effect = lambda key, default="": {
+            "Content-Type": "application/json",
+        }.get(key, default)
+        mock_request.return_value = mock_response
+
+        with pytest.raises(ValidationError) as exc:
+            authenticated_client._request("GET", "/test")
+
+        assert "Use /api/v2" in str(exc.value)
+        assert "{" not in str(exc.value), f"a dict was stringified at the user: {exc.value}"
+        assert exc.value.code == "validation_error"
+
+    @patch("requests.Session.request")
+    def test_nested_error_envelope_on_5xx_too(self, mock_request, authenticated_client):
+        """The twin of the 4xx case — the backend wraps 500s in the same envelope.
+
+        Fixing only the 4xx branch would leave the identical defect one branch down, which
+        is the v1/v2-style twin miss this repo keeps re-learning.
+        """
+        from m8tes.exceptions import NetworkError
+
+        mock_response = Mock()
+        mock_response.status_code = 500
+        mock_response.json.return_value = {
+            "error": {
+                "code": "internal_error",
+                "message": "Upstream timed out",
+                "request_id": "req_xyz789",
+            }
+        }
+        mock_response.headers.get.side_effect = lambda key, default="": {
+            "Content-Type": "application/json",
+        }.get(key, default)
+        mock_request.return_value = mock_response
+
+        with pytest.raises(NetworkError) as exc:
+            authenticated_client._request("GET", "/test")
+
+        assert "Upstream timed out" in str(exc.value)
+        assert "{" not in str(exc.value), f"a dict was stringified at the user: {exc.value}"
+        # `details` must be the same shape the 4xx branch exposes — see the test below.
+        assert exc.value.details.get("request_id") == "req_xyz789"
+
+    @patch("requests.Session.request")
+    def test_request_id_sits_at_the_same_path_on_4xx_and_5xx(
+        self, mock_request, authenticated_client
+    ):
+        """One envelope, one `details` shape, whatever the status.
+
+        Unpinned, the two branches drifted: 4xx exposed the inner dict (so
+        `details["request_id"]` resolved) while 5xx exposed the outer wrapper (so it was
+        None) — on exactly the failures where you need the id to get support. Two surfaces
+        of one thing disagreeing is the class this whole PR is about.
+        """
+        from m8tes.exceptions import NetworkError
+
+        def envelope(status, code, rid):
+            resp = Mock()
+            resp.status_code = status
+            resp.json.return_value = {"error": {"code": code, "message": "boom", "request_id": rid}}
+            resp.headers.get.side_effect = lambda key, default="": {
+                "Content-Type": "application/json",
+            }.get(key, default)
+            return resp
+
+        seen = {}
+        for status, exc_type, rid in (
+            (422, ValidationError, "req_4xx"),
+            (500, NetworkError, "req_5xx"),
+        ):
+            mock_request.return_value = envelope(status, "boom_code", rid)
+            with pytest.raises(exc_type) as exc:
+                authenticated_client._request("GET", "/test")
+            seen[status] = exc.value.details.get("request_id")
+
+        assert seen == {422: "req_4xx", 500: "req_5xx"}, (
+            f"request_id is not at the same path on both branches: {seen}"
+        )
+
+    @patch("requests.Session.request")
     def test_request_network_error(self, mock_request, authenticated_client):
         """Test 500 server error handling."""
         mock_response = Mock()
