@@ -938,6 +938,25 @@ class PermissionRequest:
     # nothing. `status == "allowed"` alone never means the mate picked the work
     # back up — check this before telling a human it did.
     resumed: bool | None = None
+    # Set only when a SUBAGENT asked, so an approver can tell the Mate apart from
+    # work it delegated. Display metadata: the decision keys on the ACTION.
+    agent_type: str | None = None
+    # --- Server-composed approval copy -------------------------------------------
+    # Render these rather than composing your own. `display_name` above all: it comes
+    # from a curated map or the registered tool name, so a MATE cannot choose what the
+    # action it is requesting is CALLED. A UI that shows `tool_name` instead is putting
+    # agent-chosen text on a consent surface.
+    display_name: str | None = None
+    # `[label, value]` pairs: redacted, humanised, opaque ids dropped. The call's own
+    # arguments — agent data, shown because an approver needs to see what it does.
+    fields: list[list[str]] | None = None
+    # The mate's own ask. Present only on a gate a human can still act on. Render it on
+    # surfaces with no transcript above the card (Slack, email, a list view).
+    prose: str | None = None
+    # False when the runtime skips allowlists for this tool, so a remembered decision
+    # would be stored and then ignored. Omit any "always allow" control rather than
+    # show one whose press cannot change the outcome.
+    can_remember: bool = True
 
     @classmethod
     def from_dict(cls, data: dict) -> PermissionRequest:
@@ -947,6 +966,11 @@ class PermissionRequest:
             tool_input=data.get("tool_input"),
             status=data["status"],
             created_at=data.get("created_at", ""),
+            agent_type=data.get("agent_type"),
+            display_name=data.get("display_name"),
+            fields=data.get("fields"),
+            prose=data.get("prose"),
+            can_remember=data.get("can_remember", True),
             resolved_at=data.get("resolved_at"),
             tool_use_id=data.get("tool_use_id"),
             auto_resolved=data.get("auto_resolved", False),
