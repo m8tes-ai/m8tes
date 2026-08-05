@@ -16,6 +16,7 @@ Run: pytest tests/integration/test_v2_integration.py -v -m integration
 """
 
 import contextlib
+from datetime import UTC, datetime, timedelta
 import os
 import re
 import uuid
@@ -1042,6 +1043,55 @@ class TestTaskTriggers:
         finally:
             v2_client.teammates.delete(tm.id)
 
+    def test_one_shot_trigger_lifecycle(self, v2_client):
+        """A one-time run: create with run_at -> read it back -> reshape -> delete.
+
+        The read-back is the point. Before run_at existed on TriggerResponse, a one-shot
+        listed as `{cron: None, interval_seconds: None}` — the developer could not tell a
+        scheduled one-off from a broken trigger.
+        """
+        run_at = (datetime.now(UTC) + timedelta(days=7)).replace(microsecond=0)
+        tm = v2_client.teammates.create(name="OneShotHost")
+        try:
+            task = v2_client.tasks.create(teammate_id=tm.id, instructions="Run once")
+            try:
+                trigger = v2_client.tasks.triggers.create(
+                    task.id, type="schedule", run_at=run_at.isoformat()
+                )
+                assert trigger.type == "schedule"
+                assert trigger.cron is None and trigger.interval_seconds is None
+                assert datetime.fromisoformat(trigger.run_at) == run_at
+
+                listed = next(
+                    t for t in v2_client.tasks.triggers.list(task.id) if t.id == trigger.id
+                )
+                assert datetime.fromisoformat(listed.run_at) == run_at
+
+                # Reshaping into a cron must clear the fire time, not keep both.
+                reshaped = v2_client.tasks.triggers.update(task.id, trigger.id, cron="0 9 * * 1")
+                assert reshaped.cron == "0 9 * * 1"
+                assert reshaped.run_at is None
+
+                v2_client.tasks.triggers.delete(task.id, trigger.id)
+            finally:
+                v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_one_shot_in_the_past_rejected(self, v2_client):
+        """run_at must leave the arming loop time to turn the row into a job."""
+        tm = v2_client.teammates.create(name="PastOneShotHost")
+        try:
+            task = v2_client.tasks.create(teammate_id=tm.id, instructions="Too late")
+            try:
+                past = (datetime.now(UTC) - timedelta(days=1)).isoformat()
+                with pytest.raises(ValidationError):
+                    v2_client.tasks.triggers.create(task.id, type="schedule", run_at=past)
+            finally:
+                v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
     def test_webhook_trigger(self, v2_client):
         """Create webhook trigger -> list -> verify URL returned."""
         tm = v2_client.teammates.create(name="WebhookTriggerHost")
@@ -1076,7 +1126,7 @@ class TestTaskTriggers:
             v2_client.teammates.delete(tm.id)
 
     def test_schedule_without_cron_or_interval_rejected(self, v2_client):
-        """Schedule trigger without cron or interval_seconds raises ValidationError."""
+        """Schedule trigger without cron, interval_seconds or run_at raises ValidationError."""
         tm = v2_client.teammates.create(name="NoScheduleHost")
         try:
             task = v2_client.tasks.create(teammate_id=tm.id, instructions="Empty schedule")

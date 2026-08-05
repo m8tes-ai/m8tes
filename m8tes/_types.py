@@ -505,6 +505,10 @@ class Trigger:
     enabled: bool
     cron: str | None = None
     interval_seconds: int | None = None
+    #: ISO 8601 fire time of a ONE-TIME schedule; None for recurring triggers. This, not
+    #: ``next_run``, is what says when a one-shot runs: ``next_run`` is read from the live
+    #: scheduler job and is absent whenever the API process is not the scheduler leader.
+    run_at: str | None = None
     timezone: str = "UTC"
     next_run: str | None = None
     url: str | None = None
@@ -522,6 +526,7 @@ class Trigger:
             enabled=data.get("enabled", True),
             cron=data.get("cron"),
             interval_seconds=data.get("interval_seconds"),
+            run_at=data.get("run_at"),
             timezone=data.get("timezone", "UTC"),
             next_run=data.get("next_run"),
             url=data.get("url"),

@@ -33,6 +33,7 @@ class TaskTriggers:
         type: str,
         cron: str | None = None,
         interval_seconds: int | None = None,
+        run_at: str | None = None,
         timezone: str = "UTC",
         app: str | None = None,
         trigger_name: str | None = None,
@@ -45,6 +46,8 @@ class TaskTriggers:
             body["cron"] = cron
         if interval_seconds:
             body["interval_seconds"] = interval_seconds
+        if run_at:
+            body["run_at"] = run_at
         if app:
             body["app"] = app
         if trigger_name:
@@ -72,10 +75,14 @@ class TaskTriggers:
         enabled: bool | None = None,
         cron: str | None = None,
         interval_seconds: int | None = None,
+        run_at: str | None = None,
         timezone: str | None = None,
     ) -> Trigger:
         """Update a trigger in place: pause/resume with ``enabled``, or reshape a
-        schedule's cron/interval/timezone — no delete + re-create needed."""
+        schedule's cron/interval/run_at/timezone — no delete + re-create needed.
+
+        ``cron``, ``interval_seconds`` and ``run_at`` are mutually exclusive; passing one
+        clears the others, so a recurring schedule can become a one-off and back."""
         body: dict = {}
         if enabled is not None:
             body["enabled"] = enabled
@@ -83,6 +90,8 @@ class TaskTriggers:
             body["cron"] = cron
         if interval_seconds is not None:
             body["interval_seconds"] = interval_seconds
+        if run_at is not None:
+            body["run_at"] = run_at
         if timezone is not None:
             body["timezone"] = timezone
         resp = self._http.request("PATCH", f"/tasks/{task_id}/triggers/{trigger_id}", json=body)
