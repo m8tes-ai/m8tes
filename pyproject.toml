@@ -62,6 +62,14 @@ include = ["m8tes*"]
 line-length = 100
 target-version = "py311"
 fix = true
+# ruff >=0.16 formats Python blocks inside Markdown. This package's ruff is still on
+# 0.12, so the option is a no-op today and is set BEFORE the bump lands rather than
+# after it breaks: `README.md` is republished to the public m8tes-ai/m8tes repo by
+# sync-sdk.yml, so a formatter reflowing its snippets rewrites published docs. The
+# options are accepted by 0.12.12 (verified, no warning).
+# Same block as agent-runtime/ and fastapi/, which hit this first.
+extend-exclude = ["*.md"]
+force-exclude = true
 
 [tool.ruff.lint]
 select = [
