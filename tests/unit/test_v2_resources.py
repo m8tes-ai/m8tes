@@ -179,6 +179,83 @@ class TestTeammates:
         assert Teammates(http).enable(1).status == "enabled"
 
     @responses.activate
+    def test_unarchive(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/agents/1/unarchive",
+            json={"id": 1, "name": "Bot", "status": "disabled"},
+        )
+        assert Teammates(http).unarchive(1).status == "disabled"
+
+    @responses.activate
+    def test_unarchive_forwards_user_id(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/agents/1/unarchive",
+            json={"id": 1, "name": "Bot", "status": "disabled"},
+        )
+        Teammates(http).unarchive(1, user_id="alice")
+        assert responses.calls[0].request.params.get("user_id") == "alice"
+
+    @responses.activate
+    def test_list_include_archived(self, http):
+        responses.add(responses.GET, f"{BASE}/agents/", json={"data": [], "has_more": False})
+        Teammates(http).list(include_archived=True)
+        assert responses.calls[0].request.params.get("include_archived") == "true"
+
+    @responses.activate
+    def test_list_default_omits_include_archived(self, http):
+        responses.add(responses.GET, f"{BASE}/agents/", json={"data": [], "has_more": False})
+        Teammates(http).list()
+        assert "include_archived" not in responses.calls[0].request.params
+
+    @responses.activate
+    def test_update_display_order(self, http):
+        responses.add(responses.PATCH, f"{BASE}/agents/1", json={"id": 1, "name": "Bot"})
+        Teammates(http).update(1, display_order=3)
+        body = json.loads(responses.calls[0].request.body)
+        assert body == {"display_order": 3}
+
+    @responses.activate
+    def test_update_display_order_zero_is_sent(self, http):
+        """0 is the top position the scheme actually produces — a truthiness guard
+        (`if display_order:`) would silently drop the most common write."""
+        responses.add(responses.PATCH, f"{BASE}/agents/1", json={"id": 1, "name": "Bot"})
+        Teammates(http).update(1, display_order=0)
+        body = json.loads(responses.calls[0].request.body)
+        assert body == {"display_order": 0}
+
+    @responses.activate
+    def test_update_display_order_explicit_none_clears(self, http):
+        """None sends JSON null (clears the position); omitting sends nothing."""
+        responses.add(responses.PATCH, f"{BASE}/agents/1", json={"id": 1, "name": "Bot"})
+        responses.add(responses.PATCH, f"{BASE}/agents/1", json={"id": 1, "name": "Bot"})
+        Teammates(http).update(1, display_order=None)
+        assert json.loads(responses.calls[0].request.body) == {"display_order": None}
+        Teammates(http).update(1, name="Bot")
+        assert "display_order" not in json.loads(responses.calls[1].request.body)
+
+    @responses.activate
+    def test_list_include_archived_carries_to_next_page(self, http):
+        """Pagination must keep the flag: page 2 losing include_archived silently
+        drops archived agents from every roster past 20 rows."""
+        responses.add(
+            responses.GET,
+            f"{BASE}/agents/",
+            json={"data": [{"id": 1, "name": "A"}], "has_more": True},
+        )
+        responses.add(responses.GET, f"{BASE}/agents/", json={"data": [], "has_more": False})
+        list(Teammates(http).list(include_archived=True).auto_paging_iter())
+        assert responses.calls[1].request.params.get("include_archived") == "true"
+
+    @responses.activate
+    def test_display_order_parsed_from_response(self, http):
+        responses.add(
+            responses.GET, f"{BASE}/agents/42", json={"id": 42, "name": "Bot", "display_order": 7}
+        )
+        assert Teammates(http).get(42).display_order == 7
+
+    @responses.activate
     def test_update_sends_only_provided_fields(self, http):
         responses.add(responses.PATCH, f"{BASE}/agents/1", json={"id": 1, "name": "X"})
         Teammates(http).update(

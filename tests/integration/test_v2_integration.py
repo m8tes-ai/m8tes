@@ -299,6 +299,45 @@ class TestTeammatesCRUD:
         v2_client.teammates.delete(t.id)
         v2_client.teammates.delete(t.id)  # should not raise
 
+    def test_unarchive_lifecycle(self, v2_client):
+        """Archive → visible only with include_archived → unarchive restores paused."""
+        t = v2_client.teammates.create(name="Restorable")
+        try:
+            v2_client.teammates.delete(t.id)
+
+            default_ids = {a.id for a in v2_client.teammates.list(limit=100).data}
+            assert t.id not in default_ids
+            archived_ids = {
+                a.id for a in v2_client.teammates.list(limit=100, include_archived=True).data
+            }
+            assert t.id in archived_ids
+
+            restored = v2_client.teammates.unarchive(t.id)
+            assert restored.status == "disabled"
+            assert t.id in {a.id for a in v2_client.teammates.list(limit=100).data}
+        finally:
+            v2_client.teammates.delete(t.id)
+
+    def test_unarchive_live_teammate_rejected(self, v2_client):
+        """Unarchiving a non-archived teammate is a 400 (InvalidRequestError)."""
+        t = v2_client.teammates.create(name="StillLive")
+        try:
+            with pytest.raises(M8tesError):
+                v2_client.teammates.unarchive(t.id)
+        finally:
+            v2_client.teammates.delete(t.id)
+
+    def test_display_order_roundtrip(self, v2_client):
+        """display_order persists via update and echoes on get."""
+        t = v2_client.teammates.create(name="Ordered")
+        try:
+            assert t.display_order is None
+            updated = v2_client.teammates.update(t.id, display_order=2)
+            assert updated.display_order == 2
+            assert v2_client.teammates.get(t.id).display_order == 2
+        finally:
+            v2_client.teammates.delete(t.id)
+
     def test_tools_roundtrip(self, v2_client):
         """Create teammate with tools, verify persisted, update tools."""
         available = _require_available_apps(v2_client, 2)

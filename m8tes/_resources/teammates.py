@@ -135,13 +135,19 @@ class Agents:
         user_id: str | None = None,
         limit: int = 20,
         starting_after: int | None = None,
+        include_archived: bool = False,
     ) -> SyncPage[Teammate]:
-        params = _build_params(user_id=user_id, limit=limit, starting_after=starting_after)
+        params = _build_params(
+            user_id=user_id,
+            limit=limit,
+            starting_after=starting_after,
+            include_archived="true" if include_archived else None,
+        )
         resp = self._http.request("GET", "/agents/", params=params)
         body = resp.json()
 
         def _fetch_next(**kw: object) -> SyncPage[Teammate]:
-            return self.list(user_id=user_id, **kw)  # type: ignore[arg-type]
+            return self.list(user_id=user_id, include_archived=include_archived, **kw)  # type: ignore[arg-type]
 
         return SyncPage(
             data=[Teammate.from_dict(d) for d in body["data"]],
@@ -167,6 +173,7 @@ class Agents:
         role: str | None = None,
         goals: str | None = None,
         metadata: dict | None = None,
+        display_order: int | None = _UNSET,
         allowed_senders: _list[str] | None = None,
         inbound_imessage_enabled: bool | None = None,
         imessage_chat_guid: str | None = None,
@@ -210,6 +217,10 @@ class Agents:
             body["goals"] = goals
         if metadata is not None:
             body["metadata"] = metadata
+        # Null is meaningful (like model): display_order=None sends JSON null, which
+        # CLEARS the manual position back to creation order; omitting leaves it alone.
+        if display_order is not _UNSET:
+            body["display_order"] = display_order
         if allowed_senders is not None:
             body["allowed_senders"] = allowed_senders
         if inbound_imessage_enabled is not None:
@@ -289,6 +300,15 @@ class Agents:
         """Re-enable a paused teammate and re-arm the schedules the disable paused."""
         resp = self._http.request(
             "POST", f"/agents/{agent_id}/enable", params=_build_params(user_id=user_id)
+        )
+        return Teammate.from_dict(resp.json())
+
+    def unarchive(self, agent_id: int, *, user_id: str | None = None) -> Teammate:
+        """Restore an archived (deleted) teammate — it comes back disabled (paused),
+        with its schedules still off. Call enable() and re-enable schedules to
+        resume work. List archived teammates with list(include_archived=True)."""
+        resp = self._http.request(
+            "POST", f"/agents/{agent_id}/unarchive", params=_build_params(user_id=user_id)
         )
         return Teammate.from_dict(resp.json())
 

@@ -2,6 +2,13 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [2.16.0] - 2026-08-05
+
+### Added
+- `agents.unarchive(id)` — restore an archived (deleted) agent. It comes back `disabled` (paused) with its schedules still off: call `enable()` and re-enable schedules deliberately to resume work. Archive is no longer a one-way door.
+- `agents.list(include_archived=True)` — include archived agents in the listing (status `"archived"`), so they can be found and unarchived.
+- `Teammate.display_order` + `agents.update(id, display_order=N)` — manual roster position, persisted server-side. `None` until the user places the agent; sort rosters by `COALESCE(display_order, id)` ascending so unplaced agents keep creation order and new agents append at the bottom.
+
 ## [2.15.0] - 2026-08-04
 
 ### Added
