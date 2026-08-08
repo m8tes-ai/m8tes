@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from .._types import (
+    AgentSystemPrompt,
     EmailInbox,
     FetchmailInbox,
     SyncPage,
@@ -44,6 +45,8 @@ class Agents:
         enable_task_setup_tools: bool | None = None,
         enable_feedback: bool | None = None,
         enable_self_improvement: bool | None = None,
+        prompt_profile: str | None = None,
+        disabled_builtin_tools: list[str] | None = None,
         user_id: str | None = None,
         metadata: dict | None = None,
         allowed_senders: list[str] | None = None,
@@ -94,6 +97,10 @@ class Agents:
             body["enable_feedback"] = enable_feedback
         if enable_self_improvement is not None:
             body["enable_self_improvement"] = enable_self_improvement
+        if prompt_profile is not None:
+            body["prompt_profile"] = prompt_profile
+        if disabled_builtin_tools is not None:
+            body["disabled_builtin_tools"] = disabled_builtin_tools
         if user_id is not None:
             body["user_id"] = user_id
         if metadata is not None:
@@ -190,6 +197,8 @@ class Agents:
         enable_task_setup_tools: bool | None = _UNSET,
         enable_feedback: bool | None = _UNSET,
         enable_self_improvement: bool | None = _UNSET,
+        prompt_profile: str | None = _UNSET,
+        disabled_builtin_tools: _list[str] | None = _UNSET,
     ) -> Teammate:
         """Update a teammate (PATCH semantics — omitted fields stay unchanged).
 
@@ -254,6 +263,10 @@ class Agents:
             body["enable_feedback"] = enable_feedback
         if enable_self_improvement is not _UNSET:
             body["enable_self_improvement"] = enable_self_improvement
+        if prompt_profile is not _UNSET:
+            body["prompt_profile"] = prompt_profile
+        if disabled_builtin_tools is not _UNSET:
+            body["disabled_builtin_tools"] = disabled_builtin_tools
         resp = self._http.request(
             "PATCH",
             f"/agents/{agent_id}",
@@ -261,6 +274,23 @@ class Agents:
             params=_build_params(user_id=user_id),
         )
         return Teammate.from_dict(resp.json())
+
+    def system_prompt(self, agent_id: int, *, user_id: str | None = None) -> AgentSystemPrompt:
+        """Read the exact system prompt this agent's next run will receive.
+
+        Total transparency about what we inject: it renders the real prompt through the
+        real builder, so it cannot drift from what actually runs. Use it to confirm that a
+        `prompt_profile="bare"` agent carries none of our branding before you embed it.
+
+        Per-run context (memories, documents, connected tools, the triggering channel) is
+        resolved at run time and is not included.
+        """
+        resp = self._http.request(
+            "GET",
+            f"/agents/{agent_id}/system-prompt",
+            params=_build_params(user_id=user_id),
+        )
+        return AgentSystemPrompt.from_dict(resp.json())
 
     def delete(self, agent_id: int, *, user_id: str | None = None) -> None:
         """Archive a teammate. Pass user_id to scope to one end-user (404 on mismatch)."""

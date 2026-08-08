@@ -32,6 +32,7 @@ from ._resources.webhooks import Webhooks
 from ._streaming import RunStream
 from ._types import (
     AccountSettings,
+    AgentSystemPrompt,
     AgentTemplate,
     ApiKeyCreated,
     ApiKeyInfo,
@@ -115,6 +116,7 @@ __all__ = [
     "AccountSettings",
     "Agent",
     "AgentError",
+    "AgentSystemPrompt",
     "AgentTemplate",
     "ApiKeyCreated",
     "ApiKeyInfo",

@@ -160,3 +160,36 @@ class TestRunAcknowledgementAndRetryFields:
         # Absent on a list read: unknown, NOT "took no actions". A client that treats the
         # two the same skips a confirmation for a run that may have sent an email.
         assert Run.from_dict({"id": 1, "status": "failed"}).repeats_actions is None
+
+
+class TestTeammateParsesEveryFieldItDeclares:
+    """A dataclass field the server sends but `from_dict` never reads is silently the
+    default, forever.
+
+    Not hypothetical: `disabled_builtin_tools` shipped on the dataclass and NOT in
+    `from_dict`, so `agents.create(disabled_builtin_tools=[...])` sent the list, the server
+    stored it, and the SDK handed back `[]` — the caller would reasonably conclude the write
+    failed. Every unit test passed; only a live round-trip caught it. This guard is generic
+    so the next added field cannot repeat it.
+    """
+
+    def test_from_dict_reads_every_declared_field(self):
+        import dataclasses
+
+        from m8tes._types import Teammate
+
+        payload = {
+            "id": 1,
+            "name": "Bot",
+            "prompt_profile": "bare",
+            "disabled_builtin_tools": ["feedback", "notify"],
+        }
+        parsed = Teammate.from_dict(payload)
+        for key, value in payload.items():
+            assert getattr(parsed, key) == value, (
+                f"Teammate.from_dict ignored {key!r}: the server sent {value!r} and the SDK "
+                f"reports {getattr(parsed, key)!r}"
+            )
+        # And the declared field set has not drifted from what from_dict can populate.
+        declared = {f.name for f in dataclasses.fields(Teammate)}
+        assert "disabled_builtin_tools" in declared

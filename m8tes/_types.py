@@ -101,6 +101,25 @@ class Model:
 
 
 @dataclass
+class AgentSystemPrompt:
+    """The standing system prompt an agent runs with, verbatim."""
+
+    prompt_profile: str
+    profile_description: str
+    system_prompt: str
+    characters: int
+
+    @classmethod
+    def from_dict(cls, data: dict) -> AgentSystemPrompt:
+        return cls(
+            prompt_profile=data.get("prompt_profile") or "platform",
+            profile_description=data.get("profile_description", ""),
+            system_prompt=data.get("system_prompt", ""),
+            characters=data.get("characters", 0),
+        )
+
+
+@dataclass
 class Teammate:
     """An agent persona with tools and instructions (canonical name: Agent)."""
 
@@ -145,6 +164,12 @@ class Teammate:
     enable_feedback: bool | None = None
     # When True, the agent runs a weekly review-and-improve task over its own runs.
     enable_self_improvement: bool | None = None
+    # "platform" (default) or "bare". "bare" is the embedding profile: the agent never
+    # names m8tes, never calls itself a Mate, is never told our billing model, and cannot
+    # load m8tes' own Agent Skills. Capabilities and safety rules are unchanged.
+    prompt_profile: str = "platform"
+    # Built-in tools this agent is NOT given, by name from GET /api/v2/built-in-tools.
+    disabled_builtin_tools: list = field(default_factory=list)
     # Manual roster position (lower sorts first); None until the user places it.
     # Sort by COALESCE(display_order, id) ascending.
     display_order: int | None = None
@@ -184,6 +209,9 @@ class Teammate:
             enable_task_setup_tools=data.get("enable_task_setup_tools"),
             enable_feedback=data.get("enable_feedback"),
             enable_self_improvement=data.get("enable_self_improvement"),
+            # Older servers omit it entirely; absent means the platform prompt.
+            prompt_profile=data.get("prompt_profile") or "platform",
+            disabled_builtin_tools=data.get("disabled_builtin_tools") or [],
             display_order=data.get("display_order"),
             status=data.get("status", "enabled"),
             created_at=data.get("created_at", ""),

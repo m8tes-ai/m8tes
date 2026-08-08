@@ -32,9 +32,11 @@ class BuiltInTools:
     ) -> SyncPage[BuiltInTool]:
         """List the built-in tools with resolved enabled state.
 
-        Pass ``agent_id`` (or legacy ``teammate_id``) to resolve the four configurable
-        toggles against that agent's defaults. Pass ``user_id`` to evaluate end-user (multi-tenant)
-        availability: tools that aren't multi-tenant safe report ``enabled=False``.
+        Pass ``agent_id`` (or legacy ``teammate_id``) to resolve each tool against that
+        agent's defaults AND its ``disabled_builtin_tools`` list, so the result is what a run
+        will actually mount rather than the catalog default. Pass ``user_id`` to evaluate
+        end-user (multi-tenant) availability: tools that aren't multi-tenant safe report
+        ``enabled=False``.
         """
         teammate_id = _resolve_agent_id(teammate_id, agent_id)
         params = _build_params(teammate_id=teammate_id, user_id=user_id)
