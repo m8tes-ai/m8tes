@@ -5070,12 +5070,22 @@ class TestModels:
         page = v2_client.models.list()
         assert isinstance(page, SyncPage)
         models = {m.id: m for m in page.data}
-        # Catalog may be full or curated; short Claude aliases always present.
-        assert "opus" in models and "sonnet" in models
+        # Curated set only — name as FEW aliases as possible. `sonnet` was hardcoded here
+        # and broke when the picker was trimmed on 2026-08-08; this test runs only in the
+        # integration job (it needs a live backend), so a local `make check` cannot see it.
+        # `opus` is the ONE alias safe to name: `llm_model_default_claude` is claude-opus-5
+        # and test_the_platform_default_has_a_claude_fallback_for_own_subscription_runs
+        # requires the curated list to contain whatever that fallback resolves to. Nothing
+        # pins any other alias — a review mutation confirmed deleting `fable` from
+        # curated_platform_ids leaves that guard green — so everything below derives its
+        # subject from the response instead of naming one.
+        assert "opus" in models
         assert isinstance(models["opus"], Model)
-        assert models["opus"].default is True
-        assert models["sonnet"].default is False
         assert models["opus"].provider == "anthropic"
+        # Exactly one model carries the default flag, whichever it is. Asserting WHICH
+        # would re-create the coupling above: this job runs without a gateway, so the
+        # flagged model is the per-viewer Claude fallback, not `llm_model_default`.
+        assert sum(1 for m in models.values() if m.default) == 1
         # Pricing is populated with real USD-per-MTok numbers (incl. both cache rates).
         p = models["opus"].pricing
         assert p is not None
@@ -5083,9 +5093,12 @@ class TestModels:
         assert p.cache_read_per_mtok > 0 and p.cache_write_per_mtok > 0
         assert p.currency == "usd"
         # A returned id is accepted as `model` on a teammate (round-trips, no 422).
-        t = v2_client.teammates.create(name="ModelPick", model=models["sonnet"].id)
+        # Derived, not named: any non-default curated row proves the round-trip, and
+        # picking one from the response cannot go stale when the ladder changes.
+        pick = next(m for m in models.values() if not m.default)
+        t = v2_client.teammates.create(name="ModelPick", model=pick.id)
         try:
-            assert t.model == "sonnet"
+            assert t.model == pick.id
         finally:
             v2_client.teammates.delete(t.id)
 
@@ -5199,5 +5212,33 @@ class TestSlackInboundAndLessons:
             # Explicit None resets to inherit (null) — distinct from omitting.
             updated = v2_client.tasks.update(task.id, enable_memory=None)
             assert updated.enable_memory is None
+        finally:
+            v2_client.teammates.delete(t.id)
+
+    def test_task_model_and_effort_round_trip_and_reset(self, v2_client):
+        """Per-task model/effort (2026-08-06) uses the same _UNSET contract as enable_*.
+
+        The sibling above covered enable_memory; nothing covered model/effort, so a
+        regression that sent `{}` on every call — or `{"model": null}` on every call —
+        would have been invisible on the SDK side. Both failure directions are pinned
+        here: omit must not disturb, explicit None must clear.
+        """
+        t = v2_client.teammates.create(name="TaskModelBot")
+        try:
+            task = v2_client.tasks.create(
+                teammate_id=t.id, instructions="review the contract", model="fable", effort="max"
+            )
+            assert task.model == "fable"
+            assert task.effort == "max"
+            assert v2_client.tasks.get(task.id).model == "fable"
+
+            # Omitting model must leave the pin alone.
+            untouched = v2_client.tasks.update(task.id, goals="ship it")
+            assert untouched.model == "fable"
+
+            # Explicit None clears it back to inheriting the agent's.
+            cleared = v2_client.tasks.update(task.id, model=None, effort=None)
+            assert cleared.model is None
+            assert cleared.effort is None
         finally:
             v2_client.teammates.delete(t.id)

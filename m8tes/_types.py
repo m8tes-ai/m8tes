@@ -461,6 +461,9 @@ class Task:
     enable_feedback: bool | None = None
     # Self-improvement lessons toggle (task-level, non-null; default on).
     enable_lessons: bool = True
+    # Per-task overrides. None = inherit the agent's (then the platform default).
+    model: str | None = None
+    effort: str | None = None
 
     @property
     def agent_id(self) -> int | None:
@@ -497,6 +500,8 @@ class Task:
             enable_task_setup_tools=data.get("enable_task_setup_tools"),
             enable_feedback=data.get("enable_feedback"),
             enable_lessons=data.get("enable_lessons", True),
+            model=data.get("model"),
+            effort=data.get("effort"),
         )
 
 

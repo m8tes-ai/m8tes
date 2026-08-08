@@ -137,7 +137,7 @@ for m in client.models.list().data:
 bot = client.agents.create(name="Ops", model="sonnet")  # or per run: runs.create(..., model="opus")
 ```
 
-Today that's the Claude models `sonnet`, `opus`, and `fable` (most capable, ~2x cost), plus OpenAI `gpt-5.5`, `gpt-5.6-sol` (default), `gpt-5.6-terra`, `gpt-5.6-luna`, and open-source `glm-5.2` / `deepseek-v3-2` / `kimi-k3`. Zero-data-retention support is **per model and changes over time**, so never assume it from the model name: read `zdr_supported` on `GET /api/v2/models`, or filter with `?zdr=true`, before sending customer data. `models.list()` is the live source of truth; omit `model` to use the `default`.
+Today that's the Claude models `sonnet`, `opus`, and `fable` (most capable, ~2x cost); OpenAI `gpt-5.5`, `gpt-5.6-sol` (default), `gpt-5.6-terra`, `gpt-5.6-luna`; Google `gemini-3.6-flash`; and open-source `glm-5.2` / `minimax-m3` / `deepseek-v4-pro` / `deepseek-v4-flash-0731` (lowest cost) / `deepseek-v3-2` / `kimi-k2-7-code` / `kimi-k3` / `qwen3.8-max` / `grok-4.5`. Zero-data-retention support is **per model and changes over time**, so never assume it from the model name: read `zdr_supported` on `GET /api/v2/models`, or filter with `?zdr=true`, before sending customer data — `qwen3.8-max` and `grok-4.5` in particular have no ZDR-capable host at all. `models.list()` is the live source of truth; omit `model` to use the `default`.
 
 ## Runs
 

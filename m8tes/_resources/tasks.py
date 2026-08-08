@@ -123,6 +123,8 @@ class Tasks:
         webhook: bool = False,
         schedule: str | None = None,
         schedule_timezone: str = "UTC",
+        model: str | None = None,
+        effort: str | None = None,
         enable_memory: bool | None = None,
         enable_history: bool | None = None,
         enable_task_setup_tools: bool | None = None,
@@ -135,6 +137,10 @@ class Tasks:
         leave None to inherit the agent default (then the platform default).
         enable_lessons toggles whether the agent accumulates self-improvement
         lessons across this task's runs (task-level, default on).
+
+        model/effort override the agent's for this task's runs only; leave None to
+        inherit the agent's (then the platform default). Use them to put one costly
+        task on a stronger model without moving the agent's other work.
         """
         teammate_id = _resolve_agent_id(teammate_id, agent_id)
         if teammate_id is None:
@@ -164,6 +170,10 @@ class Tasks:
             body["email_notifications"] = False
         if webhook:
             body["webhook"] = True
+        if model is not None:
+            body["model"] = model
+        if effort is not None:
+            body["effort"] = effort
         if schedule is not None:
             body["schedule"] = schedule
             body["schedule_timezone"] = schedule_timezone
@@ -211,6 +221,8 @@ class Tasks:
         expected_output: str | None = None,
         goals: str | None = None,
         email_notifications: bool | None = None,
+        model: str | None = _UNSET,
+        effort: str | None = _UNSET,
         enable_memory: bool | None = _UNSET,
         enable_history: bool | None = _UNSET,
         enable_task_setup_tools: bool | None = _UNSET,
@@ -223,6 +235,10 @@ class Tasks:
         pass True/False to pin this task's default, or pass ``None`` to reset that
         toggle back to inherit-from-agent (sends JSON null). Mirrors
         ``agents.update``.
+
+        ``model`` and ``effort`` behave the same way: omit to leave unchanged, pass a
+        value to pin this task, or pass ``None`` to clear the pin so the task inherits
+        the agent's again.
         """
         body: dict = {}
         if name is not None:
@@ -249,6 +265,11 @@ class Tasks:
         # enable_lessons is non-null (no reset-to-inherit); send only when set.
         if enable_lessons is not None:
             body["enable_lessons"] = enable_lessons
+        # Explicit None -> JSON null -> clears the pin, inheriting the agent's again.
+        if model is not _UNSET:
+            body["model"] = model
+        if effort is not _UNSET:
+            body["effort"] = effort
         resp = self._http.request(
             "PATCH", f"/tasks/{task_id}", json=body, params=_build_params(user_id=user_id)
         )
