@@ -2,6 +2,40 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [3.0.1] - 2026-08-09
+
+### Security
+- **A caller-supplied value can no longer steer a request off the route its method
+  names.** Every value interpolated into a request path — an end-user `user_id`, an app
+  slug, a run filename, and every resource id, ~88 sites across `_resources/` — now goes
+  through `m8tes._http.seg`. Interpolated raw, a tenant-controlled value ran as the OWNER
+  of the API key: verified against a live backend, `users.get("../account/export")`
+  returned the account's full export (200) and `users.delete("../account")` requested
+  deletion of the entire account (202). **If your ids come from your own tenants,
+  upgrade.**
+- **`seg` refuses rather than escapes what stays structural after the server decodes.**
+  Percent-encoding alone is not sufficient and this is the part worth reading: uvicorn
+  sets the ASGI path to the percent-DECODED path and Starlette routes on that, so `%2F`
+  is a separator to the server even though it is not one to `requests`. Measured against
+  an ASGI app with the production route shapes, `runs.get("5/messages")` encoded to
+  `/runs/5%2Fmessages` still reached the messages route — so `tasks.delete("5/webhook")`
+  would have destroyed a webhook token instead of archiving the task. A segment
+  containing `/`, or equal to `""`, `"."`, `".."` or `None`, now raises
+  `m8tes.ValidationError` (a `M8tesError`, so an existing catch-all still works).
+  Everything else is percent-encoded as before, **including a backslash** — it is a
+  legal character in an id, it was measured not to act as a separator here, and
+  refusing it would break a call that works. Partial dots are unaffected too: `..foo`,
+  `a..b` and `...` all encode normally.
+- **`runs.download_file`'s filename follows the same rule.** Its route reads
+  `{filename:path}`, but the handler behind it sanitizes the filename to a basename and
+  rejects anything else, so a nested name could never resolve — the filename is one
+  segment like every other.
+
+### Note on the TypeScript client
+The equivalent hardening for `@m8tes/sdk` is tracked and not yet released, so this entry
+describes the Python client only. A shared corpus now pins both clients' behaviour so the
+two cannot drift silently.
+
 ## [3.0.0] - 2026-08-09
 
 The CLI is now a plain v2 API customer: every `m8tes` command runs through the same

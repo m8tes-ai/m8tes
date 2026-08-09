@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal
 
+from .._http import seg
 from .._types import Memory, SyncPage
 from ._utils import _build_params
 
@@ -100,7 +101,7 @@ class Memories:
             body["audience"] = audience
         resp = self._http.request(
             "PATCH",
-            f"/memories/{memory_id}",
+            f"/memories/{seg(memory_id)}",
             params=_build_params(user_id=user_id),
             json=body,
         )
@@ -109,5 +110,5 @@ class Memories:
     def delete(self, memory_id: int, *, user_id: str | None = None) -> None:
         """Delete a memory in exactly the given scope."""
         self._http.request(
-            "DELETE", f"/memories/{memory_id}", params=_build_params(user_id=user_id)
+            "DELETE", f"/memories/{seg(memory_id)}", params=_build_params(user_id=user_id)
         )

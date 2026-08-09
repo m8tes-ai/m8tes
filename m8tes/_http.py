@@ -4,12 +4,114 @@ import logging
 import re
 import time
 from typing import Any
+from urllib.parse import quote
 
 import requests
 
-from ._exceptions import STATUS_MAP, APIError
+from ._exceptions import STATUS_MAP, APIError, ValidationError
 
 logger = logging.getLogger(__name__)
+
+
+# A segment that is one of these cannot name a resource, and each one silently
+# addresses a DIFFERENT one instead — `""` and `"."` collapse onto the collection
+# route, `".."` onto the parent. Encoding does not help: `requests` resolves a
+# literal dot segment in `prepare_url`, and `requote_uri` turns `%2E` back into
+# `.` on the way out, so the escaped form reaches the wire as a raw dot segment.
+_UNADDRESSABLE = frozenset({"", ".", ".."})
+
+# The one character that becomes a path SEPARATOR at the server. Escaping it is
+# not enough (see `seg`), so it is refused.
+#
+# A BACKSLASH is deliberately NOT here. It is a legal character in a filename and
+# in an id, and measured against this stack it stays inside its segment: `a%5Cb`
+# arrives as the literal `a\b` and `..%5Caccount` does not climb. Refusing it
+# would break a call that works today on the strength of "some proxy might fold
+# it", which is the kind of unmeasured widening this repo has been burned by. It
+# is percent-encoded like any other reserved character.
+_SEPARATOR = "/"
+
+
+def _reject(value: str, reason: str) -> None:
+    raise ValidationError(
+        f"{value!r} cannot be used as a URL path segment: {reason}. Percent-encoding "
+        "does not help — the server decodes the path before routing it."
+    )
+
+
+def seg(value: object) -> str:
+    """Turn ONE caller-supplied value into a single, inescapable path segment.
+
+    Every dynamic `/`-delimited segment in `_resources/` goes through this. The
+    values are frequently tenant-controlled (`user_id`, `app_name`, a run's
+    `filename`), and interpolating one straight into an f-string lets it steer
+    the request somewhere the method never named. Measured against a live
+    backend before this landed, both of these ran as the OWNER of the API key
+    rather than against the end-user the call names:
+
+        users.get("../account/export")  -> 200, the account's whole export
+        users.delete("../account")      -> 202, account deletion requested
+
+    Two mechanisms, because percent-encoding alone does NOT confine the route:
+
+    1. REFUSE anything that would still be structural after the server decodes.
+       uvicorn sets `scope["path"]` to the percent-DECODED path and Starlette
+       routes on that, so `%2F` is a separator to the server even though it is
+       not one to `requests`. Measured on a FastAPI app with the real route
+       shapes: `runs.get("5/messages")` encoded to `/runs/5%2Fmessages` and
+       reached the MESSAGES route, byte-identical in outcome to the raw form —
+       so `tasks.delete("5/webhook")` would destroy a webhook token instead of
+       archiving the task. `/` is therefore rejected, as are the three values in
+       `_UNADDRESSABLE`.
+    2. PERCENT-ENCODE the rest, so the value stays one opaque segment: `?` and
+       `#` would otherwise start a query or a fragment, and `%`, `:`, `\\`,
+       spaces and control characters are escaped so what arrives is exactly what
+       the caller passed.
+
+    Together those give the property the name implies: the request reaches the
+    one route the method names, or it raises. It raises `ValidationError`, so
+    an existing `except m8tes.M8tesError` keeps working; `.status_code` is None
+    because nothing was sent. (`None` is refused too — an id of `None` is a
+    caller bug, and `str(None)` would otherwise address a resource named
+    "None". A lone surrogate still raises `UnicodeEncodeError` from `quote`
+    itself, which is not something this can convert.)
+
+    This is STRICTER than the TypeScript client, and by more than it looks:
+    `@m8tes/sdk` encodes three parameters (`userId`, `appName`, `filename`) and
+    interpolates the other ~43 raw, so most of its segments are not protected at
+    all rather than protected-but-lenient. Where both encode, the two are
+    byte-identical apart from `!*'()`, which RFC 3986 reserves and
+    `encodeURIComponent` alone leaves literal. Both halves are pinned by
+    `tests/data/path_encoding_parity.json`; the gap is filed in `TODOS.md`.
+
+    Every dynamic segment in this SDK goes through this one function — including
+    a run's `filename`; see the note below on why that route needs no exception.
+    """
+    if value is None:
+        _reject("None", "an id of None is a caller bug, not a resource name")
+    text = str(value)
+    if text in _UNADDRESSABLE:
+        _reject(text, "it addresses the parent or the collection, not a resource")
+    if _SEPARATOR in text:
+        # The reason below says what a '/' DOES, not which route it lands on, because
+        # that differs: on most routes it selects a sibling, while on the greedy
+        # `{filename:path}` download route it stays in the same slot and is rejected
+        # by the handler (400 from `sanitize_run_filename`, or an earlier 404 if the
+        # run has no sandbox). An earlier wording asserted the first for both and was
+        # wrong for exactly the route whose exception had just been removed.
+        _reject(text, "a '/' becomes a real path separator once the server decodes it")
+    return quote(text, safe="")
+
+
+# NOTE on the run-file download routes. Three of them declare `{filename:path}` (the
+# v2 route, its v1 twin and the public share route), which reads as "nested filenames
+# are supported" — an earlier version of this module believed that and grew a second
+# helper to keep separators. It is not true: all three delegate to the same service,
+# which calls `sanitize_run_filename` (`fastapi/app/services/execution/run_files.py`)
+# and requires the filename to equal its own basename, 400ing otherwise. A nested name
+# can never resolve on any of them, so the filename goes through plain `seg` like every
+# other segment and the helper is gone. Read the handler, not the decorator.
+
 
 # Retry config
 _MAX_RETRIES = 3

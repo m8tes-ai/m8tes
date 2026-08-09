@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from .._http import seg
 from .._types import EndUser, EndUserUsage, SyncPage
 from ._utils import _build_params
 
@@ -100,7 +101,7 @@ class Users:
         )
 
     def get(self, user_id: str) -> EndUser:
-        resp = self._http.request("GET", f"/users/{user_id}")
+        resp = self._http.request("GET", f"/users/{seg(user_id)}")
         return EndUser.from_dict(resp.json())
 
     def update(
@@ -133,8 +134,8 @@ class Users:
             body["cost_limit_cents"] = cost_limit_cents
         if rate_per_minute is not _UNSET:
             body["rate_per_minute"] = rate_per_minute
-        resp = self._http.request("PATCH", f"/users/{user_id}", json=body)
+        resp = self._http.request("PATCH", f"/users/{seg(user_id)}", json=body)
         return EndUser.from_dict(resp.json())
 
     def delete(self, user_id: str) -> None:
-        self._http.request("DELETE", f"/users/{user_id}")
+        self._http.request("DELETE", f"/users/{seg(user_id)}")

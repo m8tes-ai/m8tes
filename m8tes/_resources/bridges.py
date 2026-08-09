@@ -11,6 +11,7 @@ from __future__ import annotations
 import builtins
 from typing import TYPE_CHECKING
 
+from .._http import seg
 from .._types import Bridge, HandleLink
 
 if TYPE_CHECKING:
@@ -61,17 +62,17 @@ class Bridges:
         """
         # Only send a body when opting in, so a bodiless request still works against older servers.
         json = {"single_use": True} if single_use else None
-        resp = self._http.request("POST", f"/bridges/{bridge_id}/link-code", json=json)
+        resp = self._http.request("POST", f"/bridges/{seg(bridge_id)}/link-code", json=json)
         return Bridge.from_dict(resp.json())
 
     def list_handles(self, bridge_id: int) -> builtins.list[HandleLink]:
         """List the phone numbers/emails verified (linked) to a hosted bridge."""
-        resp = self._http.request("GET", f"/bridges/{bridge_id}/handles")
+        resp = self._http.request("GET", f"/bridges/{seg(bridge_id)}/handles")
         return [HandleLink.from_dict(d) for d in resp.json()["data"]]
 
     def remove_handle(self, bridge_id: int, handle_id: int) -> None:
         """Unlink a verified handle so it can no longer reach the account over iMessage."""
-        self._http.request("DELETE", f"/bridges/{bridge_id}/handles/{handle_id}")
+        self._http.request("DELETE", f"/bridges/{seg(bridge_id)}/handles/{seg(handle_id)}")
 
     def create(
         self,
@@ -97,7 +98,7 @@ class Bridges:
         return [Bridge.from_dict(d) for d in resp.json()["data"]]
 
     def get(self, bridge_id: int) -> Bridge:
-        resp = self._http.request("GET", f"/bridges/{bridge_id}")
+        resp = self._http.request("GET", f"/bridges/{seg(bridge_id)}")
         return Bridge.from_dict(resp.json())
 
     def update(
@@ -121,13 +122,13 @@ class Bridges:
             body["status"] = status
         if owner_handle is not None:
             body["owner_handle"] = owner_handle
-        resp = self._http.request("PATCH", f"/bridges/{bridge_id}", json=body)
+        resp = self._http.request("PATCH", f"/bridges/{seg(bridge_id)}", json=body)
         return Bridge.from_dict(resp.json())
 
     def rotate_secret(self, bridge_id: int) -> Bridge:
         """Rotate the webhook secret. The old secret stays valid (grace) until the
         next rotation; the new ``bridge.webhook_secret`` is returned once."""
-        resp = self._http.request("POST", f"/bridges/{bridge_id}/rotate-secret")
+        resp = self._http.request("POST", f"/bridges/{seg(bridge_id)}/rotate-secret")
         return Bridge.from_dict(resp.json())
 
     def test(self, bridge_id: int) -> dict:
@@ -135,10 +136,10 @@ class Bridges:
 
         No message is sent (it pings the server). Returns ``{"ok": bool, "detail": str|None}``
         — use it to debug a bridge that isn't receiving or sending messages."""
-        resp = self._http.request("POST", f"/bridges/{bridge_id}/test")
+        resp = self._http.request("POST", f"/bridges/{seg(bridge_id)}/test")
         result: dict = resp.json()
         return result
 
     def delete(self, bridge_id: int) -> None:
         """Delete a bridge. Fails (409) if agents are still bound to it."""
-        self._http.request("DELETE", f"/bridges/{bridge_id}")
+        self._http.request("DELETE", f"/bridges/{seg(bridge_id)}")

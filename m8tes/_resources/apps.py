@@ -5,6 +5,7 @@ from __future__ import annotations
 import builtins
 from typing import TYPE_CHECKING
 
+from .._http import seg
 from .._types import (
     App,
     AppConnectionInitiation,
@@ -81,7 +82,7 @@ class Apps:
         payload: dict = {"redirect_uri": redirect_uri}
         if user_id:
             payload["user_id"] = user_id
-        resp = self._http.request("POST", f"/apps/{app_name}/connect", json=payload)
+        resp = self._http.request("POST", f"/apps/{seg(app_name)}/connect", json=payload)
         return AppConnectionInitiation.from_dict(resp.json())
 
     def connect_api_key(
@@ -95,7 +96,7 @@ class Apps:
         payload: dict = {"api_key": api_key}
         if user_id:
             payload["user_id"] = user_id
-        resp = self._http.request("POST", f"/apps/{app_name}/connect/api-key", json=payload)
+        resp = self._http.request("POST", f"/apps/{seg(app_name)}/connect/api-key", json=payload)
         return AppConnectionResult.from_dict(resp.json())
 
     def connect(
@@ -132,7 +133,7 @@ class Apps:
         payload: dict = {"connection_id": connection_id}
         if user_id:
             payload["user_id"] = user_id
-        resp = self._http.request("POST", f"/apps/{app_name}/connect/complete", json=payload)
+        resp = self._http.request("POST", f"/apps/{seg(app_name)}/connect/complete", json=payload)
         return AppConnectionResult.from_dict(resp.json())
 
     def provision(self, app_name: str, *, user_id: str | None = None) -> AppProvisionResult:
@@ -146,7 +147,7 @@ class Apps:
         payload: dict = {}
         if user_id:
             payload["user_id"] = user_id
-        resp = self._http.request("POST", f"/apps/{app_name}/provision", json=payload)
+        resp = self._http.request("POST", f"/apps/{seg(app_name)}/provision", json=payload)
         return AppProvisionResult.from_dict(resp.json())
 
     def release(self, app_name: str, *, user_id: str | None = None) -> None:
@@ -159,7 +160,7 @@ class Apps:
 
     def list_triggers(self, app_name: str) -> builtins.list[AppTriggerType]:
         """List available trigger types for an app (Composio discovery)."""
-        resp = self._http.request("GET", f"/apps/{app_name}/triggers")
+        resp = self._http.request("GET", f"/apps/{seg(app_name)}/triggers")
         body = resp.json()
         items = body["data"] if isinstance(body, dict) and "data" in body else body
         return [AppTriggerType.from_dict(d) for d in items]
@@ -169,4 +170,4 @@ class Apps:
         params = {}
         if user_id:
             params["user_id"] = user_id
-        self._http.request("DELETE", f"/apps/{app_name}/connections", params=params)
+        self._http.request("DELETE", f"/apps/{seg(app_name)}/connections", params=params)

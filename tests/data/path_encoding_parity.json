@@ -1,0 +1,451 @@
+{
+  "_readme": [
+    "Cross-language corpus for hardening dynamic URL path segments.",
+    "",
+    "Two clients build URLs for one API. If they disagree about what a hostile",
+    "user_id/app_name/filename becomes, one of them is reachable off-route while",
+    "the other is not — and neither client's own tests can see that. This file is",
+    "the single source of truth both read:",
+    "",
+    "  Python     tests/unit/test_v2_path_encoding.py",
+    "  TypeScript ../../packages/sdk/test/parity.test.ts",
+    "",
+    "Two lists, because the clients are deliberately no longer identical:",
+    "",
+    "  `cases`   values BOTH clients accept. Each names the path the request must",
+    "            end up on; both clients must build it byte-for-byte, so a change",
+    "            to either encoder goes red. `typescript_path` + `why_divergent`",
+    "            mark a place they legitimately differ, and a divergence is only",
+    "            allowed to be cosmetic — enforced ROUTE-aware, not decode-aware:",
+    "            the RAW `/` count must match, because the number of components is",
+    "            what selects the route. (Comparing only the decoded strings would",
+    "            accept `/users/a%2Fb` against `/users/a/b`, which is two different",
+    "            endpoints and is the whole bug.) There is no opt-out from that rule:",
+    "            the three routes that declare `{filename:path}` all sanitize the value",
+    "            to a basename in the handler, so a divergence there would not be free",
+    "            either.",
+    "",
+    "  `refused` values the Python client refuses outright (m8tes.ValidationError).",
+    "            Encoding them is not enough: an ASGI server percent-decodes the path",
+    "            before routing it, so an escaped separator still selects a different",
+    "            route, and the empty string and the dot segments resolve onto the",
+    "            collection or the parent. `typescript_path` records the URL the",
+    "            TypeScript client builds for the same input TODAY. That is a pin,",
+    "            not an endorsement: the two clients are not yet aligned here, and",
+    "            recording the current value is what makes any change to it",
+    "            deliberate and visible. When both refuse, the field goes away and",
+    "            both halves assert a throw.",
+    "",
+    "`$VALUE` is substituted with the case's `value` before the call is made."
+  ],
+  "cases": [
+    {
+      "name": "an already-encoded slash is encoded again, never passed through",
+      "value": "..%2Faccount",
+      "expected_path": "/users/..%252Faccount",
+      "python": {
+        "resource": "users",
+        "method": "get",
+        "args": [
+          "$VALUE"
+        ]
+      },
+      "typescript": {
+        "resource": "users",
+        "method": "get",
+        "args": [
+          "$VALUE"
+        ]
+      }
+    },
+    {
+      "name": "a question mark would turn the rest of the value into query params",
+      "value": "alice?user_id=bob",
+      "expected_path": "/users/alice%3Fuser_id%3Dbob",
+      "python": {
+        "resource": "users",
+        "method": "get",
+        "args": [
+          "$VALUE"
+        ]
+      },
+      "typescript": {
+        "resource": "users",
+        "method": "get",
+        "args": [
+          "$VALUE"
+        ]
+      }
+    },
+    {
+      "name": "a hash would truncate the path at the fragment",
+      "value": "alice#frag",
+      "expected_path": "/users/alice%23frag",
+      "python": {
+        "resource": "users",
+        "method": "get",
+        "args": [
+          "$VALUE"
+        ]
+      },
+      "typescript": {
+        "resource": "users",
+        "method": "get",
+        "args": [
+          "$VALUE"
+        ]
+      }
+    },
+    {
+      "name": "a colon must not read as a scheme or a port",
+      "value": "urn:acme:tenant:9",
+      "expected_path": "/users/urn%3Aacme%3Atenant%3A9",
+      "python": {
+        "resource": "users",
+        "method": "get",
+        "args": [
+          "$VALUE"
+        ]
+      },
+      "typescript": {
+        "resource": "users",
+        "method": "get",
+        "args": [
+          "$VALUE"
+        ]
+      }
+    },
+    {
+      "name": "dots that are not a whole dot segment stay literal and harmless",
+      "value": "..foo.bar...",
+      "expected_path": "/users/..foo.bar...",
+      "python": {
+        "resource": "users",
+        "method": "get",
+        "args": [
+          "$VALUE"
+        ]
+      },
+      "typescript": {
+        "resource": "users",
+        "method": "get",
+        "args": [
+          "$VALUE"
+        ]
+      }
+    },
+    {
+      "name": "spaces and non-ASCII round-trip as UTF-8 percent escapes",
+      "value": "ann bjørk",
+      "expected_path": "/users/ann%20bj%C3%B8rk",
+      "python": {
+        "resource": "users",
+        "method": "get",
+        "args": [
+          "$VALUE"
+        ]
+      },
+      "typescript": {
+        "resource": "users",
+        "method": "get",
+        "args": [
+          "$VALUE"
+        ]
+      }
+    },
+    {
+      "name": "a newline is escaped rather than carried into the request line",
+      "value": "a\nb",
+      "expected_path": "/users/a%0Ab",
+      "python": {
+        "resource": "users",
+        "method": "get",
+        "args": [
+          "$VALUE"
+        ]
+      },
+      "typescript": {
+        "resource": "users",
+        "method": "get",
+        "args": [
+          "$VALUE"
+        ]
+      }
+    },
+    {
+      "name": "unreserved characters are left alone by both",
+      "value": "a-Z_9.~",
+      "expected_path": "/users/a-Z_9.~",
+      "python": {
+        "resource": "users",
+        "method": "get",
+        "args": [
+          "$VALUE"
+        ]
+      },
+      "typescript": {
+        "resource": "users",
+        "method": "get",
+        "args": [
+          "$VALUE"
+        ]
+      }
+    },
+    {
+      "name": "sub-delims RFC 3986 reserves but encodeURIComponent leaves literal",
+      "value": "!*'()",
+      "expected_path": "/users/%21%2A%27%28%29",
+      "typescript_path": "/users/!*'()",
+      "why_divergent": "encodeURIComponent exempts !*'() from its escape set; Python's quote(safe=\"\") follows RFC 3986 and escapes them. Both decode to the same segment server-side and neither can leave it, so this is cosmetic — asserted as such by both halves rather than waved through.",
+      "python": {
+        "resource": "users",
+        "method": "get",
+        "args": [
+          "$VALUE"
+        ]
+      },
+      "typescript": {
+        "resource": "users",
+        "method": "get",
+        "args": [
+          "$VALUE"
+        ]
+      }
+    },
+    {
+      "name": "an app slug with metacharacters stays one segment",
+      "value": "slack?x=1",
+      "expected_path": "/apps/slack%3Fx%3D1/connect/api-key",
+      "python": {
+        "resource": "apps",
+        "method": "connect_api_key",
+        "args": [
+          "$VALUE"
+        ],
+        "kwargs": {
+          "api_key": "sk_test"
+        }
+      },
+      "typescript": {
+        "resource": "apps",
+        "method": "connectApiKey",
+        "args": [
+          "$VALUE",
+          {
+            "api_key": "sk_test"
+          }
+        ]
+      }
+    },
+    {
+      "name": "a backslash is encoded, not refused and not translated to a separator",
+      "value": "a\\b",
+      "expected_path": "/users/a%5Cb",
+      "python": {
+        "resource": "users",
+        "method": "get",
+        "args": [
+          "$VALUE"
+        ]
+      },
+      "typescript": {
+        "resource": "users",
+        "method": "get",
+        "args": [
+          "$VALUE"
+        ]
+      }
+    },
+    {
+      "name": "a run filename is one segment, encoded like any other",
+      "value": "q3 final.pdf",
+      "expected_path": "/runs/42/files/q3%20final.pdf/download",
+      "python": {
+        "resource": "runs",
+        "method": "download_file",
+        "args": [
+          42,
+          "$VALUE"
+        ]
+      },
+      "typescript": {
+        "resource": "runs",
+        "method": "downloadFile",
+        "args": [
+          42,
+          "$VALUE"
+        ]
+      }
+    }
+  ],
+  "refused": [
+    {
+      "name": "a slash reaches a sibling sub-route once the server decodes",
+      "value": "5/messages",
+      "typescript_path": "/runs/5/messages",
+      "note": "An escaped separator still selects a different route once decoded.",
+      "python": {
+        "resource": "runs",
+        "method": "get",
+        "args": [
+          "$VALUE"
+        ]
+      },
+      "typescript": {
+        "resource": "runs",
+        "method": "get",
+        "args": [
+          "$VALUE"
+        ]
+      }
+    },
+    {
+      "name": "climbing out of the resource prefix entirely",
+      "value": "../account/export",
+      "typescript_path": "/users/..%2Faccount%2Fexport",
+      "note": "The original report: this left the resource prefix entirely.",
+      "python": {
+        "resource": "users",
+        "method": "get",
+        "args": [
+          "$VALUE"
+        ]
+      },
+      "typescript": {
+        "resource": "users",
+        "method": "get",
+        "args": [
+          "$VALUE"
+        ]
+      }
+    },
+    {
+      "name": "an empty segment collapses onto the collection route",
+      "value": "",
+      "typescript_path": "/users/",
+      "note": "An empty segment resolves onto the collection route.",
+      "python": {
+        "resource": "users",
+        "method": "get",
+        "args": [
+          "$VALUE"
+        ]
+      },
+      "typescript": {
+        "resource": "users",
+        "method": "get",
+        "args": [
+          "$VALUE"
+        ]
+      }
+    },
+    {
+      "name": "a lone dot collapses onto the collection route",
+      "value": ".",
+      "typescript_path": "/users/.",
+      "note": "requests resolves the dot segment in prepare_url.",
+      "python": {
+        "resource": "users",
+        "method": "get",
+        "args": [
+          "$VALUE"
+        ]
+      },
+      "typescript": {
+        "resource": "users",
+        "method": "get",
+        "args": [
+          "$VALUE"
+        ]
+      }
+    },
+    {
+      "name": "a lone dot-dot climbs to the parent",
+      "value": "..",
+      "typescript_path": "/users/..",
+      "note": "requests resolves this to the parent before the request leaves the process; escaping does not survive requote_uri either.",
+      "python": {
+        "resource": "users",
+        "method": "get",
+        "args": [
+          "$VALUE"
+        ]
+      },
+      "typescript": {
+        "resource": "users",
+        "method": "get",
+        "args": [
+          "$VALUE"
+        ]
+      }
+    },
+    {
+      "name": "a trailing separator produces a 307 the client follows to a raw dot segment",
+      "value": "../",
+      "typescript_path": "/users/..%2F",
+      "note": "Starlette's redirect_slashes answers 307 and requests follows the Location verbatim without re-preparing the URL, so a raw `..` reaches the wire. It lands on the {user_id} route with user_id='..' rather than climbing — but the SDK should not be emitting a dot segment at all.",
+      "python": {
+        "resource": "users",
+        "method": "get",
+        "args": [
+          "$VALUE"
+        ]
+      },
+      "typescript": {
+        "resource": "users",
+        "method": "get",
+        "args": [
+          "$VALUE"
+        ]
+      }
+    },
+    {
+      "name": "an app slug carrying a separator",
+      "value": "../../account",
+      "typescript_path": "/apps/..%2F..%2Faccount/connect/api-key",
+      "note": "Same class as the users case, on the other string-typed segment.",
+      "python": {
+        "resource": "apps",
+        "method": "connect_api_key",
+        "args": [
+          "$VALUE"
+        ],
+        "kwargs": {
+          "api_key": "sk_test"
+        }
+      },
+      "typescript": {
+        "resource": "apps",
+        "method": "connectApiKey",
+        "args": [
+          "$VALUE",
+          {
+            "api_key": "sk_test"
+          }
+        ]
+      }
+    },
+    {
+      "name": "a run filename carrying a separator, which the handler rejects anyway",
+      "value": "../../../etc/passwd",
+      "typescript_path": "/runs/42/files/..%2F..%2F..%2Fetc%2Fpasswd/download",
+      "note": "The route declares {filename:path}, but its handler sanitizes the filename to a basename, so a value carrying a separator cannot resolve there either — the SDK refuses it with the same rule as every other segment.",
+      "python": {
+        "resource": "runs",
+        "method": "download_file",
+        "args": [
+          42,
+          "$VALUE"
+        ]
+      },
+      "typescript": {
+        "resource": "runs",
+        "method": "downloadFile",
+        "args": [
+          42,
+          "$VALUE"
+        ]
+      }
+    }
+  ]
+}

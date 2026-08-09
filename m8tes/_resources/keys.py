@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from .._http import seg
 from .._types import ApiKeyCreated, ApiKeyInfo, ApiKeyRotated, NamedApiKey
 
 if TYPE_CHECKING:
@@ -54,11 +55,13 @@ class Keys:
         """
         if key_id is None:
             return ApiKeyRotated.from_dict(self._http.request("POST", "/keys/rotate").json())
-        return ApiKeyCreated.from_dict(self._http.request("POST", f"/keys/{key_id}/rotate").json())
+        return ApiKeyCreated.from_dict(
+            self._http.request("POST", f"/keys/{seg(key_id)}/rotate").json()
+        )
 
     def revoke(self, key_id: int | None = None) -> ApiKeyInfo | NamedApiKey:
         """Revoke a key — the named key ``key_id`` if given, else the default key. It
         stops authenticating immediately."""
         if key_id is None:
             return ApiKeyInfo.from_dict(self._http.request("DELETE", "/keys/").json())
-        return NamedApiKey.from_dict(self._http.request("DELETE", f"/keys/{key_id}").json())
+        return NamedApiKey.from_dict(self._http.request("DELETE", f"/keys/{seg(key_id)}").json())

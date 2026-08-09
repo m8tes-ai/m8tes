@@ -16,11 +16,12 @@ from __future__ import annotations
 import builtins
 from typing import TYPE_CHECKING, Any
 
+from .._http import seg
 from .._types import Skill
+from ._utils import _resolve_agent_id
 
 if TYPE_CHECKING:
     from .._http import HTTPClient
-from ._utils import _resolve_agent_id
 
 
 class Skills:
@@ -63,7 +64,7 @@ class Skills:
 
     def get(self, skill_id: int, *, user_id: str | None = None) -> Skill:
         params = {"user_id": user_id} if user_id else None
-        resp = self._http.request("GET", f"/skills/{skill_id}", params=params)
+        resp = self._http.request("GET", f"/skills/{seg(skill_id)}", params=params)
         return Skill.from_dict(resp.json())
 
     def update(
@@ -87,9 +88,9 @@ class Skills:
         if status is not None:
             payload["status"] = status
         params = {"user_id": user_id} if user_id else None
-        resp = self._http.request("PATCH", f"/skills/{skill_id}", json=payload, params=params)
+        resp = self._http.request("PATCH", f"/skills/{seg(skill_id)}", json=payload, params=params)
         return Skill.from_dict(resp.json())
 
     def delete(self, skill_id: int, *, user_id: str | None = None) -> None:
         params = {"user_id": user_id} if user_id else None
-        self._http.request("DELETE", f"/skills/{skill_id}", params=params)
+        self._http.request("DELETE", f"/skills/{seg(skill_id)}", params=params)

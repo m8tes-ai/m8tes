@@ -8,7 +8,7 @@ import logging
 from typing import TYPE_CHECKING, Any, cast
 import uuid
 
-from .._http import IDEMPOTENCY_HEADER, REPLAY_HEADER
+from .._http import IDEMPOTENCY_HEADER, REPLAY_HEADER, seg
 from .._streaming import RunStream
 from .._types import (
     PermissionMode,
@@ -283,7 +283,7 @@ class Runs:
         executing — fetch the final result with ``get(run_id)`` instead. GET is safe to
         retry, so transient network errors are retried automatically.
         """
-        resp = self._http.stream("GET", f"/runs/{run_id}/stream")
+        resp = self._http.stream("GET", f"/runs/{seg(run_id)}/stream")
         return RunStream(resp, raise_on_error=raise_on_error)
 
     def poll(
@@ -637,7 +637,7 @@ class Runs:
         )
 
     def get(self, run_id: int) -> Run:
-        resp = self._http.request("GET", f"/runs/{run_id}")
+        resp = self._http.request("GET", f"/runs/{seg(run_id)}")
         return Run.from_dict(resp.json())
 
     def check(self, *, user_id: str | None = None) -> RunCheck:
@@ -653,7 +653,7 @@ class Runs:
 
     def outcome(self, run_id: int) -> RunOutcome:
         """Condensed run result: closing summary, structured output, and metered cost."""
-        resp = self._http.request("GET", f"/runs/{run_id}/outcome")
+        resp = self._http.request("GET", f"/runs/{seg(run_id)}/outcome")
         return RunOutcome.from_dict(resp.json())
 
     def messages(
@@ -669,7 +669,7 @@ class Runs:
         ``after_sequence`` to fetch only messages newer than a known sequence.
         """
         params = _build_params(after_sequence=after_sequence, limit=limit)
-        resp = self._http.request("GET", f"/runs/{run_id}/messages", params=params or None)
+        resp = self._http.request("GET", f"/runs/{seg(run_id)}/messages", params=params or None)
         return [RunMessage.from_dict(m) for m in resp.json()]
 
     def reply(
@@ -733,7 +733,7 @@ class Runs:
             if stream:
                 resp = self._http.stream(
                     "POST",
-                    f"/runs/{run_id}/reply/with-files",
+                    f"/runs/{seg(run_id)}/reply/with-files",
                     data=form,
                     files=file_parts,
                     headers=headers,
@@ -741,20 +741,22 @@ class Runs:
                 return self._stream_or_replay(resp, raise_on_error=False)
             resp = self._http.request(
                 "POST",
-                f"/runs/{run_id}/reply/with-files",
+                f"/runs/{seg(run_id)}/reply/with-files",
                 data=form,
                 files=file_parts,
                 headers=headers,
             )
             return Run.from_dict(resp.json())
         if stream:
-            resp = self._http.stream("POST", f"/runs/{run_id}/reply", json=body, headers=headers)
+            resp = self._http.stream(
+                "POST", f"/runs/{seg(run_id)}/reply", json=body, headers=headers
+            )
             return self._stream_or_replay(resp, raise_on_error=False)
-        resp = self._http.request("POST", f"/runs/{run_id}/reply", json=body, headers=headers)
+        resp = self._http.request("POST", f"/runs/{seg(run_id)}/reply", json=body, headers=headers)
         return Run.from_dict(resp.json())
 
     def cancel(self, run_id: int) -> Run:
-        resp = self._http.request("POST", f"/runs/{run_id}/cancel")
+        resp = self._http.request("POST", f"/runs/{seg(run_id)}/cancel")
         return Run.from_dict(resp.json())
 
     def share(self, run_id: int) -> RunShare:
@@ -762,19 +764,19 @@ class Runs:
 
         Idempotent — repeat calls return the same link. Revoke with :meth:`unshare`.
         """
-        resp = self._http.request("POST", f"/runs/{run_id}/share")
+        resp = self._http.request("POST", f"/runs/{seg(run_id)}/share")
         return RunShare.from_dict(resp.json())
 
     def unshare(self, run_id: int) -> None:
         """Revoke the run's public link. The old URL 404s immediately."""
-        self._http.request("DELETE", f"/runs/{run_id}/share")
+        self._http.request("DELETE", f"/runs/{seg(run_id)}/share")
 
     def archive(self, run_id: int) -> Run:
         """Archive a run — a soft delete that hides it from the default list.
 
         Idempotent: archiving an already-archived run succeeds and changes nothing.
         """
-        resp = self._http.request("POST", f"/runs/{run_id}/archive")
+        resp = self._http.request("POST", f"/runs/{seg(run_id)}/archive")
         return Run.from_dict(resp.json())
 
     def retry(self, run_id: int, *, confirm: bool = False) -> Run:
@@ -791,7 +793,7 @@ class Runs:
         non-retryable run.
         """
         params = {"confirm": "true"} if confirm else None
-        resp = self._http.request("POST", f"/runs/{run_id}/retry", params=params)
+        resp = self._http.request("POST", f"/runs/{seg(run_id)}/retry", params=params)
         return Run.from_dict(resp.json())
 
     def update_permission_mode(
@@ -809,14 +811,14 @@ class Runs:
         """
         resp = self._http.request(
             "PATCH",
-            f"/runs/{run_id}/permission-mode",
+            f"/runs/{seg(run_id)}/permission-mode",
             json={"permission_mode": permission_mode},
         )
         return PermissionModeResponse.from_dict(resp.json())
 
     def permissions(self, run_id: int) -> _list[PermissionRequest]:
         """List tool permission requests for a run."""
-        resp = self._http.request("GET", f"/runs/{run_id}/permissions")
+        resp = self._http.request("GET", f"/runs/{seg(run_id)}/permissions")
         return [PermissionRequest.from_dict(d) for d in resp.json()]
 
     def answer(
@@ -842,7 +844,7 @@ class Runs:
         body: dict[str, Any] = {"answers": answers}
         if request_id is not None:
             body["request_id"] = request_id
-        resp = self._http.request("POST", f"/runs/{run_id}/answer", json=body)
+        resp = self._http.request("POST", f"/runs/{seg(run_id)}/answer", json=body)
         result: dict[str, Any] = resp.json()
         return result
 
@@ -884,15 +886,21 @@ class Runs:
         }
         if reason is not None:
             body["reason"] = reason
-        resp = self._http.request("POST", f"/runs/{run_id}/approve", json=body)
+        resp = self._http.request("POST", f"/runs/{seg(run_id)}/approve", json=body)
         return PermissionRequest.from_dict(resp.json())
 
     def list_files(self, run_id: int) -> _list[RunFile]:
         """List files generated by a run."""
-        resp = self._http.request("GET", f"/runs/{run_id}/files")
+        resp = self._http.request("GET", f"/runs/{seg(run_id)}/files")
         return [RunFile.from_dict(f) for f in resp.json()]
 
     def download_file(self, run_id: int, filename: str) -> bytes:
-        """Download a file generated by a run. Returns raw file bytes."""
-        resp = self._http.request("GET", f"/runs/{run_id}/files/{filename}/download")
+        """Download a file generated by a run. Returns raw file bytes.
+
+        Run files are flat: pass a basename, not a path. The route reads
+        `{filename:path}`, but the three handlers behind it all sanitize the
+        filename to a basename (`sanitize_run_filename`) and reject anything
+        else, so a nested name is refused here rather than sent to be rejected.
+        """
+        resp = self._http.request("GET", f"/runs/{seg(run_id)}/files/{seg(filename)}/download")
         return resp.content

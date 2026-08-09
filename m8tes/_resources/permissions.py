@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from .._http import seg
 from .._types import PermissionPolicy, SyncPage
 from ._utils import _build_params
 
@@ -58,6 +59,6 @@ class Permissions:
         """
         self._http.request(
             "DELETE",
-            f"/permissions/{permission_id}",
+            f"/permissions/{seg(permission_id)}",
             params=_build_params(user_id=user_id),
         )

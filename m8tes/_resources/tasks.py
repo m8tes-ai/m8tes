@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, cast
 
+from .._http import seg
 from .._streaming import RunStream
 from .._types import LessonList, PermissionRequest, Run, SyncPage, Task, TeammateWebhook, Trigger
 from ._utils import _build_params, _resolve_agent_id
@@ -58,11 +59,11 @@ class TaskTriggers:
             body["user_id"] = user_id
         if allowed_senders is not None:
             body["allowed_senders"] = allowed_senders
-        resp = self._http.request("POST", f"/tasks/{task_id}/triggers/", json=body)
+        resp = self._http.request("POST", f"/tasks/{seg(task_id)}/triggers/", json=body)
         return Trigger.from_dict(resp.json())
 
     def list(self, task_id: int) -> list[Trigger]:
-        resp = self._http.request("GET", f"/tasks/{task_id}/triggers/")
+        resp = self._http.request("GET", f"/tasks/{seg(task_id)}/triggers/")
         body = resp.json()
         items = body["data"] if isinstance(body, dict) and "data" in body else body
         return [Trigger.from_dict(d) for d in items]
@@ -94,11 +95,13 @@ class TaskTriggers:
             body["run_at"] = run_at
         if timezone is not None:
             body["timezone"] = timezone
-        resp = self._http.request("PATCH", f"/tasks/{task_id}/triggers/{trigger_id}", json=body)
+        resp = self._http.request(
+            "PATCH", f"/tasks/{seg(task_id)}/triggers/{seg(trigger_id)}", json=body
+        )
         return Trigger.from_dict(resp.json())
 
     def delete(self, task_id: int, trigger_id: int) -> None:
-        self._http.request("DELETE", f"/tasks/{task_id}/triggers/{trigger_id}")
+        self._http.request("DELETE", f"/tasks/{seg(task_id)}/triggers/{seg(trigger_id)}")
 
 
 class Tasks:
@@ -215,7 +218,9 @@ class Tasks:
 
     def get(self, task_id: int, *, user_id: str | None = None) -> Task:
         """Get a task. Pass user_id to scope to one end-user (404 on mismatch)."""
-        resp = self._http.request("GET", f"/tasks/{task_id}", params=_build_params(user_id=user_id))
+        resp = self._http.request(
+            "GET", f"/tasks/{seg(task_id)}", params=_build_params(user_id=user_id)
+        )
         return Task.from_dict(resp.json())
 
     def update(
@@ -287,7 +292,7 @@ class Tasks:
         if status is not None:
             body["status"] = status
         resp = self._http.request(
-            "PATCH", f"/tasks/{task_id}", json=body, params=_build_params(user_id=user_id)
+            "PATCH", f"/tasks/{seg(task_id)}", json=body, params=_build_params(user_id=user_id)
         )
         return Task.from_dict(resp.json())
 
@@ -353,12 +358,14 @@ class Tasks:
 
         headers = idempotency_headers(idempotency_key)
         if stream:
-            resp = self._http.stream("POST", f"/tasks/{task_id}/runs", json=body, headers=headers)
+            resp = self._http.stream(
+                "POST", f"/tasks/{seg(task_id)}/runs", json=body, headers=headers
+            )
             # Shares the create path's replay handling: a replayed streaming call
             # answers with JSON, so join the existing run's stream instead.
             return Runs(self._http)._stream_or_replay(resp, raise_on_error=False)
 
-        resp = self._http.request("POST", f"/tasks/{task_id}/runs", json=body, headers=headers)
+        resp = self._http.request("POST", f"/tasks/{seg(task_id)}/runs", json=body, headers=headers)
         return Run.from_dict(resp.json())
 
     def run_and_wait(
@@ -408,7 +415,9 @@ class Tasks:
 
     def delete(self, task_id: int, *, user_id: str | None = None) -> None:
         """Archive a task. Pass user_id to scope to one end-user (404 on mismatch)."""
-        self._http.request("DELETE", f"/tasks/{task_id}", params=_build_params(user_id=user_id))
+        self._http.request(
+            "DELETE", f"/tasks/{seg(task_id)}", params=_build_params(user_id=user_id)
+        )
 
     def enable_webhook(self, task_id: int) -> TeammateWebhook:
         """Enable (or rotate) the task's webhook trigger. Returns the URL (shown once).
@@ -416,7 +425,7 @@ class Tasks:
         Calling again generates a fresh token, invalidating the previous URL —
         use this to rotate a leaked webhook URL.
         """
-        resp = self._http.request("POST", f"/tasks/{task_id}/webhook")
+        resp = self._http.request("POST", f"/tasks/{seg(task_id)}/webhook")
         return TeammateWebhook.from_dict(resp.json())
 
     def set_webhook_enabled(self, task_id: int, *, enabled: bool) -> TeammateWebhook:
@@ -426,28 +435,30 @@ class Tasks:
         you'd have to re-distribute, and disable_webhook() destroys the token.
         Enabling requires an existing token (400 otherwise — mint one first).
         """
-        resp = self._http.request("PATCH", f"/tasks/{task_id}/webhook", json={"enabled": enabled})
+        resp = self._http.request(
+            "PATCH", f"/tasks/{seg(task_id)}/webhook", json={"enabled": enabled}
+        )
         return TeammateWebhook.from_dict(resp.json())
 
     def disable_webhook(self, task_id: int) -> None:
         """Disable the task's webhook trigger. POSTs to the old URL stop starting runs."""
-        self._http.request("DELETE", f"/tasks/{task_id}/webhook")
+        self._http.request("DELETE", f"/tasks/{seg(task_id)}/webhook")
 
     # ── Lessons (what the task's agent has learned) ──────────────────────
 
     def lessons(self, task_id: int) -> LessonList:
         """List the lessons this task's agent has saved for future runs."""
-        resp = self._http.request("GET", f"/tasks/{task_id}/lessons")
+        resp = self._http.request("GET", f"/tasks/{seg(task_id)}/lessons")
         return LessonList.from_dict(resp.json())
 
     def delete_lesson(self, task_id: int, lesson_id: str) -> LessonList:
         """Delete one saved lesson; returns the remaining lessons."""
-        resp = self._http.request("DELETE", f"/tasks/{task_id}/lessons/{lesson_id}")
+        resp = self._http.request("DELETE", f"/tasks/{seg(task_id)}/lessons/{seg(lesson_id)}")
         return LessonList.from_dict(resp.json())
 
     def clear_lessons(self, task_id: int) -> LessonList:
         """Clear all saved lessons for a task. Returns the now-empty list."""
         resp = self._http.request(
-            "POST", f"/tasks/{task_id}/lessons:clear", params={"confirm": "true"}
+            "POST", f"/tasks/{seg(task_id)}/lessons:clear", params={"confirm": "true"}
         )
         return LessonList.from_dict(resp.json())

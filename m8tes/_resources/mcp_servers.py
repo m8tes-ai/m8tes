@@ -17,6 +17,7 @@ from __future__ import annotations
 import builtins
 from typing import TYPE_CHECKING, Any
 
+from .._http import seg
 from .._types import McpServer
 
 if TYPE_CHECKING:
@@ -73,7 +74,7 @@ class McpServers:
 
     def get(self, server_id: int, *, user_id: str | None = None) -> McpServer:
         params = {"user_id": user_id} if user_id else None
-        resp = self._http.request("GET", f"/mcp-servers/{server_id}", params=params)
+        resp = self._http.request("GET", f"/mcp-servers/{seg(server_id)}", params=params)
         return McpServer.from_dict(resp.json())
 
     def update(
@@ -111,9 +112,11 @@ class McpServers:
         if status is not None:
             body["status"] = status
         params = {"user_id": user_id} if user_id else None
-        resp = self._http.request("PATCH", f"/mcp-servers/{server_id}", json=body, params=params)
+        resp = self._http.request(
+            "PATCH", f"/mcp-servers/{seg(server_id)}", json=body, params=params
+        )
         return McpServer.from_dict(resp.json())
 
     def delete(self, server_id: int, *, user_id: str | None = None) -> None:
         params = {"user_id": user_id} if user_id else None
-        self._http.request("DELETE", f"/mcp-servers/{server_id}", params=params)
+        self._http.request("DELETE", f"/mcp-servers/{seg(server_id)}", params=params)

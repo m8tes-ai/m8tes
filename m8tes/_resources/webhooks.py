@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from .._http import seg
 from .._types import SyncPage, Webhook, WebhookDelivery
 from ._utils import _build_params
 
@@ -70,7 +71,7 @@ class Webhooks:
 
     def get(self, webhook_id: int) -> Webhook:
         """Get a single webhook endpoint (secret masked)."""
-        resp = self._http.request("GET", f"/webhooks/{webhook_id}")
+        resp = self._http.request("GET", f"/webhooks/{seg(webhook_id)}")
         return Webhook.from_dict(resp.json())
 
     def list(
@@ -112,7 +113,7 @@ class Webhooks:
             body["active"] = active
         if rotate_secret:
             body["rotate_secret"] = True
-        resp = self._http.request("PATCH", f"/webhooks/{webhook_id}", json=body)
+        resp = self._http.request("PATCH", f"/webhooks/{seg(webhook_id)}", json=body)
         return Webhook.from_dict(resp.json())
 
     def list_deliveries(
@@ -124,7 +125,7 @@ class Webhooks:
     ) -> SyncPage[WebhookDelivery]:
         """List delivery attempts for a webhook endpoint."""
         params = _build_params(limit=limit, starting_after=starting_after)
-        resp = self._http.request("GET", f"/webhooks/{webhook_id}/deliveries", params=params)
+        resp = self._http.request("GET", f"/webhooks/{seg(webhook_id)}/deliveries", params=params)
         body = resp.json()
 
         def _fetch_next(**kw: object) -> SyncPage[WebhookDelivery]:
@@ -138,4 +139,4 @@ class Webhooks:
 
     def delete(self, webhook_id: int) -> None:
         """Delete a webhook endpoint."""
-        self._http.request("DELETE", f"/webhooks/{webhook_id}")
+        self._http.request("DELETE", f"/webhooks/{seg(webhook_id)}")
