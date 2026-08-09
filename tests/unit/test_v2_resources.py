@@ -24,8 +24,10 @@ from m8tes._types import (
     PermissionMode,
     PermissionRequest,
     Run,
+    RunCheck,
     RunFile,
     RunOutcome,
+    RunShare,
     SyncPage,
     Task,
     Teammate,
@@ -474,6 +476,62 @@ class TestAuditLogs:
 
 
 class TestRuns:
+    @responses.activate
+    def test_check(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/check",
+            json={
+                "total_count": 7,
+                "latest_run_id": 42,
+                "awaiting_count": 1,
+                "latest_change_at": "2026-08-08T12:00:00Z",
+            },
+        )
+        result = Runs(http).check(user_id="alice")
+        assert isinstance(result, RunCheck)
+        assert result.total_count == 7
+        assert result.latest_run_id == 42
+        assert result.awaiting_count == 1
+        assert responses.calls[0].request.params.get("user_id") == "alice"
+
+    @responses.activate
+    def test_check_empty_account(self, http):
+        responses.add(responses.GET, f"{BASE}/runs/check", json={"total_count": 0})
+        result = Runs(http).check()
+        assert result.latest_run_id is None
+        assert result.awaiting_count == 0
+        assert result.latest_change_at is None
+
+    @responses.activate
+    def test_share_and_unshare(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/42/share",
+            json={
+                "share_token": "shr_abc",
+                "share_url": "https://www.m8tes.ai/shared/runs/shr_abc",
+            },
+        )
+        responses.add(responses.DELETE, f"{BASE}/runs/42/share", status=204)
+        share = Runs(http).share(42)
+        assert isinstance(share, RunShare)
+        assert share.share_token == "shr_abc"
+        assert share.share_url.endswith("/shr_abc")
+        Runs(http).unshare(42)
+        assert responses.calls[1].request.method == "DELETE"
+
+    @responses.activate
+    def test_archive(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/42/archive",
+            json={"id": 42, "status": "completed", "archived": True},
+        )
+        result = Runs(http).archive(42)
+        assert isinstance(result, Run)
+        assert result.id == 42
+
     @responses.activate
     def test_create_streaming(self, http):
         responses.add(
@@ -938,6 +996,19 @@ class TestTasks:
         responses.add(responses.DELETE, f"{BASE}/tasks/1/webhook", status=204)
         Tasks(http).disable_webhook(1)
         assert responses.calls[0].request.method == "DELETE"
+
+    @responses.activate
+    def test_set_webhook_enabled(self, http):
+        """PATCH pauses/resumes without rotating the token — the URL survives."""
+        responses.add(
+            responses.PATCH,
+            f"{BASE}/tasks/1/webhook",
+            json={"enabled": False, "url": "https://api.m8tes.ai/api/v1/webhooks/tasks/1/whk_ab…"},
+        )
+        result = Tasks(http).set_webhook_enabled(1, enabled=False)
+        assert isinstance(result, TeammateWebhook)
+        assert result.enabled is False
+        assert json.loads(responses.calls[0].request.body) == {"enabled": False}
 
     @responses.activate
     def test_create(self, http):

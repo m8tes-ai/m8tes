@@ -403,6 +403,16 @@ class Tasks:
         resp = self._http.request("POST", f"/tasks/{task_id}/webhook")
         return TeammateWebhook.from_dict(resp.json())
 
+    def set_webhook_enabled(self, task_id: int, *, enabled: bool) -> TeammateWebhook:
+        """Pause or resume the webhook WITHOUT rotating the token — the URL survives.
+
+        Use this to pause for an afternoon; enable_webhook() would mint a new URL
+        you'd have to re-distribute, and disable_webhook() destroys the token.
+        Enabling requires an existing token (400 otherwise — mint one first).
+        """
+        resp = self._http.request("PATCH", f"/tasks/{task_id}/webhook", json={"enabled": enabled})
+        return TeammateWebhook.from_dict(resp.json())
+
     def disable_webhook(self, task_id: int) -> None:
         """Disable the task's webhook trigger. POSTs to the old URL stop starting runs."""
         self._http.request("DELETE", f"/tasks/{task_id}/webhook")

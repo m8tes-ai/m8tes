@@ -1256,10 +1256,42 @@ class TestTaskWebhookToggle:
                 rotated = v2_client.tasks.enable_webhook(task.id)
                 assert rotated.url != hook.url
 
+                # Pause WITHOUT rotating: the token (and thus the URL) survives.
+                # The PATCH response masks the token (prefix + "****"), so URL
+                # survival is asserted two ways: the masked URL is identical
+                # across pause/resume, and the live full URL (from the rotate
+                # above) still starts with the same unmasked prefix — i.e. the
+                # token distributed before the pause still works after it.
+                paused = v2_client.tasks.set_webhook_enabled(task.id, enabled=False)
+                assert paused.enabled is False
+                resumed = v2_client.tasks.set_webhook_enabled(task.id, enabled=True)
+                assert resumed.enabled is True
+                assert paused.url is not None and paused.url == resumed.url
+                # Compare paths, not full URLs: the POST builder uses the
+                # configured base_url while PATCH mirrors the request host, so
+                # the hosts legitimately differ against a dev backend on a
+                # non-default port (tracked in TODOS.md).
+                paused_path = paused.url.split("/api/", 1)[1].replace("****", "")
+                assert rotated.url.split("/api/", 1)[1].startswith(paused_path)
+
                 # Disable removes the webhook trigger.
                 v2_client.tasks.disable_webhook(task.id)
                 triggers = v2_client.tasks.triggers.list(task.id)
                 assert not any(tr.type == "webhook" for tr in triggers)
+            finally:
+                v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_enable_without_token_is_rejected(self, v2_client):
+        """PATCH enabled=true with no minted token is a 400 — there is nothing to enable."""
+        tm = v2_client.teammates.create(name="TaskHookNoToken")
+        try:
+            task = v2_client.tasks.create(teammate_id=tm.id, instructions="no token yet")
+            try:
+                with pytest.raises(M8tesError) as excinfo:
+                    v2_client.tasks.set_webhook_enabled(task.id, enabled=True)
+                assert excinfo.value.status_code == 400
             finally:
                 v2_client.tasks.delete(task.id)
         finally:
@@ -2030,6 +2062,26 @@ class TestRunsReadOnly:
         with pytest.raises(NotFoundError):
             v2_client.runs.outcome(999999)
 
+    def test_check(self, v2_client):
+        """runs.check() returns aggregate counters, scoped like list()."""
+        freshness = v2_client.runs.check()
+        assert freshness.total_count >= 0
+        assert freshness.awaiting_count >= 0
+        # A never-seen end-user scope is empty by strict isolation.
+        empty = v2_client.runs.check(user_id=_uid())
+        assert empty.total_count == 0
+        assert empty.latest_run_id is None
+
+    def test_share_nonexistent_run(self, v2_client):
+        with pytest.raises(NotFoundError):
+            v2_client.runs.share(999999)
+        with pytest.raises(NotFoundError):
+            v2_client.runs.unshare(999999)
+
+    def test_archive_nonexistent_run(self, v2_client):
+        with pytest.raises(NotFoundError):
+            v2_client.runs.archive(999999)
+
 
 @pytest.mark.integration
 class TestRunsWithFiles:
@@ -2105,6 +2157,39 @@ class TestRunTaskLinkage:
             page = v2_client.runs.list(task_id=task.id)
             assert isinstance(page, SyncPage)
             assert page.data == []
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+
+@pytest.mark.integration
+@pytest.mark.runtime
+class TestRunShareArchiveRuntime:
+    """Success paths for runs.share/unshare/archive against a real run."""
+
+    def test_share_unshare_archive_lifecycle(self, v2_client):
+        tm = v2_client.teammates.create(name="ShareArchiveHost")
+        try:
+            run = v2_client.runs.create(teammate_id=tm.id, message="share me", stream=False)
+            with contextlib.suppress(M8tesError):
+                v2_client.runs.cancel(run.id)  # result irrelevant; run stays shareable
+
+            share = v2_client.runs.share(run.id)
+            assert share.share_token and share.share_token in share.share_url
+            # Idempotent: repeat share returns the SAME link, no silent rotation.
+            assert v2_client.runs.share(run.id).share_url == share.share_url
+
+            v2_client.runs.unshare(run.id)
+            # Unshare destroys the token; a new share mints a NEW link.
+            reshared = v2_client.runs.share(run.id)
+            assert reshared.share_token != share.share_token
+            v2_client.runs.unshare(run.id)
+
+            archived = v2_client.runs.archive(run.id)
+            assert archived.id == run.id
+            # Archived runs leave the default list but stay fetchable by id —
+            # and archive is idempotent.
+            assert v2_client.runs.archive(run.id).id == run.id
+            assert all(r.id != run.id for r in v2_client.runs.list(limit=100).data)
         finally:
             v2_client.teammates.delete(tm.id)
 

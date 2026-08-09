@@ -15,9 +15,11 @@ from .._types import (
     PermissionModeResponse,
     PermissionRequest,
     Run,
+    RunCheck,
     RunFile,
     RunMessage,
     RunOutcome,
+    RunShare,
     SyncPage,
 )
 from ._utils import _build_params, _resolve_agent_id
@@ -638,6 +640,17 @@ class Runs:
         resp = self._http.request("GET", f"/runs/{run_id}")
         return Run.from_dict(resp.json())
 
+    def check(self, *, user_id: str | None = None) -> RunCheck:
+        """Cheap "has anything changed?" probe — aggregate counts only, ~50 bytes.
+
+        Poll this instead of re-listing runs when you only need to know whether
+        something appeared (a schedule fired, a webhook came in). Scoped exactly
+        like list(): ``user_id`` probes that end-user, omitting it probes the
+        account-level scope.
+        """
+        resp = self._http.request("GET", "/runs/check", params=_build_params(user_id=user_id))
+        return RunCheck.from_dict(resp.json())
+
     def outcome(self, run_id: int) -> RunOutcome:
         """Condensed run result: closing summary, structured output, and metered cost."""
         resp = self._http.request("GET", f"/runs/{run_id}/outcome")
@@ -742,6 +755,26 @@ class Runs:
 
     def cancel(self, run_id: int) -> Run:
         resp = self._http.request("POST", f"/runs/{run_id}/cancel")
+        return Run.from_dict(resp.json())
+
+    def share(self, run_id: int) -> RunShare:
+        """Create a public read-only link for the run.
+
+        Idempotent — repeat calls return the same link. Revoke with :meth:`unshare`.
+        """
+        resp = self._http.request("POST", f"/runs/{run_id}/share")
+        return RunShare.from_dict(resp.json())
+
+    def unshare(self, run_id: int) -> None:
+        """Revoke the run's public link. The old URL 404s immediately."""
+        self._http.request("DELETE", f"/runs/{run_id}/share")
+
+    def archive(self, run_id: int) -> Run:
+        """Archive a run — a soft delete that hides it from the default list.
+
+        Idempotent: archiving an already-archived run succeeds and changes nothing.
+        """
+        resp = self._http.request("POST", f"/runs/{run_id}/archive")
         return Run.from_dict(resp.json())
 
     def retry(self, run_id: int, *, confirm: bool = False) -> Run:

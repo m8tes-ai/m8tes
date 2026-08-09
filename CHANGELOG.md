@@ -2,6 +2,16 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [2.17.0] - 2026-08-08
+
+### Added
+- `runs.check()` — cheap "has anything changed?" probe returning aggregate counters (`RunCheck`: `total_count`, `latest_run_id`, `awaiting_count`, `latest_change_at`). Poll this instead of re-listing runs; scoped exactly like `runs.list()` via `user_id`.
+- `runs.share(id)` / `runs.unshare(id)` — create or revoke a public read-only link for a run (`RunShare`: `share_token`, `share_url`). Share is idempotent; unshare 404s the old URL immediately.
+- `runs.archive(id)` — soft-delete a run out of the default list. Idempotent.
+- `tasks.set_webhook_enabled(id, enabled=)` — pause or resume a task webhook WITHOUT rotating the token, so the distributed URL survives. Enabling with no minted token is a 400 (`enable_webhook()` mints one).
+
+  These five endpoints already existed on the API, and the generated docs already advertised these exact SDK methods — the methods themselves were never written. A new repo-side guard (`test_v2_sdk_coverage.py`) now diffs the live V2 surface against the SDK's call sites and every `x-sdk-method` doc claim, so an SDK-less V2 endpoint or a phantom doc claim fails CI instead of shipping.
+
 ## [2.16.0] - 2026-08-05
 
 ### Added
