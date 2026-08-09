@@ -1,8 +1,12 @@
 """
-Agent management commands for the m8tes CLI.
+Agent management commands for the m8tes CLI, backed by the v2 SDK client.
 
 Primary command is ``agent`` (docs/API vocabulary). ``mate``, ``teammate``,
 ``m``, and ``agents`` remain permanent aliases so existing scripts keep working.
+
+Exceptions: helpers raise typed v2 SDK errors (``m8tes._exceptions``); the
+legacy hierarchy is still caught because shared CLI utilities (``parse_id``)
+raise it. Both map to exit code 1.
 """
 
 from argparse import Action, ArgumentParser, Namespace
@@ -10,12 +14,28 @@ from collections.abc import Sequence
 import shlex
 from typing import TYPE_CHECKING, ClassVar, Optional
 
-from ...exceptions import AgentError, AuthenticationError, NetworkError, ValidationError
+from ..._exceptions import (
+    APIError,
+    AuthenticationError,
+    M8tesError,
+    NotFoundError,
+    PermissionDeniedError,
+    ValidationError,
+)
+from ...exceptions import (
+    AuthenticationError as LegacyAuthenticationError,
+    M8tesError as LegacyM8tesError,
+)
 from ..base import Command, CommandGroup
 from ..util import show_auth_guidance
 
 if TYPE_CHECKING:
-    from ...client import M8tes
+    from ..._client import M8tes
+
+# The two error families every command maps to exit 1: v2 SDK errors from the
+# client, legacy ones from shared CLI helpers (e.g. parse_id).
+_CLI_ERRORS = (M8tesError, LegacyM8tesError)
+_AUTH_ERRORS = (AuthenticationError, LegacyAuthenticationError)
 
 
 class MateCommandGroup(CommandGroup):
@@ -76,16 +96,6 @@ class CreateCommand(Command):
             ),
         )
         parser.add_argument(
-            "--integrations",
-            nargs="+",
-            type=int,
-            help=(
-                "Integration IDs (AppIntegration catalog IDs) space-separated. "
-                "Example: --integrations 1 2. "
-                "Run 'm8tes apps list' to see available integrations."
-            ),
-        )
-        parser.add_argument(
             "--enable-imessage",
             action="store_true",
             help="Enable inbound Apple Messages routing for this agent",
@@ -121,7 +131,6 @@ class CreateCommand(Command):
                 tools = getattr(args, "tools", None)
                 role = getattr(args, "role", None)
                 goals_str = getattr(args, "goals", None)
-                integration_ids = getattr(args, "integrations", None)
                 inbound_imessage_enabled = getattr(args, "enable_imessage", False)
                 imessage_chat_guid = getattr(args, "imessage_chat_guid", None)
 
@@ -145,7 +154,6 @@ class CreateCommand(Command):
                     instructions=instructions,
                     role=role.strip() if role else None,
                     goals=goals,
-                    integration_ids=integration_ids,
                     inbound_imessage_enabled=inbound_imessage_enabled,
                     imessage_chat_guid=imessage_chat_guid,
                 )
@@ -153,11 +161,11 @@ class CreateCommand(Command):
                 # Interactive mode
                 mate_cli.create_interactive()
             return 0
-        except AuthenticationError as e:
+        except _AUTH_ERRORS as e:
             print(f"❌ Authentication failed: {e}")
             show_auth_guidance()
             return 1
-        except (AgentError, NetworkError, ValidationError) as e:
+        except _CLI_ERRORS as e:
             print(f"❌ Agent creation failed: {e}")
             return 1
         except KeyboardInterrupt:
@@ -195,11 +203,11 @@ class ListCommand(Command):
             include_disabled = getattr(args, "include_disabled", False)
             mate_cli.list_interactive(include_disabled=include_disabled)
             return 0
-        except AuthenticationError as e:
+        except _AUTH_ERRORS as e:
             print(f"❌ Authentication failed: {e}")
             show_auth_guidance()
             return 1
-        except (AgentError, NetworkError, ValidationError) as e:
+        except _CLI_ERRORS as e:
             print(f"❌ Error listing agents: {e}")
             return 1
 
@@ -230,11 +238,11 @@ class GetCommand(Command):
             mate_id = args.mate_id
             mate_cli.get_interactive(mate_id)
             return 0
-        except AuthenticationError as e:
+        except _AUTH_ERRORS as e:
             print(f"❌ Authentication failed: {e}")
             show_auth_guidance()
             return 1
-        except (AgentError, NetworkError, ValidationError) as e:
+        except _CLI_ERRORS as e:
             print(f"❌ Error getting agent: {e}")
             return 1
 
@@ -359,11 +367,11 @@ class TaskCommand(Command):
                 task_setup_tools=not no_task_setup_tools,
             )
             return 0
-        except AuthenticationError as e:
+        except _AUTH_ERRORS as e:
             print(f"❌ Authentication failed: {e}")
             show_auth_guidance()
             return 1
-        except (AgentError, NetworkError, ValidationError) as e:
+        except _CLI_ERRORS as e:
             print(f"❌ Agent task failed: {e}")
             return 1
         except KeyboardInterrupt:
@@ -437,11 +445,11 @@ class ChatCommand(Command):
                     output_format=output_format,
                 )
             return 0
-        except AuthenticationError as e:
+        except _AUTH_ERRORS as e:
             print(f"❌ Authentication failed: {e}")
             show_auth_guidance()
             return 1
-        except (AgentError, NetworkError, ValidationError) as e:
+        except _CLI_ERRORS as e:
             print(f"❌ Agent chat failed: {e}")
             return 1
         except KeyboardInterrupt:
@@ -540,11 +548,11 @@ class UpdateCommand(Command):
                 # Interactive mode
                 mate_cli.update_interactive(mate_id)
             return 0
-        except AuthenticationError as e:
+        except _AUTH_ERRORS as e:
             print(f"❌ Authentication failed: {e}")
             show_auth_guidance()
             return 1
-        except (AgentError, NetworkError, ValidationError) as e:
+        except _CLI_ERRORS as e:
             print(f"❌ Error updating agent: {e}")
             return 1
 
@@ -575,11 +583,11 @@ class EnableCommand(Command):
             mate_id = args.mate_id
             mate_cli.enable_interactive(mate_id)
             return 0
-        except AuthenticationError as e:
+        except _AUTH_ERRORS as e:
             print(f"❌ Authentication failed: {e}")
             show_auth_guidance()
             return 1
-        except (NetworkError, ValidationError):
+        except (ValidationError, APIError):
             # Message already shown by enable_interactive
             return 1
         except Exception as e:
@@ -619,11 +627,11 @@ class DisableCommand(Command):
             force = getattr(args, "force", False)
             mate_cli.disable_interactive(mate_id, force)
             return 0
-        except AuthenticationError as e:
+        except _AUTH_ERRORS as e:
             print(f"❌ Authentication failed: {e}")
             show_auth_guidance()
             return 1
-        except (ValidationError, NetworkError):
+        except (ValidationError, APIError):
             # Message already shown by disable_interactive
             return 1
         except Exception as e:
@@ -663,11 +671,11 @@ class ArchiveCommand(Command):
             force = getattr(args, "force", False)
             mate_cli.archive_interactive(mate_id, force)
             return 0
-        except AuthenticationError as e:
+        except _AUTH_ERRORS as e:
             print(f"❌ Authentication failed: {e}")
             show_auth_guidance()
             return 1
-        except (ValidationError, NetworkError):
+        except (ValidationError, NotFoundError, PermissionDeniedError, APIError):
             # Message already shown by archive_interactive
             return 1
         except Exception as e:

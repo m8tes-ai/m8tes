@@ -1775,8 +1775,7 @@ class Skill:
 
 
 # Canonical naming: "agent" is the developer-facing term; Teammate is the same
-# class under its legacy name. NOTE: the alias is NOT re-exported at package top
-# level — the legacy v1 module m8tes/agent.py already owns the public name
-# `m8tes.Agent`. Import from m8tes._types if you want the v2 alias explicitly.
+# class under its legacy name. Since the legacy v1 SDK was deleted (3.0.0), this
+# alias IS the package-level `m8tes.Agent`.
 Agent = Teammate
 AgentTemplate = TeammateTemplate

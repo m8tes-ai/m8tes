@@ -1,7 +1,9 @@
 """
 Main CLI entry point for m8tes SDK.
 
-Provides interactive commands for Google integration and agent management.
+The CLI is a plain v2 API customer: every command runs through the same v2 SDK
+client a developer uses (session login/refresh is the one platform-only
+exception, handled in cli/auth.py).
 """
 
 import argparse
@@ -10,26 +12,41 @@ import sys
 
 from m8tes import __version__
 
-from ..client import M8tes
+from .._client import M8tes
 from .registry import registry
 from .util import SuggestingArgumentParser, graceful_main, suggest_commands
+from .v2 import normalize_v2_base_url
 
 
 def create_client(
     api_key: str | None = None, base_url: str | None = None, allow_no_key: bool = False
 ) -> M8tes | None:
-    """Create M8tes client with error handling."""
+    """Create a v2 SDK client, resolving the key from args → keychain → env."""
     try:
-        # Try to load saved API key if not provided
-        if not api_key and not allow_no_key:
+        # Try to load saved API key if not provided (refreshes an expired session token)
+        from_profile = False
+        if not api_key:
             from .auth import AuthCLI
 
             auth_cli = AuthCLI(base_url=base_url)
-            saved_key = auth_cli.get_saved_api_key()
+            saved_key = auth_cli.get_valid_api_key()
             if saved_key:
                 api_key = saved_key
+                from_profile = True
 
-        return M8tes(api_key=api_key, base_url=base_url)
+        # Normalize the env fallback too: CLI users set M8TES_BASE_URL to a bare
+        # host (the session-auth convention), which the v2 client would otherwise
+        # consume raw and send /tasks/ requests to the host root.
+        client = M8tes(
+            api_key=api_key,
+            base_url=normalize_v2_base_url(base_url or os.getenv("M8TES_BASE_URL")),
+        )
+        # Credential PROVENANCE, recorded where it is known. The session-auth
+        # surface (cli/google.py) may only let a key from the credential store
+        # drive the profile's refresh dance — and re-deriving that downstream
+        # would mean another credential-store read (see auth/http.py).
+        client.api_key_from_profile = from_profile
+        return client
     except Exception as e:
         if allow_no_key:
             return None

@@ -32,6 +32,7 @@ from ._resources.webhooks import Webhooks
 from ._streaming import RunStream
 from ._types import (
     AccountSettings,
+    Agent,
     AgentSystemPrompt,
     AgentTemplate,
     ApiKeyCreated,
@@ -91,8 +92,7 @@ from ._types import (
     WebhookDelivery,
 )
 
-# ── Legacy exports (used by CLI) ─────────────────────────────────────
-from .agent import Agent, Deployment
+# ── CLI/session exports ──────────────────────────────────────────────
 from .exceptions import (
     AgentError,
     DeploymentError,
@@ -138,7 +138,6 @@ __all__ = [
     "Bridge",
     "BuiltInTool",
     "ConflictError",
-    "Deployment",
     "DeploymentError",
     "DoneEvent",
     "EmailInbox",

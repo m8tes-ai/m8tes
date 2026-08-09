@@ -2,27 +2,122 @@
 Interactive CLI for Google Ads integration.
 
 Provides user-friendly command-line interface for OAuth flow and integration management.
+
+The Google Ads OAuth endpoints are a platform surface that legitimately stays on
+/api/v1 (browser OAuth + JWT session auth), so this CLI drives `auth/google.py`
+over the session transport (`auth/http.py`) directly. The `client` it receives is
+the v2 SDK client — used only as an API-key fallback — never the legacy aggregate
+client, which is being deleted.
 """
 
 # mypy: disable-error-code="assignment,return-value,no-any-return,attr-defined,arg-type"
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import os
+from typing import TYPE_CHECKING, Any
 import webbrowser
 
+from ..auth.google import GoogleAuth
+from ..auth.http import HTTPClient as SessionHTTPClient
 from ..auth.oauth_flow import run_streamlined_oauth_flow
 from ..auth.url_helper import extract_from_browser_url
 from ..exceptions import AuthenticationError, NetworkError, OAuthError, ValidationError
+from .auth import AuthCLI
 
 if TYPE_CHECKING:
-    from ..client import M8tes
+    from .._client import M8tes
+
+# Bare host default — the Google Ads OAuth paths already include /api/v1.
+_DEFAULT_PLATFORM_URL = "https://api.m8tes.ai"
+
+
+class _StreamlinedOAuthClient:
+    """The two-member client shape `run_streamlined_oauth_flow` still reaches for.
+
+    That helper lives in the auth package and speaks the legacy aggregate-client
+    shape (`.google` + `.get_current_user()`). This adapter hands it exactly those
+    two members backed by the session transport, so the CLI needs no legacy client.
+    """
+
+    def __init__(self, cli: GoogleIntegrationCLI) -> None:
+        self._cli = cli
+
+    @property
+    def google(self) -> GoogleAuth:
+        return self._cli.google
+
+    def get_current_user(self) -> dict[str, Any]:
+        return self._cli.current_user()
 
 
 class GoogleIntegrationCLI:
     """Interactive CLI for Google Ads integration management."""
 
-    def __init__(self, client: M8tes):
+    def __init__(
+        self,
+        client: M8tes | None = None,
+        *,
+        base_url: str | None = None,
+        api_key: str | None = None,
+    ):
         self.client = client
+        self.base_url = base_url
+        self.api_key = api_key
+        self._http: SessionHTTPClient | None = None
+        self._google: GoogleAuth | None = None
+
+    def _platform_url(self) -> str:
+        """Resolve the bare platform host for session-auth requests.
+
+        Normalized so a /api/vN-suffixed M8TES_BASE_URL doesn't double up into
+        /api/v2/api/v1/… on this surface (see cli/v2.normalize_platform_base_url).
+        """
+        from .v2 import normalize_platform_base_url
+
+        return (
+            normalize_platform_base_url(self.base_url or os.getenv("M8TES_BASE_URL"))
+            or _DEFAULT_PLATFORM_URL
+        )
+
+    def _session_http(self) -> SessionHTTPClient:
+        """Build (once) the session transport the /api/v1 OAuth surface needs.
+
+        An explicitly passed key wins (same precedence as cli/v2.py) — the
+        keychain is a fallback, never a veto: consulting it first ignored
+        --api-key and could block the whole command on a keychain prompt.
+        /api/v1 accepts both session JWTs and m8_ keys.
+        """
+        if self._http is None:
+            # Only a credential that came from the store may enable the refresh
+            # middleware. An explicit --api-key never does; the CLI-built client
+            # carries its provenance (cli/main.py), so the normal saved-key path
+            # keeps refresh without this layer re-reading the credential store.
+            api_key = self.api_key
+            profile_bound = False
+            if not api_key:
+                api_key = getattr(self.client, "api_key", None)
+                profile_bound = bool(api_key) and getattr(
+                    self.client, "api_key_from_profile", False
+                )
+            if not api_key:
+                api_key = AuthCLI(base_url=self.base_url).get_valid_api_key()
+                profile_bound = bool(api_key)
+            self._http = SessionHTTPClient(
+                base_url=self._platform_url(), api_key=api_key, profile_bound=profile_bound
+            )
+        return self._http
+
+    @property
+    def google(self) -> GoogleAuth:
+        """Google Ads OAuth service bound to the session transport."""
+        if self._google is None:
+            self._google = GoogleAuth(self._session_http())
+        return self._google
+
+    def current_user(self) -> dict[str, Any]:
+        """Current authenticated user, unwrapping the `{"user": {...}}` envelope."""
+        response = self._session_http().get("/api/v1/auth/me")
+        return response.get("user", response)
 
     def connect_interactive(
         self,
@@ -72,7 +167,9 @@ class GoogleIntegrationCLI:
 
     def _try_local_server_flow(self, port: int, auto_browser: bool) -> dict:
         """Try the streamlined OAuth flow."""
-        return run_streamlined_oauth_flow(client=self.client, port=port, auto_browser=auto_browser)
+        return run_streamlined_oauth_flow(
+            client=_StreamlinedOAuthClient(self), port=port, auto_browser=auto_browser
+        )
 
     def _manual_oauth_flow(self, redirect_uri: str, auto_browser: bool) -> dict | None:
         """Fallback manual OAuth flow."""
@@ -80,7 +177,7 @@ class GoogleIntegrationCLI:
             print("\n🔗 Manual authorization required...")
 
             try:
-                oauth_data = self.client.google.start_connect(
+                oauth_data = self.google.start_connect(
                     redirect_uri=redirect_uri,
                     state=None,
                 )
@@ -117,14 +214,14 @@ class GoogleIntegrationCLI:
             # Get current user ID if authenticated
             user_id = None
             try:
-                current_user = self.client.get_current_user()
+                current_user = self.current_user()
                 user_id = current_user.get("id")
             except Exception:
                 # User may not be authenticated yet, that's OK
                 pass
 
             try:
-                result = self.client.google.finish_connect(
+                result = self.google.finish_connect(
                     code=code, state=state, redirect_uri=redirect_uri, user_id=user_id
                 )
                 return result
@@ -171,7 +268,7 @@ class GoogleIntegrationCLI:
         print("=" * 35)
 
         try:
-            status = self.client.google.get_status()
+            status = self.google.get_status()
             has_integration = bool(status.get("has_integration"))
 
             if has_integration:
@@ -245,7 +342,7 @@ class GoogleIntegrationCLI:
         print("=" * 40)
 
         try:
-            status = self.client.google.get_status()
+            status = self.google.get_status()
 
             if not status.get("has_integration"):
                 print("ℹ️  No Google Ads integration found")  # noqa: RUF001
@@ -277,7 +374,7 @@ class GoogleIntegrationCLI:
 
             print("\n🔄 Removing integration...")
             try:
-                result = self.client.google.disconnect()
+                result = self.google.disconnect()
 
                 print("\n✅ Google Ads Integration Removed")
                 print("-" * 35)
@@ -306,14 +403,14 @@ class GoogleIntegrationCLI:
     def _disconnect_current(self) -> None:
         """Helper to disconnect current integration silently."""
         try:
-            self.client.google.disconnect()
+            self.google.disconnect()
             print("   Disconnected previous integration")
         except Exception:
             pass
 
     def _safe_get_status(self) -> dict[str, object] | None:
         try:
-            return self.client.google.get_status()
+            return self.google.get_status()
         except AuthenticationError:
             return None
         except NetworkError as e:
@@ -435,7 +532,7 @@ class GoogleIntegrationCLI:
 
     def _get_accessible_customers(self, refresh: bool = False) -> tuple[list[str], bool]:
         try:
-            response = self.client.google.list_accessible_customers(refresh=refresh)
+            response = self.google.list_accessible_customers(refresh=refresh)
         except AuthenticationError as e:
             print(f"❌ Authentication error while loading customers: {e.message}")
             return [], False
@@ -519,7 +616,7 @@ class GoogleIntegrationCLI:
             print("❌ Customer ID must be numeric and at least 10 digits.")
             return None
         try:
-            response = self.client.google.set_customer_id(normalized, integration_id=integration_id)
+            response = self.google.set_customer_id(normalized, integration_id=integration_id)
             saved = self._normalize_customer_id(response.get("customer_id")) or normalized
             return saved
         except ValidationError as e:

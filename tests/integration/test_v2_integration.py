@@ -269,9 +269,14 @@ class TestTeammatesCRUD:
             v2_client.teammates.delete(t.id)
 
     def test_invalid_model_rejected(self, v2_client):
-        """model outside sonnet|opus is rejected with 422."""
+        """A model outside the served catalog is rejected with 422.
+
+        Deliberately a nonsense slug: the catalog GROWS over time ("gpt-5" was
+        rejected when this test was written and is a valid alias now), so pinning
+        a real-but-unserved model here rots into a false failure.
+        """
         with pytest.raises(ValidationError):
-            v2_client.teammates.create(name="BadModelBot", model="gpt-5")
+            v2_client.teammates.create(name="BadModelBot", model="definitely-not-a-model")
 
     def test_create_minimal(self, v2_client):
         """Create with only required field (name)."""
@@ -823,6 +828,25 @@ class TestTasksCRUD:
         finally:
             for t in tasks:
                 v2_client.tasks.delete(t.id)
+            v2_client.teammates.delete(tm.id)
+
+    def test_status_toggle_and_archived_visibility(self, v2_client):
+        """status=disabled/enabled round-trips; include_archived surfaces deleted tasks."""
+        tm = v2_client.teammates.create(name="TaskStatusHost")
+        try:
+            task = v2_client.tasks.create(teammate_id=tm.id, instructions="Toggle", name="Toggle")
+
+            disabled = v2_client.tasks.update(task.id, status="disabled")
+            assert disabled.status == "disabled"
+            enabled = v2_client.tasks.update(task.id, status="enabled")
+            assert enabled.status == "enabled"
+
+            v2_client.tasks.delete(task.id)
+            default_ids = [t.id for t in v2_client.tasks.list(teammate_id=tm.id).data]
+            assert task.id not in default_ids
+            archived_page = v2_client.tasks.list(teammate_id=tm.id, include_archived=True)
+            assert any(t.id == task.id and t.status == "archived" for t in archived_page.data)
+        finally:
             v2_client.teammates.delete(tm.id)
 
     def test_update_multiple_fields(self, v2_client):

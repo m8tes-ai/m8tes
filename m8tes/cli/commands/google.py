@@ -11,7 +11,7 @@ from ...exceptions import AuthenticationError, NetworkError, OAuthError, Validat
 from ..base import Command, CommandGroup
 
 if TYPE_CHECKING:
-    from ...client import M8tes
+    from ..._client import M8tes
 
 
 class GoogleCommandGroup(CommandGroup):
@@ -66,7 +66,11 @@ class ConnectCommand(Command):
 
         from ..google import GoogleIntegrationCLI
 
-        google_cli = GoogleIntegrationCLI(client)
+        google_cli = GoogleIntegrationCLI(
+            client,
+            base_url=getattr(args, "base_url", None),
+            api_key=getattr(args, "api_key", None),
+        )
         try:
             # Determine browser behavior: --browser wins over --no-browser;
             # default is auto-open.
@@ -108,7 +112,11 @@ class StatusCommand(Command):
 
         from ..google import GoogleIntegrationCLI
 
-        google_cli = GoogleIntegrationCLI(client)
+        google_cli = GoogleIntegrationCLI(
+            client,
+            base_url=getattr(args, "base_url", None),
+            api_key=getattr(args, "api_key", None),
+        )
         try:
             google_cli.show_status()
             return 0
@@ -137,7 +145,11 @@ class DisconnectCommand(Command):
 
         from ..google import GoogleIntegrationCLI
 
-        google_cli = GoogleIntegrationCLI(client)
+        google_cli = GoogleIntegrationCLI(
+            client,
+            base_url=getattr(args, "base_url", None),
+            api_key=getattr(args, "api_key", None),
+        )
         try:
             google_cli.disconnect_interactive()
             return 0

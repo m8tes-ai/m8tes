@@ -70,50 +70,6 @@ def test_cli_auth_flow(backend_server):
 
 
 @pytest.mark.e2e
-@pytest.mark.skip(reason="Instance management CLI commands removed - use Python SDK directly")
-def test_cli_instance_create(backend_server, test_user):
-    """
-    Test creating an instance via CLI.
-
-    NOTE: Skipped - instance management is now done via Python SDK, not CLI.
-    CLI only supports 'mate task' for execution.
-    """
-    pass
-
-
-@pytest.mark.e2e
-@pytest.mark.skip(reason="Instance management CLI commands removed - use Python SDK directly")
-def test_cli_instance_list(backend_server, test_user):
-    """
-    Test listing instances via CLI.
-
-    NOTE: Skipped - instance management is now done via Python SDK, not CLI.
-    CLI only supports 'mate task' for execution.
-    """
-    pass
-
-
-@pytest.mark.e2e
-@pytest.mark.slow
-@pytest.mark.skip(
-    reason="CLI task execution requires pre-created instance - test with Python SDK instead"
-)
-def test_cli_mate_task_execution(
-    backend_server,
-    test_user,
-    openai_mocker,
-    google_ads_mocker,
-):
-    """
-    Test executing mate task via CLI.
-
-    NOTE: Skipped - 'mate task' CLI command requires an instance created
-    via Python SDK first. Use Python SDK E2E tests for full execution flow.
-    """
-    pass
-
-
-@pytest.mark.e2e
 def test_cli_help_commands(backend_server):
     """
     Test CLI help commands.
@@ -200,22 +156,3 @@ def test_cli_dev_flag(backend_server):
     # Should connect successfully (even if not authenticated)
     # The command should not fail with connection errors
     assert "connection" not in result.stderr.lower() or result.returncode == 0
-
-
-@pytest.mark.smoke
-@pytest.mark.e2e
-@pytest.mark.slow
-@pytest.mark.skip(
-    reason="Interactive chat mode CLI not implemented - use mate task for one-off execution"
-)
-def test_cli_interactive_chat_mode(
-    backend_server,
-    test_user,
-):
-    """
-    SMOKE TEST: Interactive chat mode via CLI.
-
-    NOTE: Skipped - interactive chat mode is not implemented in CLI.
-    Use 'mate task' for one-off task execution or Python SDK for chat sessions.
-    """
-    pass

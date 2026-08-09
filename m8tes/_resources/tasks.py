@@ -186,6 +186,7 @@ class Tasks:
         teammate_id: int | None = None,
         agent_id: int | None = None,
         user_id: str | None = None,
+        include_archived: bool = False,
         limit: int = 20,
         starting_after: int | None = None,
     ) -> SyncPage[Task]:
@@ -193,11 +194,18 @@ class Tasks:
         params = _build_params(
             teammate_id=teammate_id, user_id=user_id, limit=limit, starting_after=starting_after
         )
+        if include_archived:
+            params["include_archived"] = "true"
         resp = self._http.request("GET", "/tasks/", params=params)
         body = resp.json()
 
         def _fetch_next(**kw: object) -> SyncPage[Task]:
-            return self.list(teammate_id=teammate_id, user_id=user_id, **kw)  # type: ignore[arg-type]
+            return self.list(
+                teammate_id=teammate_id,
+                user_id=user_id,
+                include_archived=include_archived,
+                **kw,  # type: ignore[arg-type]
+            )
 
         return SyncPage(
             data=[Task.from_dict(d) for d in body["data"]],
@@ -228,8 +236,14 @@ class Tasks:
         enable_task_setup_tools: bool | None = _UNSET,
         enable_feedback: bool | None = _UNSET,
         enable_lessons: bool | None = None,
+        status: str | None = None,
     ) -> Task:
         """Update a task (PATCH — omitted fields unchanged).
+
+        ``status`` accepts "enabled" or "disabled" — disabling pauses the task's
+        schedules and event triggers; re-enabling re-arms the paused schedules,
+        but event triggers stay off until re-enabled explicitly
+        (``tasks.triggers.update``). Archiving is ``delete()``, not a status.
 
         For the four ``enable_*`` built-in tool defaults: omit to leave unchanged,
         pass True/False to pin this task's default, or pass ``None`` to reset that
@@ -270,6 +284,8 @@ class Tasks:
             body["model"] = model
         if effort is not _UNSET:
             body["effort"] = effort
+        if status is not None:
+            body["status"] = status
         resp = self._http.request(
             "PATCH", f"/tasks/{task_id}", json=body, params=_build_params(user_id=user_id)
         )

@@ -1,7 +1,14 @@
-"""HTTP client with retry logic and session management."""
+"""Session-auth HTTP transport for the platform's V1 auth surface.
+
+The CLI's login/logout/register and integration OAuth flows ride on JWT session
+tokens (with refresh via /api/v1/auth/refresh) — a surface an API customer never
+touches, which is why this transport lives in the auth package rather than next
+to the v2 SDK's API-key transport (`m8tes/_http.py`). Everything product-shaped
+goes through the v2 client instead.
+"""
 
 import logging
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -18,9 +25,6 @@ from ..exceptions import (
     ValidationError,
 )
 
-if TYPE_CHECKING:
-    from ..client import M8tes
-
 logger = logging.getLogger(__name__)
 
 
@@ -34,6 +38,7 @@ class HTTPClient:
         api_key: str | None = None,
         timeout: int = 30,
         profile: str = "default",
+        profile_bound: bool = False,
     ):
         """
         Initialize HTTP client.
@@ -43,20 +48,42 @@ class HTTPClient:
             api_key: Optional API key for authentication
             timeout: Request timeout in seconds
             profile: Profile name for credential management
+            profile_bound: True only when `api_key` IS the stored profile
+                credential. Gates the refresh middleware — see
+                `_refresh_is_bound_to_this_credential`. Defaults False so a
+                caller that forgets it fails safe (no refresh) rather than
+                leaking the profile's refresh token to this transport's host.
         """
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
         self.timeout = timeout
         self.profile = profile
+        # Bind to the credential VALUE, not merely to a "yes it was bound" flag:
+        # a boolean snapshot stays true after set_api_key() swaps the credential,
+        # which would let an unrelated key drive the profile's refresh dance.
+        self._bound_api_key: str | None = api_key if profile_bound else None
+        # Latched by a failed refresh — see `_try_refresh_token`.
+        self._refresh_failed = False
         self._session: requests.Session | None = None
-        self.client: M8tes  # Set by M8tes.__init__ for circular access
 
-        # Initialize HTTP session immediately for backward compatibility
         self._init_session()
 
-    def set_api_key(self, api_key: str) -> None:
-        """Update the API key and refresh session headers."""
+    @property
+    def profile_bound(self) -> bool:
+        """Whether the key currently carried is still the bound profile credential."""
+        return self._bound_api_key is not None and self.api_key == self._bound_api_key
+
+    def set_api_key(self, api_key: str, *, profile_bound: bool = False) -> None:
+        """Update the API key and refresh session headers.
+
+        Rebinding is opt-in and defaults to unbound: a key swapped in mid-flight
+        (a fresh login's token, say) is not yet the stored profile credential, so
+        it must not inherit the old key's permission to spend the refresh token.
+        """
         self.api_key = api_key
+        self._bound_api_key = api_key if profile_bound else None
+        # A new credential deserves a fresh attempt.
+        self._refresh_failed = False
         if self._session and api_key:
             self._session.headers["Authorization"] = f"Bearer {api_key}"
 
@@ -395,6 +422,23 @@ class HTTPClient:
         """Make DELETE request."""
         return self.request("DELETE", path, auth_required=auth_required)
 
+    def _refresh_is_bound_to_this_credential(self) -> bool:
+        """The refresh middleware may only act for the SAVED profile credential.
+
+        This transport can be constructed with an explicitly supplied key (e.g.
+        `--api-key` on the CLI). Running the profile's refresh dance then would
+        (a) POST the saved refresh token to whatever base_url this transport
+        points at — leaking it to a custom host — and (b) overwrite the caller's
+        explicit key with the profile's refreshed one.
+
+        Decided from values captured at CONSTRUCTION — the credential store is
+        never read here: doing so put a keychain call on the hot path of every
+        session request, and a blocking macOS keychain call hangs the whole
+        command (measured — it survives SIGTERM). `_try_refresh_token` re-checks
+        against the store once, immediately before spending the refresh token.
+        """
+        return self.profile_bound
+
     def _ensure_valid_token(self) -> None:
         """
         Ensure we have a valid access token, refreshing if needed.
@@ -402,6 +446,8 @@ class HTTPClient:
         try:
             from ..auth.credentials import CredentialManager
 
+            if not self._refresh_is_bound_to_this_credential() or self._refresh_failed:
+                return
             credentials = CredentialManager(profile=self.profile)
 
             # Check if current token is expired or expires soon
@@ -415,13 +461,38 @@ class HTTPClient:
         """
         Try to refresh the access token using saved credentials.
 
+        A failed attempt LATCHES for this transport's lifetime: without that, a
+        credential whose expiry is unknown (missing metadata reads as expired) or
+        whose refresh keeps failing re-entered this path on every request, and the
+        store re-confirm below is a keychain read — the per-request keychain call
+        that hung the CLI. One attempt per command is the right number anyway.
+
         Returns:
             True if token was refreshed successfully, False otherwise
         """
+        # Enforced HERE, not in the callers: `request()`'s 401 retry calls this
+        # directly, so a caller-side check let every 401 re-read the store.
+        if self._refresh_failed:
+            return False
+        result = self._attempt_refresh()
+        self._refresh_failed = not result
+        return result
+
+    def _attempt_refresh(self) -> bool:
+        """Single refresh attempt; see `_try_refresh_token` for the latch."""
         try:
             from ..auth.credentials import CredentialManager
 
+            if not self._refresh_is_bound_to_this_credential():
+                return False
             credentials = CredentialManager(profile=self.profile)
+            # Re-confirm against the store before spending the refresh token: the
+            # profile could have been replaced since construction, and its refresh
+            # token would then belong to a different account than the key we hold.
+            # One read, on the rare refresh path — not on every request.
+            if credentials.get_api_key() != self._bound_api_key:
+                logger.debug("Profile credential changed since binding; skipping refresh")
+                return False
             refresh_token = credentials.get_refresh_token()
 
             if not refresh_token:
@@ -441,8 +512,10 @@ class HTTPClient:
                 new_api_key = data.get("api_key")
 
                 if new_api_key:
-                    # Update the API key and session headers
-                    self.set_api_key(new_api_key)
+                    # Update the API key and session headers. Stays bound: this
+                    # key IS the profile credential (saved on the next line), so
+                    # a later expiry in the same command can refresh again.
+                    self.set_api_key(new_api_key, profile_bound=True)
 
                     # Save the new token
                     credentials.save_api_key(new_api_key)

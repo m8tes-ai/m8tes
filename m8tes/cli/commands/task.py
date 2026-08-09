@@ -1,18 +1,63 @@
 """
-Task management commands for the m8tes CLI.
+Task management commands for the m8tes CLI, on the v2 SDK.
 
-Provides commands for creating, listing, executing, and managing tasks.
+Thin argparse layer over `cli.tasks.TaskCLI`, which talks to the v2 client. Each
+command maps a fatal error to exit 1 and prints the same message it always has;
+auth failures additionally print the login guidance.
+
+Two error bases are caught because two still exist: the v2 client raises
+`m8tes._exceptions.M8tesError` subclasses, while `cli.util.parse_id` (shared with
+the not-yet-ported commands) still raises the legacy `m8tes.exceptions`
+ValidationError for a non-numeric ID.
 """
 
 from argparse import ArgumentParser, Namespace
+from collections.abc import Callable
 from typing import TYPE_CHECKING, ClassVar, Optional
 
-from ...exceptions import AgentError, AuthenticationError, NetworkError, ValidationError
+from ..._exceptions import AuthenticationError, M8tesError
+from ...exceptions import M8tesError as LegacyM8tesError
 from ..base import Command, CommandGroup
 from ..util import show_auth_guidance
 
 if TYPE_CHECKING:
-    from ...client import M8tes
+    from ..._client import M8tes
+    from ..tasks import TaskCLI
+
+
+def _run(action: str, work: Callable[[], None], *, cancelled: str | None = None) -> int:
+    """Run a TaskCLI call, mapping every fatal error to exit 1 with its message."""
+    try:
+        work()
+        return 0
+    except AuthenticationError as e:
+        print(f"❌ Authentication failed: {e}")
+        show_auth_guidance()
+        return 1
+    except (M8tesError, LegacyM8tesError) as e:
+        print(f"❌ {action}: {e}")
+        return 1
+    except KeyboardInterrupt:
+        if cancelled is None:
+            raise
+        print(f"\n👋 {cancelled}")
+        return 1
+
+
+def _task_cli(client: "M8tes") -> "TaskCLI":
+    """Build the TaskCLI (imported lazily so tests can patch the class)."""
+    from ..tasks import TaskCLI
+
+    return TaskCLI(client)
+
+
+def _require_client(client: Optional["M8tes"], purpose: str = "task management") -> bool:
+    """Print the auth guidance when no client was resolved."""
+    if client:
+        return True
+    print(f"❌ Authentication required for {purpose}")
+    show_auth_guidance()
+    return False
 
 
 class TaskCommandGroup(CommandGroup):
@@ -68,58 +113,44 @@ class CreateCommand(Command):
 
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
         """Execute task creation flow."""
-        if not client:
-            print("❌ Authentication required for task management")
-            show_auth_guidance()
+        if not _require_client(client):
             return 1
 
-        from ..tasks import TaskCLI
+        task_cli = _task_cli(client)  # type: ignore[arg-type]
 
-        task_cli = TaskCLI(client)
-        try:
-            # Check for non-interactive mode
-            non_interactive = getattr(args, "non_interactive", False)
+        if not getattr(args, "non_interactive", False):
+            return _run(
+                "Task creation failed",
+                task_cli.create_interactive,
+                cancelled="Task creation cancelled.",
+            )
 
-            if non_interactive:
-                # Validate required fields for non-interactive
-                mate_id = getattr(args, "mate_id", None)
-                name = getattr(args, "name", None)
-                instructions = getattr(args, "instructions", None)
-                expected_output = getattr(args, "expected_output", None)
-                goals = getattr(args, "goals", None)
+        # Validate required fields for non-interactive
+        mate_id = getattr(args, "mate_id", None)
+        name = getattr(args, "name", None)
+        instructions = getattr(args, "instructions", None)
 
-                if not mate_id:
-                    print("❌ --mate-id is required for non-interactive mode")
-                    return 1
-                if not name:
-                    print("❌ --name is required for non-interactive mode")
-                    return 1
-                if not instructions:
-                    print("❌ --instructions is required for non-interactive mode")
-                    return 1
-
-                # Create task directly
-                task_cli.create_non_interactive(
-                    mate_id=mate_id,
-                    name=name,
-                    instructions=instructions,
-                    expected_output=expected_output,
-                    goals=goals,
-                )
-            else:
-                # Interactive mode
-                task_cli.create_interactive()
-            return 0
-        except AuthenticationError as e:
-            print(f"❌ Authentication failed: {e}")
-            show_auth_guidance()
+        if not mate_id:
+            print("❌ --mate-id is required for non-interactive mode")
             return 1
-        except (AgentError, NetworkError, ValidationError) as e:
-            print(f"❌ Task creation failed: {e}")
+        if not name:
+            print("❌ --name is required for non-interactive mode")
             return 1
-        except KeyboardInterrupt:
-            print("\n👋 Task creation cancelled.")
+        if not instructions:
+            print("❌ --instructions is required for non-interactive mode")
             return 1
+
+        return _run(
+            "Task creation failed",
+            lambda: task_cli.create_non_interactive(
+                mate_id=mate_id,
+                name=name,
+                instructions=instructions,
+                expected_output=getattr(args, "expected_output", None),
+                goals=getattr(args, "goals", None),
+            ),
+            cancelled="Task creation cancelled.",
+        )
 
 
 class ListCommand(Command):
@@ -153,34 +184,19 @@ class ListCommand(Command):
 
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
         """Execute task listing."""
-        if not client:
-            print("❌ Authentication required for task management")
-            show_auth_guidance()
+        if not _require_client(client):
             return 1
 
-        from ..tasks import TaskCLI
-
-        task_cli = TaskCLI(client)
-        try:
-            mate_id = getattr(args, "mate_id", None)
-            status = getattr(args, "status", None)
-            include_disabled = getattr(args, "include_disabled", False)
-            include_archived = getattr(args, "include_archived", False)
-
-            task_cli.list_interactive(
-                mate_id=mate_id,
-                status=status,
-                include_disabled=include_disabled,
-                include_archived=include_archived,
-            )
-            return 0
-        except AuthenticationError as e:
-            print(f"❌ Authentication failed: {e}")
-            show_auth_guidance()
-            return 1
-        except (AgentError, NetworkError, ValidationError) as e:
-            print(f"❌ Error listing tasks: {e}")
-            return 1
+        task_cli = _task_cli(client)  # type: ignore[arg-type]
+        return _run(
+            "Error listing tasks",
+            lambda: task_cli.list_interactive(
+                mate_id=getattr(args, "mate_id", None),
+                status=getattr(args, "status", None),
+                include_disabled=getattr(args, "include_disabled", False),
+                include_archived=getattr(args, "include_archived", False),
+            ),
+        )
 
 
 class GetCommand(Command):
@@ -197,25 +213,11 @@ class GetCommand(Command):
 
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
         """Execute task get."""
-        if not client:
-            print("❌ Authentication required for task management")
-            show_auth_guidance()
+        if not _require_client(client):
             return 1
 
-        from ..tasks import TaskCLI
-
-        task_cli = TaskCLI(client)
-        try:
-            task_id = args.task_id
-            task_cli.get_interactive(task_id)
-            return 0
-        except AuthenticationError as e:
-            print(f"❌ Authentication failed: {e}")
-            show_auth_guidance()
-            return 1
-        except (AgentError, NetworkError, ValidationError) as e:
-            print(f"❌ Error getting task: {e}")
-            return 1
+        task_cli = _task_cli(client)  # type: ignore[arg-type]
+        return _run("Error getting task", lambda: task_cli.get_interactive(args.task_id))
 
 
 class ExecuteCommand(Command):
@@ -232,28 +234,15 @@ class ExecuteCommand(Command):
 
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
         """Execute task."""
-        if not client:
-            print("❌ Authentication required for task execution")
-            show_auth_guidance()
+        if not _require_client(client, "task execution"):
             return 1
 
-        from ..tasks import TaskCLI
-
-        task_cli = TaskCLI(client)
-        try:
-            task_id = args.task_id
-            task_cli.execute_interactive(task_id)
-            return 0
-        except AuthenticationError as e:
-            print(f"❌ Authentication failed: {e}")
-            show_auth_guidance()
-            return 1
-        except (AgentError, NetworkError, ValidationError) as e:
-            print(f"❌ Task execution failed: {e}")
-            return 1
-        except KeyboardInterrupt:
-            print("\n👋 Task execution cancelled.")
-            return 1
+        task_cli = _task_cli(client)  # type: ignore[arg-type]
+        return _run(
+            "Task execution failed",
+            lambda: task_cli.execute_interactive(args.task_id),
+            cancelled="Task execution cancelled.",
+        )
 
 
 class UpdateCommand(Command):
@@ -274,44 +263,33 @@ class UpdateCommand(Command):
 
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
         """Execute task update."""
-        if not client:
-            print("❌ Authentication required for task management")
-            show_auth_guidance()
+        if not _require_client(client):
             return 1
 
-        from ..tasks import TaskCLI
+        name = getattr(args, "name", None)
+        instructions = getattr(args, "instructions", None)
+        expected_output = getattr(args, "expected_output", None)
+        goals = getattr(args, "goals", None)
 
-        task_cli = TaskCLI(client)
-        try:
-            task_id = args.task_id
-            name = getattr(args, "name", None)
-            instructions = getattr(args, "instructions", None)
-            expected_output = getattr(args, "expected_output", None)
-            goals = getattr(args, "goals", None)
+        if not any([name, instructions, expected_output, goals]):
+            print("❌ At least one field must be provided for update")
+            return 1
 
-            if not any([name, instructions, expected_output, goals]):
-                print("❌ At least one field must be provided for update")
-                return 1
-
-            task_cli.update_interactive(
-                task_id=task_id,
+        task_cli = _task_cli(client)  # type: ignore[arg-type]
+        return _run(
+            "Error updating task",
+            lambda: task_cli.update_interactive(
+                task_id=args.task_id,
                 name=name,
                 instructions=instructions,
                 expected_output=expected_output,
                 goals=goals,
-            )
-            return 0
-        except AuthenticationError as e:
-            print(f"❌ Authentication failed: {e}")
-            show_auth_guidance()
-            return 1
-        except (AgentError, NetworkError, ValidationError) as e:
-            print(f"❌ Error updating task: {e}")
-            return 1
+            ),
+        )
 
 
 class EnableCommand(Command):
-    """Task enable command."""
+    """Task enable command (v2 PATCH status=enabled)."""
 
     name = "enable"
     aliases: ClassVar[list[str]] = ["e"]
@@ -324,29 +302,15 @@ class EnableCommand(Command):
 
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
         """Execute task enable."""
-        if not client:
-            print("❌ Authentication required for task management")
-            show_auth_guidance()
+        if not _require_client(client):
             return 1
 
-        from ..tasks import TaskCLI
-
-        task_cli = TaskCLI(client)
-        try:
-            task_id = args.task_id
-            task_cli.enable_interactive(task_id)
-            return 0
-        except AuthenticationError as e:
-            print(f"❌ Authentication failed: {e}")
-            show_auth_guidance()
-            return 1
-        except (AgentError, NetworkError, ValidationError) as e:
-            print(f"❌ Error enabling task: {e}")
-            return 1
+        task_cli = _task_cli(client)  # type: ignore[arg-type]
+        return _run("Error enabling task", lambda: task_cli.enable_interactive(args.task_id))
 
 
 class DisableCommand(Command):
-    """Task disable command."""
+    """Task disable command (v2 PATCH status=disabled)."""
 
     name = "disable"
     aliases: ClassVar[list[str]] = ["dis"]
@@ -359,25 +323,11 @@ class DisableCommand(Command):
 
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
         """Execute task disable."""
-        if not client:
-            print("❌ Authentication required for task management")
-            show_auth_guidance()
+        if not _require_client(client):
             return 1
 
-        from ..tasks import TaskCLI
-
-        task_cli = TaskCLI(client)
-        try:
-            task_id = args.task_id
-            task_cli.disable_interactive(task_id)
-            return 0
-        except AuthenticationError as e:
-            print(f"❌ Authentication failed: {e}")
-            show_auth_guidance()
-            return 1
-        except (AgentError, NetworkError, ValidationError) as e:
-            print(f"❌ Error disabling task: {e}")
-            return 1
+        task_cli = _task_cli(client)  # type: ignore[arg-type]
+        return _run("Error disabling task", lambda: task_cli.disable_interactive(args.task_id))
 
 
 class ArchiveCommand(Command):
@@ -394,22 +344,8 @@ class ArchiveCommand(Command):
 
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
         """Execute task archiving."""
-        if not client:
-            print("❌ Authentication required for task management")
-            show_auth_guidance()
+        if not _require_client(client):
             return 1
 
-        from ..tasks import TaskCLI
-
-        task_cli = TaskCLI(client)
-        try:
-            task_id = args.task_id
-            task_cli.archive_interactive(task_id)
-            return 0
-        except AuthenticationError as e:
-            print(f"❌ Authentication failed: {e}")
-            show_auth_guidance()
-            return 1
-        except (AgentError, NetworkError, ValidationError) as e:
-            print(f"❌ Error archiving task: {e}")
-            return 1
+        task_cli = _task_cli(client)  # type: ignore[arg-type]
+        return _run("Error archiving task", lambda: task_cli.archive_interactive(args.task_id))

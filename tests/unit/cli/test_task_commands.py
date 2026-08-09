@@ -1,9 +1,13 @@
 """
-Tests for Task CLI command implementations.
+Tests for Task CLI command implementations (v2 SDK).
 """
 
 from argparse import ArgumentParser, Namespace
 from unittest.mock import Mock, patch
+
+import pytest
+
+from m8tes._exceptions import AuthenticationError, NotFoundError
 
 
 class TestTaskCommands:
@@ -442,3 +446,76 @@ class TestTaskCommands:
 
         assert result == 0
         mock_task_cli.archive_interactive.assert_called_once_with("42")
+
+
+class TestTaskCommandErrorMapping:
+    """Every fatal error the v2 client (or the shared id parser) raises exits 1."""
+
+    def test_v2_auth_error_prints_guidance_and_exits_1(self, capsys):
+        from m8tes.cli.commands.task import ListCommand
+
+        client = Mock()
+        client.tasks.list.side_effect = AuthenticationError("Invalid API key")
+
+        result = ListCommand().execute(Namespace(), client)
+
+        out = capsys.readouterr().out
+        assert result == 1
+        assert "❌ Authentication failed: Invalid API key" in out
+        assert "m8tes auth login" in out
+
+    def test_v2_api_error_exits_1_with_the_command_message(self, capsys):
+        from m8tes.cli.commands.task import GetCommand
+
+        client = Mock()
+        client.tasks.get.side_effect = NotFoundError("Task not found")
+
+        result = GetCommand().execute(Namespace(task_id="42"), client)
+
+        assert result == 1
+        assert "❌ Error getting task: Task not found" in capsys.readouterr().out
+
+    def test_non_numeric_id_from_the_shared_parser_exits_1(self, capsys):
+        """cli.util.parse_id still raises the LEGACY ValidationError — catch it too."""
+        from m8tes.cli.commands.task import GetCommand
+
+        result = GetCommand().execute(Namespace(task_id="abc"), Mock())
+
+        assert result == 1
+        assert "Task ID must be a number" in capsys.readouterr().out
+
+    def test_keyboard_interrupt_during_create_exits_1(self, capsys):
+        from m8tes.cli.commands.task import CreateCommand
+
+        client = Mock()
+        client.tasks.create.side_effect = KeyboardInterrupt()
+        args = Namespace(
+            mate_id="7",
+            name="recap",
+            instructions="do it",
+            expected_output=None,
+            goals=None,
+            non_interactive=True,
+        )
+
+        result = CreateCommand().execute(args, client)
+
+        assert result == 1
+        assert "👋 Task creation cancelled." in capsys.readouterr().out
+
+    @pytest.mark.parametrize(
+        ("command_name", "status"),
+        [("EnableCommand", "enabled"), ("DisableCommand", "disabled")],
+    )
+    def test_enable_disable_patch_the_v2_status_field(self, command_name, status, capsys):
+        """enable/disable map to PATCH /tasks/{id} status= and exit 0."""
+        import m8tes.cli.commands.task as task_commands
+
+        client = Mock()
+        client.tasks.update.return_value = Mock(id=42, status=status)
+
+        result = getattr(task_commands, command_name)().execute(Namespace(task_id="42"), client)
+
+        assert result == 0
+        client.tasks.update.assert_called_once_with(42, status=status)
+        assert f"Status: {status}" in capsys.readouterr().out

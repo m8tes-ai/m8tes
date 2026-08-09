@@ -53,6 +53,13 @@ class M8tes:
                 "No API key provided. Pass api_key= or set M8TES_API_KEY env var."
             )
 
+        self.api_key = api_key
+        self.base_url = base_url
+        # Credential provenance, set by the CLI (cli/main.py) when it resolves a key
+        # from the local credential store. Only the CLI's session-auth surface reads
+        # it — a stored key may drive the profile's token refresh, an explicit or
+        # env-supplied one may not. False for direct SDK use.
+        self.api_key_from_profile = False
         self._http = HTTPClient(api_key=api_key, base_url=base_url, timeout=timeout)
         self.account = Account(self._http)
         self.auth = Auth(self._http)

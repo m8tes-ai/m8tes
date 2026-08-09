@@ -542,12 +542,12 @@ class TestRetrySemantics:
 class TestVersionConsistency:
     """Ensure version strings stay in sync across the codebase."""
 
-    def test_no_hardcoded_version_in_legacy_client(self):
-        """Legacy http/client.py must use __version__, not a hardcoded string."""
+    def test_no_hardcoded_version_in_session_client(self):
+        """The session transport (auth/http.py) must use __version__, not a hardcoded string."""
         import inspect
 
         from m8tes import __version__
-        from m8tes.http.client import HTTPClient as LegacyHTTPClient
+        from m8tes.auth.http import HTTPClient as LegacyHTTPClient
 
         source = inspect.getsource(LegacyHTTPClient)
         # Should reference __version__ dynamically, not contain a hardcoded "0.1.0"

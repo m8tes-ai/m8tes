@@ -11,7 +11,7 @@ from ..util import show_auth_guidance
 from ..v2 import v2_client_from_args
 
 if TYPE_CHECKING:
-    from ...client import M8tes
+    from ..._client import M8tes
 
 
 class AppsCommandGroup(CommandGroup):

@@ -2,19 +2,28 @@
 Authentication CLI commands for m8tes SDK.
 
 Provides commands for user registration, login, and token management.
+
+Session auth (login/register/logout/refresh) is the one CLI surface that stays
+on /api/v1 — it is browser/JWT-shaped and an API customer never touches it.
+Everything else the CLI does goes through the v2 SDK client.
 """
 
 import os
 from typing import TYPE_CHECKING, Optional
 
 from .._exceptions import AuthenticationError as V2AuthenticationError
+from ..auth.auth import AuthService
 from ..auth.credentials import CredentialManager
+from ..auth.http import HTTPClient as SessionHTTPClient
 from ..exceptions import AuthenticationError
 from .prompt import confirm_prompt, prompt
 from .validation import prompt_email, prompt_password, prompt_password_confirm
 
 if TYPE_CHECKING:
-    from ..client import M8tes
+    from .._client import M8tes
+
+# Bare host default — session-auth paths include /api/v1.
+_DEFAULT_PLATFORM_URL = "https://api.m8tes.ai"
 
 
 class AuthCLI:
@@ -30,8 +39,8 @@ class AuthCLI:
         Initialize Auth CLI.
 
         Args:
-            client: Optional M8tes client instance
-            base_url: Base URL to use for temporary clients when client is None
+            client: Optional v2 SDK client (used only for key fallbacks)
+            base_url: Platform base URL (bare host, no /api suffix)
             profile: Profile name for multi-account support
         """
         self.client = client
@@ -39,9 +48,93 @@ class AuthCLI:
         self.profile = profile
         self.credentials = CredentialManager(profile=profile)
 
+    def _platform_url(self) -> str:
+        """Resolve the bare platform host for session-auth requests.
+
+        Normalized so BOTH env shapes work: a /api/v2-suffixed M8TES_BASE_URL
+        (the v2 SDK's documented form) would otherwise double up into
+        /api/v2/api/v1/… on this surface.
+        """
+        from .v2 import normalize_platform_base_url
+
+        return (
+            normalize_platform_base_url(self.base_url or os.getenv("M8TES_BASE_URL"))
+            or _DEFAULT_PLATFORM_URL
+        )
+
+    def _session_service(
+        self, api_key: str | None = None, *, profile_bound: bool = False
+    ) -> AuthService:
+        """Build an AuthService over the session-auth transport.
+
+        `profile_bound` must be True only when `api_key` came from the credential
+        store — it is what allows the transport's refresh middleware to run.
+        """
+        http = SessionHTTPClient(
+            base_url=self._platform_url(),
+            api_key=api_key,
+            profile=self.profile,
+            profile_bound=profile_bound,
+        )
+        return AuthService(http)
+
     def get_saved_api_key(self) -> str | None:
         """Get saved API key from keychain."""
         return self.credentials.get_api_key()
+
+    def get_valid_api_key(self) -> str | None:
+        """Get the saved API key, refreshing an expired session token first.
+
+        Session logins store a JWT access token that expires. The stored key is
+        deleted ONLY when the refresh endpoint definitively rejects the refresh
+        token (401/403) — every uncertain outcome (no expiry metadata, no
+        refresh token, network failure, 5xx) returns the key untouched and lets
+        the actual request fail naturally. Deleting on uncertainty logged users
+        out on a fresh registration and on any offline moment.
+        """
+        import requests
+
+        api_key = self.credentials.get_api_key()
+        if not api_key or not self.credentials.is_access_token_expired():
+            return api_key
+
+        refresh_token = self.credentials.get_refresh_token()
+        if not refresh_token:
+            return api_key
+
+        try:
+            response = requests.post(
+                f"{self._platform_url()}/api/v1/auth/refresh",
+                json={"refresh_token": refresh_token},
+                timeout=15,
+                headers={"Content-Type": "application/json"},
+            )
+        except requests.RequestException:
+            return api_key
+
+        # A response we cannot parse as JSON is not evidence about the token —
+        # a proxy or wrong service can answer any status with HTML. Treat it as
+        # uncertain (key untouched) whatever the status code.
+        try:
+            data = response.json()
+        except ValueError:
+            return api_key
+
+        if response.status_code == 200:
+            new_key: str | None = data.get("api_key")
+            if new_key:
+                self.credentials.save_api_key(new_key)
+                self.credentials.save_token_metadata(
+                    refresh_token=data.get("refresh_token"),
+                    access_expiration=data.get("access_expires_at"),
+                    refresh_expiration=data.get("refresh_expires_at"),
+                )
+                return new_key
+            return api_key
+        if response.status_code in (401, 403):
+            self.credentials.delete_api_key()
+            return None
+        return api_key
 
     def _probe_v2_key(self, api_key: str) -> bool:
         """Validate an API key against the v2 API; returns the email-verified state.
@@ -52,7 +145,9 @@ class AuthCLI:
         from .._client import M8tes as V2Client
         from .v2 import normalize_v2_base_url
 
-        v2 = V2Client(api_key=api_key, base_url=normalize_v2_base_url(self.base_url))
+        # Route through the resolved platform host so a bare-host M8TES_BASE_URL
+        # is normalized here too (passing None would let M8tes consume the raw env).
+        v2 = V2Client(api_key=api_key, base_url=normalize_v2_base_url(self._platform_url()))
         try:
             return v2.auth.is_verified()
         finally:
@@ -120,24 +215,13 @@ class AuthCLI:
 
         print("\n🔄 Creating account...")
 
-        # Use the client to register (failures raise; the command layer maps
+        # Session-auth request (failures raise; the command layer maps
         # them to a friendly message and a non-zero exit code)
-        if self.client:
-            result = self.client.register_user(
-                email=email,
-                password=password,
-                first_name=first_name,
-            )
-        else:
-            # Create temporary client without API key for registration
-            from ..client import M8tes
-
-            temp_client = M8tes(api_key=None, base_url=self.base_url)
-            result = temp_client.register_user(
-                email=email,
-                password=password,
-                first_name=first_name,
-            )
+        result = self._session_service().register_user(
+            email=email,
+            password=password,
+            first_name=first_name,
+        )
 
         print("\n✅ Registration successful!")
         print(f"   User ID: {result.get('user', {}).get('id')}")
@@ -147,6 +231,13 @@ class AuthCLI:
         api_key = result.get("api_key")
         if api_key:
             if self.credentials.save_api_key(api_key):
+                # Expiry metadata must land with the key: a key stored without it
+                # reads as "expired" to the refresh path on the very next command.
+                self.credentials.save_token_metadata(
+                    refresh_token=result.get("refresh_token"),
+                    access_expiration=result.get("access_expires_at"),
+                    refresh_expiration=result.get("refresh_expires_at"),
+                )
                 storage_type = (
                     "OS keychain" if self.credentials.is_keyring_available else "local config"
                 )
@@ -203,16 +294,9 @@ class AuthCLI:
 
         print("\n🔄 Authenticating...")
 
-        # Use the client to login (failures raise; the command layer maps
+        # Session-auth request (failures raise; the command layer maps
         # them to a friendly message and a non-zero exit code)
-        if self.client:
-            login_response = self.client.login(email=email, password=password)
-        else:
-            # Create temporary client without API key for login
-            from ..client import M8tes
-
-            temp_client = M8tes(api_key=None, base_url=self.base_url)
-            login_response = temp_client.login(email=email, password=password)
+        login_response = self._session_service().login(email=email, password=password)
 
         api_key = login_response.get("api_key") if login_response else None
         if not api_key:
@@ -277,7 +361,7 @@ class AuthCLI:
         # JWT-only, so probing it with an m8_ API key always read as "invalid" —
         # and used to wipe the saved keychain token on that false positive. A
         # status command must never mutate credentials.
-        active_api_key = saved_api_key or env_api_key or (self.client and self.client.api_key)
+        active_api_key = saved_api_key or env_api_key or getattr(self.client, "api_key", None)
         if active_api_key:
             print("\n🔄 Checking API key...")
             try:
@@ -311,23 +395,22 @@ class AuthCLI:
             print("ℹ️  No saved credentials to clear")  # noqa: RUF001
             return
 
-        # Optionally invalidate token on server
-        api_key_to_use = saved_api_key or (self.client and self.client.api_key)
-        if api_key_to_use:
-            try:
-                print("🔄 Invalidating token on server...")
-                if self.client and self.client.api_key:
-                    success = self.client.logout()
-                else:
-                    from ..client import M8tes
-
-                    temp_client = M8tes(api_key=api_key_to_use, base_url=self.base_url)
-                    success = temp_client.logout()
-
-                if success:
-                    print("✅ Token invalidated on server")
-            except Exception as e:
-                print(f"⚠️  Could not invalidate token: {e}")
+        # Optionally invalidate token on server. The ACTIVE credential wins
+        # (an explicit --api-key / client key over the saved one): revoking the
+        # saved session while an explicitly selected key stays live logs out
+        # the wrong session.
+        api_key_to_use = getattr(self.client, "api_key", None) or saved_api_key
+        try:
+            print("🔄 Invalidating token on server...")
+            service = self._session_service(
+                api_key=api_key_to_use,
+                # Comparing what we already hold — no extra credential read.
+                profile_bound=api_key_to_use == saved_api_key,
+            )
+            if service.logout():
+                print("✅ Token invalidated on server")
+        except Exception as e:
+            print(f"⚠️  Could not invalidate token: {e}")
 
         # Clear local credentials
         if self.credentials.clear_profile():

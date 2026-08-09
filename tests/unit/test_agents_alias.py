@@ -3,8 +3,8 @@
 client.agents / client.agent_templates are canonical (hitting /v2/agents and
 /v2/agent-templates); client.teammates / client.teammate_templates are the same
 objects. agent_id= is the canonical kwarg on runs/tasks, mapping to the wire
-field teammate_id. The legacy v1 class m8tes.Agent (m8tes/agent.py) is NOT
-shadowed by the v2 alias.
+field teammate_id. m8tes.Agent is the v2 Teammate alias (the legacy v1 class
+was deleted with the legacy SDK).
 """
 
 import pytest
@@ -31,11 +31,10 @@ def test_v2_type_alias():
     assert Agent is Teammate
 
 
-def test_legacy_v1_agent_class_not_shadowed():
+def test_package_level_agent_is_the_v2_alias():
     import m8tes
-    import m8tes.agent
 
-    assert m8tes.Agent is m8tes.agent.Agent
+    assert m8tes.Agent is Teammate
 
 
 def test_resolve_agent_id():

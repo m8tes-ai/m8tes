@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, ClassVar, Optional
 from .util import SuggestingArgumentParser
 
 if TYPE_CHECKING:
-    from ..client import M8tes
+    from .._client import M8tes
 
 
 class Command(ABC):

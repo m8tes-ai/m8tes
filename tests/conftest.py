@@ -134,19 +134,3 @@ def mock_requests():
     """Mock HTTP requests using responses library."""
     with responses.RequestsMock() as rsps:
         yield rsps
-
-
-@pytest.fixture
-def authenticated_client(api_key, base_url):
-    """Create an authenticated legacy M8tes client for testing."""
-    from m8tes.client import M8tes as LegacyM8tes
-
-    return LegacyM8tes(api_key=api_key, base_url=base_url)
-
-
-@pytest.fixture
-def mock_agent(authenticated_client, mock_agent_data):
-    """Create a mock agent instance for testing."""
-    from m8tes.agent import Agent
-
-    return Agent(agent_service=authenticated_client.agents, data=mock_agent_data)

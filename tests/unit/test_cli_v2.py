@@ -58,14 +58,25 @@ class TestGetV2ApiKey:
     def test_falls_back_to_saved_credentials(self, mock_auth_cli):
         """Saved credentials should be used when args and client omit the key."""
         args = SimpleNamespace(api_key=None, base_url="https://m8tes.ai")
-        mock_auth_cli.return_value.get_saved_api_key.return_value = "m8_saved_key"
+        mock_auth_cli.return_value.get_valid_api_key.return_value = "m8_saved_key"
 
         assert get_v2_api_key(args) == "m8_saved_key"
-        mock_auth_cli.return_value.get_saved_api_key.assert_called_once_with()
+        mock_auth_cli.return_value.get_valid_api_key.assert_called_once_with()
 
 
 class TestCreateV2Client:
     """Client construction should normalize base URLs and enforce auth."""
+
+    @patch("m8tes.cli.v2.V2Client")
+    def test_env_base_url_is_normalized_too(self, mock_client_class, monkeypatch):
+        """A bare-host M8TES_BASE_URL (the session-auth convention) must reach the
+        v2 client as a /api/v2 URL — consumed raw it sends /tasks/ to the host root."""
+        monkeypatch.setenv("M8TES_BASE_URL", "http://127.0.0.1:8000")
+        args = SimpleNamespace(api_key="m8_test_key", base_url=None)
+
+        create_v2_client(args)
+
+        assert mock_client_class.call_args.kwargs["base_url"] == "http://127.0.0.1:8000/api/v2"
 
     @patch("m8tes.cli.v2.V2Client")
     def test_uses_args_and_normalizes_v1_base_url(self, mock_client_class):
@@ -97,10 +108,38 @@ class TestCreateV2Client:
         args = SimpleNamespace(api_key=None, base_url=None)
 
         with patch("m8tes.cli.v2.AuthCLI") as mock_auth_cli:
-            mock_auth_cli.return_value.get_saved_api_key.return_value = None
+            mock_auth_cli.return_value.get_valid_api_key.return_value = None
 
             with pytest.raises(AuthenticationError, match="Authentication required"):
                 create_v2_client(args)
+
+
+class TestMainCreateClient:
+    """cli/main.py builds the CLI's v2 client with the same URL discipline."""
+
+    @patch("m8tes.cli.main.M8tes")
+    def test_records_credential_provenance_for_the_session_surface(self, mock_client_class):
+        """A key resolved from the credential store is marked; an explicit one is not.
+        cli/google.py reads this to decide whether the session transport may run the
+        profile's refresh dance (re-deriving it downstream costs a keychain read)."""
+        from m8tes.cli.main import create_client
+
+        with patch("m8tes.cli.auth.AuthCLI") as auth_cli:
+            auth_cli.return_value.get_valid_api_key.return_value = "jwt_saved"
+            client = create_client(api_key=None, base_url=None)
+        assert client.api_key_from_profile is True
+
+        client = create_client(api_key="m8_explicit", base_url=None)
+        assert client.api_key_from_profile is False
+
+    @patch("m8tes.cli.main.M8tes")
+    def test_env_base_url_is_normalized(self, mock_client_class, monkeypatch):
+        from m8tes.cli.main import create_client
+
+        monkeypatch.setenv("M8TES_BASE_URL", "http://127.0.0.1:8000")
+        create_client(api_key="m8_test_key", base_url=None)
+
+        assert mock_client_class.call_args.kwargs["base_url"] == "http://127.0.0.1:8000/api/v2"
 
 
 class TestV2ClientFromArgs:

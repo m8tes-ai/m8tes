@@ -979,6 +979,30 @@ class TestTasks:
         assert responses.calls[2].request.params.get("user_id") == "alice"
 
     @responses.activate
+    def test_update_status_sends_status_and_omits_when_unset(self, http):
+        task_json = {"id": 5, "teammate_id": 2, "instructions": "x", "status": "disabled"}
+        responses.add(responses.PATCH, f"{BASE}/tasks/5", json=task_json)
+        responses.add(responses.PATCH, f"{BASE}/tasks/5", json=task_json)
+        task = Tasks(http).update(5, status="disabled")
+        assert task.status == "disabled"
+        assert json.loads(responses.calls[0].request.body) == {"status": "disabled"}
+        Tasks(http).update(5, name="N")
+        assert "status" not in json.loads(responses.calls[1].request.body)
+
+    @responses.activate
+    def test_list_include_archived_param(self, http):
+        responses.add(
+            responses.GET, f"{BASE}/tasks/", json={"data": [], "has_more": False}, status=200
+        )
+        responses.add(
+            responses.GET, f"{BASE}/tasks/", json={"data": [], "has_more": False}, status=200
+        )
+        Tasks(http).list(include_archived=True)
+        assert responses.calls[0].request.params.get("include_archived") == "true"
+        Tasks(http).list()
+        assert "include_archived" not in responses.calls[1].request.params
+
+    @responses.activate
     def test_enable_webhook(self, http):
         responses.add(
             responses.POST,

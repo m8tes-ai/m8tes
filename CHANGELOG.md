@@ -2,6 +2,42 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [3.0.0] - 2026-08-09
+
+The CLI is now a plain v2 API customer: every `m8tes` command runs through the same
+v2 SDK client a developer uses, and the legacy v1 SDK is gone.
+
+### Added
+- `tasks.update(id, status="enabled"|"disabled")` — enable/disable a task. Disabling
+  pauses its schedules and event triggers; re-enabling re-arms the paused schedules,
+  but event triggers stay off until re-enabled explicitly. Archiving remains
+  `tasks.delete()`.
+- `tasks.list(include_archived=True)` — surface archived tasks (off by default).
+- `M8tes` now exposes `.api_key` and `.base_url` as public attributes.
+
+### Changed
+- **CLI commands run on the v2 API.** `m8tes mate|task|run` CRUD, streaming task
+  execution, and chat all go through `/api/v2` — same surface, same fixes, as the SDK.
+  Session auth (`m8tes auth login|register|logout`) and the Google OAuth link
+  flow remain on the platform's session endpoints, now via `m8tes.auth.http`.
+- `m8tes.Agent` is now the v2 `Teammate` alias (it was the legacy v1 agent class).
+- Two deliberate CLI semantic changes: `m8tes task enable` re-arms only the schedules
+  its own disable paused (a schedule you paused yourself stays paused; the old verb
+  re-enabled every disabled schedule unconditionally), and `m8tes mate task` now
+  inherits the mate's task-setup-tools default instead of forcing it on (pass
+  `--no-task-setup-tools` to pin it off; the old CLI always sent an explicit `true`,
+  stomping the mate-level setting).
+
+### Removed
+- **The legacy v1 SDK**: `m8tes.client`, `m8tes.agent`, `m8tes.instance`,
+  `m8tes.chat`, `m8tes.task`, `m8tes.run`, `m8tes.services`, `m8tes.http`.
+  Use the v2 client (`from m8tes import M8tes`). `m8tes.Deployment` is gone.
+- CLI niceties with no v2 twin: `mate create --integrations`, `run_count` display
+  lines, and auto-detect's "last used" heuristic (now most-recently-created).
+- The `m8tes meta` command group (`cli/meta.py`, `auth/meta.py`): the backend's
+  `/integrations/meta-ads` endpoints no longer exist, so the commands could never
+  work. Google's flow remains.
+
 ## [2.17.0] - 2026-08-08
 
 ### Added

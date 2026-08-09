@@ -11,7 +11,7 @@ from m8tes.cli.base import Command, CommandGroup
 from m8tes.cli.registry import CommandRegistry
 
 if TYPE_CHECKING:
-    from m8tes.client import M8tes
+    from m8tes._client import M8tes
 
 
 class MockCommand(Command):

@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from ..http.client import HTTPClient
+from .http import HTTPClient
 
 
 class GoogleAuth:

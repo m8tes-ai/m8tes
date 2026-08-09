@@ -20,23 +20,25 @@ m8tes-python/
 │   ├── _types.py         # Dataclasses: Teammate/Agent, Run, Task, Trigger, App
 │   ├── _streaming.py     # RunStream context manager (wraps AISDKStreamParser)
 │   ├── _resources/       # Resource classes: Agents (alias Teammates), Runs, Tasks, Apps
-│   ├── client.py         # Legacy CLI HTTP client + auth middleware
-│   ├── agent.py          # Legacy mate models + execution helpers
 │   ├── cli/
-│   │   ├── main.py       # Entry point (`m8tes`)
-│   │   └── commands/     # auth, mate task/chat, scheduling commands
-│   ├── auth/             # Credential store + login flows
-│   ├── streaming.py      # SSE parsing utilities (shared by V2 + legacy)
-│   ├── types.py          # Legacy Pydantic request/response models
-│   └── exceptions.py     # Legacy error hierarchy
+│   │   ├── main.py       # Entry point (`m8tes`) — builds the v2 client
+│   │   └── commands/     # auth, mate task/chat, run, task, apps commands
+│   ├── auth/             # Session auth: credential store, login flows, JWT transport (http.py)
+│   ├── streaming.py      # SSE parsing utilities (StreamEvent types + AISDKStreamParser)
+│   └── exceptions.py     # CLI/session error hierarchy (v2 errors live in _exceptions.py)
 ├── tests/                # Unit + integration tests
 └── Makefile              # Dev commands
 ```
 
-### V2 SDK vs Legacy
+### One client: the CLI is a v2 API customer
 
-- **V2 SDK** (`_client.py`, `_resources/`): Stripe-style `client.resource.method()` pattern, API key auth, targets `/api/v2/`. Used by developers.
-- **Legacy** (`client.py`, `agent.py`): OAuth/keychain auth, targets `/api/v1/`. Used by CLI.
+The CLI runs on the same v2 SDK client a developer uses (`_client.py`) — there is no
+separate CLI client. The one platform-only exception is **session auth** (register /
+login / logout / token refresh, plus the Google OAuth link flow): those are
+browser/JWT-shaped `/api/v1` surfaces an API customer never touches, and they live in
+`m8tes/auth/` (`auth/http.py` is their JWT session transport). Never add a product
+call to the session transport — if the CLI needs a resource the v2 SDK lacks, that is
+a v2 API gap to fix, not a reason to call v1.
 
 ### V2 SDK Architecture
 
@@ -88,17 +90,6 @@ for event in client.runs.create(agent_id=bot.id, message="Close tickets"):
     print(event.type, event.raw)
 ```
 
-Legacy CLI usage:
-
-```python
-from m8tes.client import M8tes as LegacyM8tes
-
-client = LegacyM8tes(api_url="http://127.0.0.1:8000")
-mate = client.create_agent(name="Ops Mate", instructions="Close tickets")
-for event in client.execute_agent(instance_id=mate.id, task="Close open tickets", stream=True):
-    print(event.type, event.payload)
-```
-
 ## Testing Strategy
 
 - **TDD**: Write failing unit tests around clients/commands before implementation.
@@ -117,10 +108,10 @@ make test-integration         # requires backend running at localhost:8000
 
 ## Patterns & Guardrails
 
-- Keep CLI commands thin—delegate to `client.py` methods.
+- Keep CLI commands thin—delegate to v2 SDK resource methods (`_resources/`).
 - Emit structured errors (status, code, message, request_id) so users can debug quickly.
 - Streaming helpers should return iterables of typed events (`MessageEvent`, `ToolEvent`, `ErrorEvent`).
-- Any change to FastAPI payloads must update `types.py` and regenerate documentation/snippets.
+- Any change to FastAPI payloads must update `_types.py` and regenerate documentation/snippets.
 - Chat and task are the same flow (both create a Task + Run). Ensure new commands/methods work consistently for both patterns.
 
 ## After Every SDK Change

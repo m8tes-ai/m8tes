@@ -4,8 +4,8 @@ import logging
 from typing import Any
 
 from ..exceptions import ValidationError
-from ..http.client import HTTPClient
 from ..utils.validation import validate_email, validate_password
+from .http import HTTPClient
 
 logger = logging.getLogger(__name__)
 
@@ -65,16 +65,17 @@ class AuthService:
 
         return self.http.post("/api/v1/auth/register", json_data=data, auth_required=False)
 
-    def login(self, email: str, password: str) -> str:
+    def login(self, email: str, password: str) -> dict[str, Any]:
         """
-        Login user and get API key.
+        Login user and return the full token payload.
 
         Args:
             email: User's email address
             password: User's password
 
         Returns:
-            API key string that can be used for authentication
+            Login response dict: api_key plus refresh_token / expiry metadata,
+            which the CLI persists via CredentialManager.
 
         Raises:
             ValidationError: If inputs are invalid
@@ -105,7 +106,7 @@ class AuthService:
         if "api_key" in response:
             self.http.set_api_key(response["api_key"])
 
-        return response.get("api_key", "")  # type: ignore[no-any-return]
+        return response
 
     def get_current_user(self) -> dict[str, Any]:
         """

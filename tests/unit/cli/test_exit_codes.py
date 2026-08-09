@@ -10,6 +10,7 @@ error and let the command return 0 — which silently broke scripting/CI
 from argparse import Namespace
 from unittest.mock import Mock
 
+from m8tes._exceptions import APIError, AuthenticationError
 from m8tes.cli.commands.auth import LoginCommand, RegisterCommand
 from m8tes.cli.commands.mate import (
     ArchiveCommand as MateArchiveCommand,
@@ -28,7 +29,10 @@ from m8tes.cli.commands.task import (
     ListCommand as TaskListCommand,
     UpdateCommand as TaskUpdateCommand,
 )
-from m8tes.exceptions import AuthenticationError, NetworkError
+from m8tes.exceptions import (
+    AuthenticationError as _SessionAuthError,
+    NetworkError as _SessionNetworkError,
+)
 
 
 def _client_raising(attr_path: str, exc: Exception) -> Mock:
@@ -44,31 +48,31 @@ def _client_raising(attr_path: str, exc: Exception) -> Mock:
 
 class TestMateCommandExitCodes:
     def test_list_auth_failure_exits_1(self):
-        client = _client_raising("instances.list", AuthenticationError("Invalid API key"))
+        client = _client_raising("agents.list", AuthenticationError("Invalid API key"))
         assert MateListCommand().execute(Namespace(), client) == 1
 
     def test_get_auth_failure_exits_1(self):
-        client = _client_raising("instances.get", AuthenticationError("Invalid API key"))
+        client = _client_raising("agents.get", AuthenticationError("Invalid API key"))
         assert MateGetCommand().execute(Namespace(mate_id="1"), client) == 1
 
     def test_get_non_numeric_id_exits_1(self):
         assert MateGetCommand().execute(Namespace(mate_id="abc"), Mock()) == 1
 
     def test_update_network_failure_exits_1(self):
-        client = _client_raising("instances.get", NetworkError("connection refused"))
+        client = _client_raising("agents.get", APIError("connection refused"))
         args = Namespace(mate_id="1", non_interactive=True, name="x")
         assert MateUpdateCommand().execute(args, client) == 1
 
     def test_enable_failure_exits_1(self):
-        client = _client_raising("instances.get", NetworkError("connection refused"))
+        client = _client_raising("agents.get", APIError("connection refused"))
         assert MateEnableCommand().execute(Namespace(mate_id="1"), client) == 1
 
     def test_disable_failure_exits_1(self):
-        client = _client_raising("instances.get", NetworkError("connection refused"))
+        client = _client_raising("agents.get", APIError("connection refused"))
         assert MateDisableCommand().execute(Namespace(mate_id="1", force=True), client) == 1
 
     def test_archive_failure_exits_1(self):
-        client = _client_raising("instances.get", NetworkError("connection refused"))
+        client = _client_raising("agents.get", APIError("connection refused"))
         assert MateArchiveCommand().execute(Namespace(mate_id="1", force=True), client) == 1
 
 
@@ -78,35 +82,30 @@ class TestTaskCommandExitCodes:
         assert TaskListCommand().execute(Namespace(), client) == 1
 
     def test_get_failure_exits_1(self):
-        client = _client_raising("tasks.get", NetworkError("connection refused"))
+        client = _client_raising("tasks.get", APIError("connection refused"))
         assert TaskGetCommand().execute(Namespace(task_id="1"), client) == 1
 
     def test_get_non_numeric_id_exits_1(self):
         assert TaskGetCommand().execute(Namespace(task_id="abc"), Mock()) == 1
 
     def test_execute_failure_exits_1(self):
-        client = _client_raising("tasks.get", NetworkError("connection refused"))
+        client = _client_raising("tasks.get", APIError("connection refused"))
         assert TaskExecuteCommand().execute(Namespace(task_id="1"), client) == 1
 
     def test_update_failure_exits_1(self):
-        client = _client_raising("tasks.update", NetworkError("connection refused"))
+        client = _client_raising("tasks.update", APIError("connection refused"))
         assert TaskUpdateCommand().execute(Namespace(task_id="1", name="x"), client) == 1
 
     def test_enable_failure_exits_1(self):
-        client = _client_raising("tasks.enable", NetworkError("connection refused"))
+        client = _client_raising("tasks.update", APIError("connection refused"))
         assert TaskEnableCommand().execute(Namespace(task_id="1"), client) == 1
 
     def test_disable_failure_exits_1(self):
-        client = _client_raising("tasks.disable", NetworkError("connection refused"))
+        client = _client_raising("tasks.update", APIError("connection refused"))
         assert TaskDisableCommand().execute(Namespace(task_id="1"), client) == 1
 
     def test_archive_failure_exits_1(self):
-        client = _client_raising("tasks.archive", NetworkError("connection refused"))
-        assert TaskArchiveCommand().execute(Namespace(task_id="1"), client) == 1
-
-    def test_archive_returning_false_exits_1(self):
-        client = Mock()
-        client.tasks.archive.return_value = False
+        client = _client_raising("tasks.delete", APIError("connection refused"))
         assert TaskArchiveCommand().execute(Namespace(task_id="1"), client) == 1
 
 
@@ -118,7 +117,7 @@ class TestAuthCommandExitCodes:
             auth_module.AuthCLI,
             "login_interactive",
             lambda self, save_token=True: (_ for _ in ()).throw(
-                AuthenticationError("bad credentials")
+                _SessionAuthError("bad credentials")
             ),
         )
         assert LoginCommand().execute(Namespace(), None) == 1
@@ -129,6 +128,6 @@ class TestAuthCommandExitCodes:
         monkeypatch.setattr(
             auth_module.AuthCLI,
             "register_interactive",
-            lambda self: (_ for _ in ()).throw(NetworkError("connection refused")),
+            lambda self: (_ for _ in ()).throw(_SessionNetworkError("connection refused")),
         )
         assert RegisterCommand().execute(Namespace(), None) == 1

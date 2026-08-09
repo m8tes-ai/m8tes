@@ -8,12 +8,11 @@ from argparse import ArgumentParser, Namespace
 from typing import TYPE_CHECKING, ClassVar, Optional
 
 from ..._exceptions import M8tesError as SDKM8tesError
-from ...exceptions import AgentError, AuthenticationError, NetworkError
 from ..base import Command, CommandGroup
 from ..v2 import v2_client_from_args
 
 if TYPE_CHECKING:
-    from ...client import M8tes
+    from ..._client import M8tes
 
 
 class RunCommandGroup(CommandGroup):
@@ -59,30 +58,29 @@ class GetRunCommand(Command):
         try:
             run_id = int(args.run_id)
 
-            # /detail returns the run's fields FLAT plus aggregated metrics.
-            details = client.runs.get(run_id).get_details()
+            run = client.runs.get(run_id)
+            outcome = client.runs.outcome(run_id)
 
             print(f"\n📊 Run Details - ID: {run_id}")
             print(f"{'=' * 60}")
 
             print("\n🔹 Basic Info:")
-            print(f"   Status: {details.get('status', 'N/A')}")
-            print(f"   Agent ID: {details.get('instance_id', 'N/A')}")
-            if details.get("task_name"):
-                print(f"   Task: {details['task_name']}")
-            print(f"   Description: {details.get('description') or 'No description'}")
-            print(f"   Created: {details.get('created_at', 'N/A')}")
+            print(f"   Status: {run.status}")
+            print(f"   Agent ID: {run.teammate_id if run.teammate_id is not None else 'N/A'}")
+            if run.task_name:
+                print(f"   Task: {run.task_name}")
+            print(f"   Created: {run.created_at}")
 
-            print(f"\n💬 Conversation: {details.get('message_count', 0)} messages")
+            print(f"\n💬 Conversation: {outcome.message_count} messages")
 
             print("\n💰 Token Usage:")
-            print(f"   Total Cost: ${float(details.get('total_cost_usd') or 0):.4f}")
-            print(f"   Total Tokens: {int(details.get('total_tokens') or 0):,}")
+            print(f"   Total Cost: ${float(outcome.cost_usd or 0):.4f}")
+            print(f"   Total Tokens: {outcome.total_tokens:,}")
 
             print()
             return 0
 
-        except (AgentError, AuthenticationError, NetworkError) as e:
+        except SDKM8tesError as e:
             print(f"❌ Error getting run: {e}")
             return 1
         except ValueError:
@@ -110,7 +108,7 @@ class ListRunsCommand(Command):
 
         try:
             limit = getattr(args, "limit", 10)
-            runs = client.runs.list_user_runs(limit=limit)
+            runs = client.runs.list(limit=limit).data
 
             print(f"🏃 Your Runs (showing {len(runs)})")
             print()
@@ -120,20 +118,15 @@ class ListRunsCommand(Command):
                 return 0
 
             for run in runs:
-                print(f"🏃 Run {run.id} - {run.run_mode}")
-                print(f"   Agent ID: {run.instance_id}")
-                if run.description:
-                    desc = (
-                        run.description[:60] + "..."
-                        if len(run.description) > 60
-                        else run.description
-                    )
-                    print(f"   Task: {desc}")
+                print(f"🏃 Run {run.id} - {run.run_mode or run.status}")
+                print(f"   Agent ID: {run.teammate_id if run.teammate_id is not None else 'N/A'}")
+                if run.task_name:
+                    print(f"   Task: {run.task_name}")
                 print(f"   Created: {run.created_at}")
                 print()
 
             return 0
-        except (AgentError, AuthenticationError, NetworkError) as e:
+        except SDKM8tesError as e:
             print(f"❌ Error listing runs: {e}")
             return 1
 
@@ -160,7 +153,7 @@ class ListTeammateRunsCommand(Command):
         try:
             mate_id = int(args.mate_id)
             limit = getattr(args, "limit", 10)
-            runs = client.runs.list_for_instance(mate_id, limit=limit)
+            runs = client.runs.list(agent_id=mate_id, limit=limit).data
 
             print(f"🏃 Runs for Agent {mate_id} (showing {len(runs)})")
             print()
@@ -170,21 +163,14 @@ class ListTeammateRunsCommand(Command):
                 return 0
 
             for run in runs:
-                print(f"🏃 Run {run.id} - {run.run_mode}")
-                if run.description:
-                    desc = (
-                        run.description[:60] + "..."
-                        if len(run.description) > 60
-                        else run.description
-                    )
-                    print(f"   Task: {desc}")
+                print(f"🏃 Run {run.id} - {run.run_mode or run.status}")
+                if run.task_name:
+                    print(f"   Task: {run.task_name}")
                 print(f"   Created: {run.created_at}")
-                if run.duration_seconds:
-                    print(f"   Duration: {run.duration_seconds}s")
                 print()
 
             return 0
-        except (AgentError, AuthenticationError, NetworkError) as e:
+        except SDKM8tesError as e:
             print(f"❌ Error listing runs: {e}")
             return 1
         except ValueError:
@@ -213,40 +199,36 @@ class ConversationCommand(Command):
         try:
             run_id = args.run_id
 
-            # Get run and conversation
-            run = client.runs.get(run_id)
-            messages = run.get_conversation()
+            messages = client.runs.messages(run_id)
 
             print(f"\n💬 Conversation - Run ID: {run_id}")
             print(f"{'=' * 60}")
             print(f"\n{len(messages)} messages:\n")
 
             for msg in messages:
-                role = msg.get("role", "unknown")
-                content = msg.get("content", "")
+                content = msg.content or ""
 
                 # Format based on role
-                if role == "system":
+                if msg.role == "system":
                     print(
                         f"🔧 System: {content[:100]}..."
                         if len(content) > 100
                         else f"🔧 System: {content}"
                     )
-                elif role == "user":
+                elif msg.role == "user":
                     print("\n👤 User:")
                     print(f"   {content}")
-                elif role == "assistant":
+                elif msg.role == "assistant":
                     print("\n🤖 Assistant:")
                     print(f"   {content}")
-                elif role == "tool":
-                    tool_call_id = msg.get("tool_call_id", "N/A")
-                    print(f"\n🔧 Tool Response (ID: {tool_call_id}):")
+                else:
+                    print(f"\n🔧 {msg.role}:")
                     print(f"   {content[:200]}..." if len(content) > 200 else f"   {content}")
 
             print()
             return 0
 
-        except (AgentError, AuthenticationError, NetworkError) as e:
+        except SDKM8tesError as e:
             print(f"❌ Error retrieving conversation: {e}")
             return 1
 
@@ -272,22 +254,22 @@ class UsageCommand(Command):
         try:
             run_id = args.run_id
 
-            # Aggregated metrics from the run detail (per-message metrics live
-            # on /messages; there is no per-model breakdown endpoint).
-            usage = client.runs.get(run_id).get_usage()
+            # Aggregated metrics ride the outcome endpoint (per-message metrics
+            # live on /messages; there is no per-model breakdown endpoint).
+            outcome = client.runs.outcome(run_id)
 
             print(f"\n💰 Token Usage - Run ID: {run_id}")
             print(f"{'=' * 60}")
 
             print("\n📊 Summary:")
-            print(f"   Total Cost: ${float(usage.get('total_cost_usd') or 0):.4f}")
-            print(f"   Total Tokens: {int(usage.get('total_tokens') or 0):,}")
-            print(f"   Messages: {usage.get('message_count', 0)}")
+            print(f"   Total Cost: ${float(outcome.cost_usd or 0):.4f}")
+            print(f"   Total Tokens: {outcome.total_tokens:,}")
+            print(f"   Messages: {outcome.message_count}")
 
             print()
             return 0
 
-        except (AgentError, AuthenticationError, NetworkError) as e:
+        except SDKM8tesError as e:
             print(f"❌ Error retrieving usage: {e}")
             return 1
 
@@ -317,9 +299,14 @@ class ToolsCommand(Command):
             run_id = args.run_id
             verbose = args.verbose
 
-            # Get run and tool executions
-            run = client.runs.get(run_id)
-            tools = run.get_tool_executions()
+            # Tool calls are derived from message content blocks — the API does
+            # not track per-call success/duration, so only name + args render.
+            tools = [
+                block
+                for msg in client.runs.messages(run_id)
+                for block in (msg.content_blocks or [])
+                if block.get("type") == "tool_use"
+            ]
 
             print(f"\n🔧 Tool Executions - Run ID: {run_id}")
             print(f"{'=' * 60}")
@@ -331,13 +318,11 @@ class ToolsCommand(Command):
 
             print(f"\n{len(tools)} tool executions:\n")
 
-            # Tool calls are derived from message content blocks — the API does
-            # not track per-call success/duration, so only name + args render.
             for i, tool in enumerate(tools, 1):
-                print(f"{i}. {tool.get('tool_name', 'Unknown')}")
+                print(f"{i}. {tool.get('name', 'Unknown')}")
 
-                if verbose and tool.get("arguments") is not None:
-                    args_str = str(tool["arguments"])
+                if verbose and tool.get("input") is not None:
+                    args_str = str(tool["input"])
                     print(
                         f"   Arguments: {args_str[:100]}..."
                         if len(args_str) > 100
@@ -348,7 +333,7 @@ class ToolsCommand(Command):
 
             return 0
 
-        except (AgentError, AuthenticationError, NetworkError) as e:
+        except SDKM8tesError as e:
             print(f"❌ Error retrieving tool executions: {e}")
             return 1
 

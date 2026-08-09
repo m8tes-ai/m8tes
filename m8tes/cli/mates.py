@@ -1,7 +1,8 @@
 """
-Teammate management CLI commands.
+Teammate management CLI commands, built on the v2 SDK client.
 
-Provides interactive commands for creating and managing m8tes teammates.
+Provides interactive commands for creating and managing m8tes agents via
+``client.agents`` (CRUD) and ``client.runs`` (task execution + chat).
 
 Error contract: fatal failures raise (typed SDK exceptions where possible) so
 the command layer maps them to a non-zero exit code. Helpers never swallow a
@@ -9,13 +10,23 @@ fatal error — a swallowed error made `m8tes mate list` exit 0 on auth failure.
 """
 
 # mypy: disable-error-code="union-attr,arg-type,index,assignment,no-untyped-def"
-from datetime import UTC
-import json
-from typing import Any
+from typing import TYPE_CHECKING
 
-from ..client import M8tes
+from .._exceptions import (
+    APIError,
+    AuthenticationError,
+    M8tesError,
+    NotFoundError,
+    PermissionDeniedError,
+    RunFailedError,
+    ValidationError,
+)
 from .prompt import confirm_prompt, prompt
 from .util import parse_id
+
+if TYPE_CHECKING:
+    from .._client import M8tes
+    from .._types import Teammate
 
 
 def _parse_mate_id(mate_id: str) -> int:
@@ -33,16 +44,19 @@ AVAILABLE_TOOLS = [
     },
 ]
 
+# One page covers every realistic CLI account; auto_paging_iter handles the rest.
+_LIST_LIMIT = 100
+
 
 class MateCLI:
     """CLI for teammate management operations."""
 
-    def __init__(self, client: M8tes):
+    def __init__(self, client: "M8tes"):
         """
         Initialize MateCLI.
 
         Args:
-            client: M8tes client instance
+            client: v2 M8tes SDK client
         """
         self.client = client
 
@@ -51,7 +65,8 @@ class MateCLI:
         Get mate ID with auto-detection and user confirmation.
 
         If mate_id is provided, returns it directly (explicit selection).
-        Otherwise, attempts auto-detection and prompts for confirmation.
+        Otherwise auto-detects client-side (the v1 auto-detect endpoint has no
+        v2 twin): the most recently created enabled agent.
 
         Args:
             mate_id: Optional mate ID (if provided, returns immediately)
@@ -61,139 +76,81 @@ class MateCLI:
 
         Flow:
             1. If mate_id provided → return it (explicit selection)
-            2. Try auto-detect → show details with reason/timestamp
+            2. Auto-detect most recently created enabled agent → show details
             3. Prompt: "Use this agent? [Y/n]"
             4. If yes → return detected ID
-            5. If no or 404 → show mate list and prompt for ID
+            5. If no or none enabled → show mate list and prompt for selection
         """
         # If mate_id explicitly provided, use it
         if mate_id is not None:
             return mate_id
 
-        # Try auto-detection
         try:
-            instance, metadata = self.client.instances.auto_detect()
+            # Page through everything: .data alone caps at one page, and an account
+            # whose only enabled agent sits past it would read as "none enabled".
+            agents = list(self.client.agents.list(limit=_LIST_LIMIT).auto_paging_iter())
+        except AuthenticationError:
+            # Handle authentication errors with clear guidance
+            print()
+            print("❌ Authentication failed")
+            api_key = getattr(self.client, "api_key", None)
+            if api_key and api_key.startswith("m8_"):
+                print("   Check that your API key is valid: m8tes --api-key m8_...")
+            else:
+                print("   Please login first: m8tes auth login")
+            print()
+            return None
+        except M8tesError as e:
+            print(f"❌ Failed to list agents: {e}")
+            return None
 
-            # Show detected teammate with details
+        enabled = [a for a in agents if a.status == "enabled"]
+        if enabled:
+            detected = max(enabled, key=lambda a: (a.created_at or "", a.id))
             print()
             print("🔍 Auto-detected agent:")
-            print(f"   📋 {instance.name} (ID: {instance.id})")
-
-            # Show reason for selection
-            if metadata["reason"] == "last_used":
-                # Format last_used_at timestamp
-                last_used_str = metadata.get("last_used_at", "recently")
-                if last_used_str and last_used_str != "recently":
-                    try:
-                        from datetime import datetime
-
-                        dt = datetime.fromisoformat(last_used_str.replace("Z", "+00:00"))
-                        last_used_str = self._format_timestamp(dt.isoformat())
-                    except Exception:
-                        last_used_str = "recently"
-                print(f"   🕐 Last used: {last_used_str}")
-            else:
-                print("   ✨ Most recently created")
-
+            print(f"   📋 {detected.name} (ID: {detected.id})")
+            print("   ✨ Most recently created")
             print()
-
-            # Prompt for confirmation
             if confirm_prompt("Use this agent?", default=True):
-                return instance.id
-
+                return detected.id
             # User declined - fall through to manual selection
             print()
-            print("📋 Available agents:")
-
-        except Exception as e:
-            # Import AuthenticationError for specific handling
-            from ..exceptions import AuthenticationError
-
-            # Handle authentication errors with clear guidance
-            if isinstance(e, AuthenticationError):
-                print()
-                print("❌ Authentication failed")
-                api_key = getattr(self.client.http, "api_key", None)
-                if api_key and api_key.startswith("m8_"):
-                    print("   Check that your API key is valid: m8tes --api-key m8_...")
-                else:
-                    print("   Please login first: m8tes auth login")
-                print()
-                return None
-            # Handle 404/not found errors
-            elif "404" in str(e) or "not found" in str(e).lower():
-                print()
-                print("⚠️  No enabled agents found for auto-detection")
-            # Handle other errors
-            else:
-                print()
-                print(f"⚠️  Auto-detection failed: {e}")
-
+        else:
             print()
-            print("📋 Available agents:")
+            print("⚠️  No enabled agents found for auto-detection")
+            print()
 
-        # Show list of teammates and prompt for selection
+        print("📋 Available agents:")
+        if not agents:
+            print("   No agents found.")
+            print("💡 Create an agent first: m8tes agent create")
+            return None
+
+        for idx, inst in enumerate(agents, 1):
+            status_emoji = "✅" if inst.status == "enabled" else "⏸️"
+            print(f"   {idx}. {status_emoji} {inst.name} (ID: {inst.id})")
+        print()
+
+        selection = prompt(
+            "Select agent (number or ID), or press Enter to cancel: ", allow_empty=True
+        )
+        if not selection.strip():
+            print("❌ Cancelled")
+            return None
+
+        # Parse selection: 1-based list index first, then direct agent ID.
         try:
-            instances = self.client.instances.list()
-
-            if not instances:
-                print("   No agents found.")
-                print("💡 Create an agent first: m8tes agent create")
-                return None
-
-            # Show teammate list
-            for idx, inst in enumerate(instances, 1):
-                status_emoji = "✅" if inst.status == "enabled" else "⏸️"
-                print(f"   {idx}. {status_emoji} {inst.name} (ID: {inst.id})")
-
-            print()
-
-            # Prompt for selection
-            selection = prompt(
-                "Select agent (number or ID), or press Enter to cancel: ", allow_empty=True
-            )
-
-            if not selection.strip():
-                print("❌ Cancelled")
-                return None
-
-            # Parse selection (try as number first, then as ID)
-            try:
-                # Try parsing as 1-based index
-                index = int(selection) - 1
-                if 0 <= index < len(instances):
-                    return instances[index].id
-                else:
-                    print(f"❌ Invalid selection: {selection}")
-                    return None
-            except ValueError:
-                # Not a number - try as direct ID
-                try:
-                    mate_id = int(selection)
-                    # Verify this ID exists in the list
-                    if any(inst.id == mate_id for inst in instances):
-                        return mate_id
-                    else:
-                        print(f"❌ Agent ID {mate_id} not found")
-                        return None
-                except ValueError:
-                    print(f"❌ Invalid selection: {selection}")
-                    return None
-
-        except Exception as e:
-            # Import AuthenticationError for specific handling
-            from ..exceptions import AuthenticationError
-
-            # Handle authentication errors with clear guidance
-            if isinstance(e, AuthenticationError):
-                print()
-                print("❌ Not authenticated")
-                print("   Please login first: m8tes auth login")
-                return None
-            # Handle other errors
-            else:
-                print(f"❌ Failed to list agents: {e}")
-                return None
+            number = int(selection)
+        except ValueError:
+            print(f"❌ Invalid selection: {selection}")
+            return None
+        if 1 <= number <= len(agents):
+            return agents[number - 1].id
+        if any(inst.id == number for inst in agents):
+            return number
+        print(f"❌ Agent ID {number} not found")
+        return None
 
     def create_interactive(self) -> None:
         """
@@ -211,7 +168,6 @@ class MateCLI:
         *,
         role: str | None = None,
         goals: str | None = None,
-        integration_ids: list[int] | None = None,
         inbound_imessage_enabled: bool = False,
         imessage_chat_guid: str | None = None,
     ) -> None:
@@ -224,12 +180,9 @@ class MateCLI:
             instructions: Teammate instructions
             role: Optional teammate role/identity
             goals: Optional goals and metrics payload (plain text)
-            integration_ids: Optional list of AppIntegration IDs (catalog references)
             inbound_imessage_enabled: Enable inbound Apple Messages routing
             imessage_chat_guid: BlueBubbles chat GUID used for inbound routing and replies
         """
-        from ..exceptions import ValidationError
-
         role = role.strip() if isinstance(role, str) else role
         if not role:
             role = None
@@ -238,13 +191,12 @@ class MateCLI:
             goals = None
         if inbound_imessage_enabled and not imessage_chat_guid:
             raise ValidationError("--imessage-chat-guid is required when --enable-imessage is set")
-        instance = self.client.instances.create(
+        instance = self.client.agents.create(
             name=name,
             tools=tools,
             instructions=instructions,
             role=role,
             goals=goals,
-            integration_ids=integration_ids,
             inbound_imessage_enabled=inbound_imessage_enabled,
             imessage_chat_guid=imessage_chat_guid,
         )
@@ -376,9 +328,9 @@ class MateCLI:
             print("❌ Agent creation cancelled")
             return
 
-        # Create the teammate instance
+        # Create the teammate
         print("⏳ Creating agent...")
-        instance = self.client.instances.create(
+        instance = self.client.agents.create(
             name=mate_name,
             tools=tools,
             instructions=instructions,
@@ -424,61 +376,32 @@ class MateCLI:
         # Remove duplicates while preserving order
         return list(dict.fromkeys(tools))
 
-    def _parse_json(
-        self,
-        json_str: str,
-        field_name: str,
-        *,
-        allowed_types: tuple[type, ...] = (dict,),
-    ) -> Any | None:
-        """
-        Parse JSON string with error handling.
-
-        Args:
-            json_str: JSON string to parse
-            field_name: Name of the field for error messages
-            allowed_types: Accepted Python types for the parsed value
-
-        Returns:
-            Parsed JSON value, or None if invalid
-        """
-        try:
-            data = json.loads(json_str)
-            if not isinstance(data, allowed_types):
-                allowed_names = " or ".join(
-                    "object" if t is dict else ("array" if t is list else t.__name__)
-                    for t in allowed_types
-                )
-                print(f"❌ {field_name} must be a JSON {allowed_names}, not {type(data).__name__}")
-                return None
-            return data
-        except json.JSONDecodeError as e:
-            print(f"❌ Invalid JSON for {field_name}: {e}")
-            print("   Make sure the JSON is properly formatted")
-            print('   Example: {"key": "value", "number": 123}')
-            return None
-
     def list_interactive(self, include_disabled: bool = False) -> None:
         """
         Interactive teammate listing.
 
         Args:
-            include_disabled: Include disabled teammates in listing
+            include_disabled: Include disabled (and archived) teammates in listing
         """
         print("👥 Your Agents")
         print()
 
-        # Use instances instead of agents (enabled first, then disabled if requested)
-        instances = self.client.instances.list(include_disabled=include_disabled)
+        # v2 always lists disabled agents alongside enabled ones (only archived
+        # agents are hidden), so the default view filters client-side and the
+        # flag widens the fetch to archived too.
+        page = self.client.agents.list(limit=_LIST_LIMIT, include_archived=include_disabled)
+        agents = list(page.auto_paging_iter())
+        if not include_disabled:
+            agents = [a for a in agents if a.status == "enabled"]
 
-        if not instances:
+        if not agents:
             print("No agents found.")
             print("💡 Create your first agent with: m8tes agent create")
             if not include_disabled:
                 print("💡 To see disabled agents: m8tes agent list --include-disabled")
             return
 
-        for instance in instances:
+        for instance in agents:
             # Status emoji
             if instance.status == "enabled":
                 status_emoji = "✅"
@@ -510,53 +433,7 @@ class MateCLI:
                     goals_preview = goals_preview[:77] + "..."
                 print(f"   Goals: {goals_preview}")
 
-            # Show run stats (only when the API provided them)
-            if instance.run_count is not None:
-                print(f"   Runs: {instance.run_count}")
-
             print()
-
-    def _format_timestamp(self, timestamp: str) -> str:
-        """
-        Format timestamp to human-readable relative time.
-
-        Args:
-            timestamp: ISO timestamp string
-
-        Returns:
-            Human-readable string like "2 hours ago"
-        """
-        try:
-            from datetime import datetime
-
-            dt = datetime.fromisoformat(timestamp.replace("Z", "+00:00"))
-            now = datetime.now(UTC)
-            diff = now - dt
-
-            if diff.days > 0:
-                if diff.days == 1:
-                    return "1 day ago"
-                elif diff.days < 7:
-                    return f"{diff.days} days ago"
-                elif diff.days < 30:
-                    weeks = diff.days // 7
-                    return f"{weeks} week{'s' if weeks > 1 else ''} ago"
-                else:
-                    months = diff.days // 30
-                    return f"{months} month{'s' if months > 1 else ''} ago"
-
-            hours = diff.seconds // 3600
-            if hours > 0:
-                return f"{hours} hour{'s' if hours > 1 else ''} ago"
-
-            minutes = diff.seconds // 60
-            if minutes > 0:
-                return f"{minutes} min{'s' if minutes > 1 else ''} ago"
-
-            return "just now"
-        except Exception:
-            # Fallback to original timestamp if parsing fails
-            return timestamp
 
     def get_interactive(self, mate_id: str) -> None:
         """
@@ -565,7 +442,7 @@ class MateCLI:
         Args:
             mate_id: Teammate ID to retrieve
         """
-        instance = self.client.instances.get(_parse_mate_id(mate_id))
+        instance = self.client.agents.get(_parse_mate_id(mate_id))
 
         print("🤝 Agent Details")
         print()
@@ -573,8 +450,6 @@ class MateCLI:
         print(f"  Name: {instance.name}")
         if instance.role:
             print(f"  Role: {instance.role}")
-        if instance.agent_type:
-            print(f"  Type: {instance.agent_type}")
         print(f"  Status: {instance.status}")
         tools_display = ", ".join(instance.tools) if instance.tools else "None"
         print(f"  Tools: {tools_display}")
@@ -587,8 +462,6 @@ class MateCLI:
         else:
             print("  Goals: None")
         print()
-        if instance.run_count is not None:
-            print(f"  Total Runs: {instance.run_count}")
         print(f"  Created: {instance.created_at}")
 
     def task_interactive(
@@ -607,8 +480,9 @@ class MateCLI:
             mate_id: Teammate ID to use
             output_format: Display format ("verbose", "compact", or "json")
             debug: Enable debug mode with detailed logging
+            task_setup_tools: When False, force-disable built-in same-scope
+                management tools for this run (True inherits the agent default)
         """
-        from ..exceptions import AgentError
         from .display import create_display
 
         # Show task header (unless json mode)
@@ -616,7 +490,7 @@ class MateCLI:
             print(f"🎯 Task: {message}")
             print()
 
-        instance = self.client.instances.get(_parse_mate_id(mate_id))
+        instance = self.client.agents.get(_parse_mate_id(mate_id))
 
         if output_format != "json":
             print(f"🤝 Using: {instance.name} (ID: {instance.id})")
@@ -630,12 +504,19 @@ class MateCLI:
         display = create_display(output_format)
         display.start()
 
-        # Stream task execution
+        # Stream task execution. task_setup_tools=None inherits the agent
+        # default; only an explicit False (the --no-task-setup-tools flag)
+        # overrides it for this run.
+        stream = self.client.runs.create(
+            agent_id=instance.id,
+            message=message,
+            stream=True,
+            task_setup_tools=None if task_setup_tools else False,
+        )
+
         event_count = 0
         try:
-            for event in instance.execute_task(
-                message, stream=True, format="events", task_setup_tools=task_setup_tools
-            ):
+            for event in stream:
                 event_count += 1
                 if debug and output_format != "json":
                     print(f"[DEBUG] Event #{event_count}: {event.type}")
@@ -664,7 +545,7 @@ class MateCLI:
                     print("   Run with --debug for more details.")
 
             # Show run summary with results
-            self._show_run_summary(instance, output_format, debug=debug)
+            self._show_run_summary(stream.run_id, output_format, debug=debug)
 
             # Show completion (unless json mode)
             if output_format != "json":
@@ -675,12 +556,37 @@ class MateCLI:
                     print("✅ Task completed")
 
             if has_errors:
-                raise AgentError("Run finished with errors")
+                raise RunFailedError("Run finished with errors")
 
         except KeyboardInterrupt:
             display.finish()
             print("\n\n⏸️  Task interrupted")
             raise
+
+    def _validated_resume_run_id(self, run_id: int, instance, output_format: str) -> int | None:
+        """Confirm a resume target actually belongs to the selected mate.
+
+        The v2 server replies on the RUN's own agent regardless of which mate the
+        chat header shows, so an unvalidated id would silently continue a different
+        mate's conversation under this one's name (the legacy client rejected the
+        mismatch server-side).
+        """
+        from .._exceptions import M8tesError
+
+        try:
+            run = self.client.runs.get(run_id)
+        except M8tesError as exc:
+            if output_format != "json":
+                print(f"❌ Cannot resume run {run_id}: {exc}")
+            return None
+        if run.teammate_id is not None and run.teammate_id != instance.id:
+            if output_format != "json":
+                print(
+                    f"❌ Run {run_id} belongs to agent {run.teammate_id}, "
+                    f"not {instance.name} (ID: {instance.id})"
+                )
+            return None
+        return run_id
 
     def chat_interactive(
         self, mate_id: str, resume_run_id: int | None = None, output_format: str = "verbose"
@@ -688,14 +594,18 @@ class MateCLI:
         """
         Start an interactive chat session with the teammate using streaming.
 
+        The v2 API has no standing chat session: the first message creates a
+        run (runs.create), follow-ups continue it (runs.reply). The run ID is
+        therefore announced after the first response, not before it.
+
         Args:
             mate_id: Teammate ID to use
-            resume_run_id: Optional run ID to resume (loads session_id for continuity)
+            resume_run_id: Optional run ID to resume (replies continue that run)
             output_format: Display format ("verbose", "compact", or "json")
 
         Supports commands:
         - /exit or /quit - Exit chat session
-        - /clear - Clear conversation history
+        - /clear - Clear conversation history (next message starts a fresh run)
         - /resume <run_id> - Resume from a different run
         """
         from .display import create_display
@@ -707,15 +617,14 @@ class MateCLI:
             )
             print()
 
-        # Get instance and start chat session
-        instance = self.client.instances.get(_parse_mate_id(mate_id))
-        chat_session = instance.start_chat_session(resume_run_id=resume_run_id)
+        instance = self.client.agents.get(_parse_mate_id(mate_id))
+        run_id: int | None = None
+        if resume_run_id is not None:
+            run_id = self._validated_resume_run_id(resume_run_id, instance, output_format)
         if output_format != "json":
             print(f"🤝 Chatting with: {instance.name} (ID: {instance.id})")
-            if resume_run_id:
-                print(f"🔄 Resumed session from run {chat_session.run.id}")
-            else:
-                print(f"📝 Session Run ID: {chat_session.run.id}")
+            if run_id:
+                print(f"🔄 Resumed session from run {run_id}")
             print()
 
         try:
@@ -738,13 +647,13 @@ class MateCLI:
 
                     # Handle commands
                     if message.strip() in ["/exit", "/quit"]:
-                        chat_session.end()
                         if output_format != "json":
                             print("\n👋 Chat session ended")
                         break
 
                     if message.strip() == "/clear":
-                        chat_session.clear_history()
+                        # A fresh run = fresh history; nothing to clear server-side.
+                        run_id = None
                         if output_format != "json":
                             print("✅ Conversation history cleared")
                         continue
@@ -758,32 +667,46 @@ class MateCLI:
                             continue
 
                         try:
-                            new_run_id = int(parts[1])
-                            # End current session
-                            chat_session.end()
-                            # Start new session with the specified run_id
-                            chat_session = instance.start_chat_session(resume_run_id=new_run_id)
-                            if output_format != "json":
-                                print(f"🔄 Resumed session from run {chat_session.run.id}")
-                                print()
+                            candidate = int(parts[1])
                         except ValueError:
                             if output_format != "json":
                                 print(f"❌ Invalid run ID: {parts[1]} (must be a number)")
-                        except Exception as e:
+                            continue
+                        validated = self._validated_resume_run_id(
+                            candidate, instance, output_format
+                        )
+                        if validated is not None:
+                            run_id = validated
                             if output_format != "json":
-                                print(f"❌ Failed to resume run: {e}")
+                                print(f"🔄 Resumed session from run {run_id}")
+                                print()
                         continue
 
                     # Create display renderer
                     display = create_display(output_format)
                     display.start()
 
-                    # Stream message response
+                    # Stream message response: first message creates the run,
+                    # follow-ups reply to it.
+                    stream = None
                     try:
-                        for event in chat_session.send(message, stream=True, format="events"):
+                        is_first = run_id is None
+                        if is_first:
+                            stream = self.client.runs.create(
+                                agent_id=instance.id, message=message, stream=True
+                            )
+                        else:
+                            stream = self.client.runs.reply(run_id, message=message, stream=True)
+
+                        for event in stream:
                             display.on_event(event)
 
                         display.finish()
+
+                        if is_first and stream.run_id:
+                            run_id = stream.run_id
+                            if output_format != "json":
+                                print(f"📝 Session Run ID: {run_id}")
 
                         # Newline after response (unless json mode)
                         if output_format != "json":
@@ -791,20 +714,31 @@ class MateCLI:
 
                     except KeyboardInterrupt:
                         display.finish()
+                        # The run keeps executing server-side, and its id arrives
+                        # in the stream's first metadata event — capture it so the
+                        # next message REPLIES to this run instead of forking a
+                        # second one and silently dropping this context. Best-effort
+                        # by construction: an interrupt BEFORE that event leaves the
+                        # id unknowable client-side, so say so rather than pretend.
+                        if is_first and stream is not None and stream.run_id:
+                            run_id = stream.run_id
                         if output_format != "json":
-                            print("\n⏸️  Message interrupted")
+                            print("\n⏸️  Message interrupted (the run continues server-side)")
+                            if is_first and run_id is None:
+                                print(
+                                    "⚠️  Its run ID hadn't arrived yet — the next message "
+                                    "starts a NEW run; find this one with: m8tes run list"
+                                )
                         continue
 
                 except EOFError:
                     # Handle Ctrl+D
-                    chat_session.end()
                     if output_format != "json":
                         print("\n\n👋 Chat session ended")
                     break
 
         except KeyboardInterrupt:
             # Handle Ctrl+C
-            chat_session.end()
             if output_format != "json":
                 print("\n\n👋 Chat session ended")
 
@@ -816,7 +750,7 @@ class MateCLI:
             mate_id: Teammate ID to update
         """
         # Get current teammate
-        instance = self.client.instances.get(_parse_mate_id(mate_id))
+        instance = self.client.agents.get(_parse_mate_id(mate_id))
 
         print(f"🔧 Update Agent: {instance.name} (ID: {instance.id})")
         print()
@@ -857,9 +791,11 @@ class MateCLI:
             print("❌ Update cancelled")
             return
 
-        # Update instance
+        # Update teammate (empty strings mean "keep current", so send None)
         print("⏳ Updating agent...")
-        instance.update(name=new_name, instructions=new_instructions)
+        self.client.agents.update(
+            instance.id, name=new_name or None, instructions=new_instructions or None
+        )
 
         print("✅ Agent updated successfully!")
 
@@ -882,11 +818,11 @@ class MateCLI:
             inbound_imessage_enabled: Enable or disable Apple Messages routing
             imessage_chat_guid: Updated BlueBubbles chat GUID
         """
-        # Get current teammate
-        instance = self.client.instances.get(_parse_mate_id(mate_id))
+        # Get current teammate (validates the ID before patching)
+        instance = self.client.agents.get(_parse_mate_id(mate_id))
 
-        # Update instance
-        instance.update(
+        self.client.agents.update(
+            instance.id,
             name=name,
             instructions=instructions,
             inbound_imessage_enabled=inbound_imessage_enabled,
@@ -907,11 +843,9 @@ class MateCLI:
         Args:
             mate_id: Teammate ID to enable
         """
-        from ..exceptions import NetworkError, ValidationError
-
         try:
             # Get teammate info
-            instance = self.client.instances.get(_parse_mate_id(mate_id))
+            instance = self.client.agents.get(_parse_mate_id(mate_id))
 
             print(f"✅ Enable Agent: {instance.name} (ID: {instance.id})")
             print()
@@ -922,17 +856,17 @@ class MateCLI:
                 print("⚠️  Agent is already enabled")
                 return
 
-            # Enable instance
+            # Enable teammate
             print("⏳ Enabling agent...")
-            instance.enable()
+            updated = self.client.agents.enable(instance.id)
 
             print("✅ Agent enabled successfully!")
-            print(f"   Status: {instance.status}")
+            print(f"   Status: {updated.status}")
 
         except ValidationError as e:
             print(f"❌ Failed to enable agent: {e}")
             raise
-        except NetworkError as e:
+        except APIError as e:
             print(f"❌ Network error: {e}")
             print("   Check your connection and try again")
             raise
@@ -945,16 +879,12 @@ class MateCLI:
             mate_id: Teammate ID to disable
             force: Skip confirmation prompt
         """
-        from ..exceptions import NetworkError, ValidationError
-
         try:
             # Get teammate info
-            instance = self.client.instances.get(_parse_mate_id(mate_id))
+            instance = self.client.agents.get(_parse_mate_id(mate_id))
 
             print(f"⏸️  Disable Agent: {instance.name} (ID: {instance.id})")
             print()
-            if instance.run_count is not None:
-                print(f"  Run count: {instance.run_count}")
             print(f"  Status: {instance.status}")
             print()
 
@@ -974,41 +904,37 @@ class MateCLI:
                     print("❌ Operation cancelled")
                     return
 
-            # Disable instance
+            # Disable teammate
             print("⏳ Disabling agent...")
-            instance.disable()
+            updated = self.client.agents.disable(instance.id)
 
             print("✅ Agent disabled successfully!")
-            print(f"   Status: {instance.status}")
+            print(f"   Status: {updated.status}")
             print("   Run history has been preserved.")
             print(f"💡 To re-enable: m8tes agent enable {instance.id}")
 
         except ValidationError as e:
             print(f"❌ Failed to disable agent: {e}")
             raise
-        except NetworkError as e:
+        except APIError as e:
             print(f"❌ Network error: {e}")
             print("   Check your connection and try again")
             raise
 
     def archive_interactive(self, mate_id: str, force: bool = False) -> None:
         """
-        Interactive teammate archiving flow.
+        Interactive teammate archiving flow (v2 agents.delete = archive).
 
         Args:
             mate_id: Teammate ID to archive
             force: Skip confirmation prompt
         """
-        from ..exceptions import AgentError, NetworkError, ValidationError
-
         try:
             # Get teammate info
-            instance = self.client.instances.get(_parse_mate_id(mate_id))
+            instance = self.client.agents.get(_parse_mate_id(mate_id))
 
             print(f"🗑️  Archive Agent: {instance.name} (ID: {instance.id})")
             print()
-            if instance.run_count is not None:
-                print(f"  Run count: {instance.run_count}")
             print(f"  Status: {instance.status}")
             print()
 
@@ -1023,46 +949,36 @@ class MateCLI:
                     print("❌ Operation cancelled")
                     return
 
-            # Archive instance
+            # Archive teammate (raises on failure)
             print("⏳ Archiving agent...")
-            success = instance.archive()
-
-            if not success:
-                raise AgentError("Archive operation failed")
+            self.client.agents.delete(instance.id)
 
             print("✅ Agent archived successfully!")
             print("   Run history has been preserved.")
 
-        except ValidationError as e:
-            error_msg = str(e)
-            if "not found" in error_msg.lower():
-                print(f"❌ Agent not found: No agent with ID {mate_id}")
-                print("   Use 'm8tes agent list' to see available agents")
-            elif "access denied" in error_msg.lower():
-                print(
-                    f"❌ Access denied: Agent {mate_id} belongs to another user "
-                    "or was already archived"
-                )
-                print("   You can only archive agents that you own")
-                print("   Use 'm8tes agent list' to see your agents")
-            elif "403" in error_msg or "forbidden" in error_msg.lower():
-                print("❌ Access denied: You don't have permission to archive this agent")
-            else:
-                print(f"❌ Failed to archive agent: {error_msg}")
+        except NotFoundError:
+            print(f"❌ Agent not found: No agent with ID {mate_id}")
+            print("   Use 'm8tes agent list' to see available agents")
             raise
-        except NetworkError as e:
+        except PermissionDeniedError:
+            print("❌ Access denied: You don't have permission to archive this agent")
+            raise
+        except ValidationError as e:
+            print(f"❌ Failed to archive agent: {e}")
+            raise
+        except APIError as e:
             print(f"❌ Network error: {e}")
             print("   Check your connection and try again")
             raise
 
     def _show_run_summary(
-        self, instance, output_format: str = "verbose", debug: bool = False
+        self, run_id: int | None, output_format: str = "verbose", debug: bool = False
     ) -> None:
         """
         Display run summary with results and details.
 
         Args:
-            instance: Teammate instance that was executed
+            run_id: Run ID captured from the stream's metadata event
             output_format: Output format ("verbose", "compact", or "json")
             debug: Enable debug output
         """
@@ -1071,50 +987,48 @@ class MateCLI:
             return
 
         try:
-            # Get the run object stored during execute_task
-            run = getattr(instance, "_current_run", None)
-            if not run:
+            if not run_id:
                 if debug:
-                    print("\n[DEBUG] No run object found on instance")
+                    print("\n[DEBUG] No run ID captured from the stream")
                 return
 
             if debug:
-                print(f"\n[DEBUG] Fetching details for run ID: {run.id}")
+                print(f"\n[DEBUG] Fetching details for run ID: {run_id}")
 
-            # /detail returns FLAT aggregated metrics; the transcript comes from
-            # /messages. Tool calls are derived from message content blocks.
-            conversation_error = None
-            details: dict = {}
+            # outcome() carries the aggregated usage; the transcript comes from
+            # messages(). Tool calls are derived from message content blocks.
+            conversation_error: str | None = None
+            not_found = False
+            outcome = None
             try:
-                details = run.get_details()
-            except Exception as e:
+                outcome = self.client.runs.outcome(run_id)
+            except M8tesError as e:
                 conversation_error = str(e)
+                not_found = isinstance(e, NotFoundError)
                 if debug:
-                    print(f"[DEBUG] get_details() failed: {e}")
+                    print(f"[DEBUG] runs.outcome() failed: {e}")
             try:
-                messages = run.get_conversation()
-            except Exception as conv_err:
+                messages = self.client.runs.messages(run_id)
+            except M8tesError as conv_err:
                 messages = []
-                conversation_error = conversation_error or str(conv_err)
+                if conversation_error is None:
+                    conversation_error = str(conv_err)
+                    not_found = isinstance(conv_err, NotFoundError)
                 if debug:
-                    print(f"[DEBUG] get_conversation() failed: {conv_err}")
+                    print(f"[DEBUG] runs.messages() failed: {conv_err}")
 
-            tool_executions = [
-                {"tool_name": block.get("name", "unknown")}
+            tool_names = [
+                block.get("name", "unknown")
                 for msg in messages
-                for block in (msg.get("content_blocks") or [])
+                for block in (msg.content_blocks or [])
                 if isinstance(block, dict) and block.get("type") == "tool_use"
             ]
-            usage = {
-                "total_tokens": details.get("total_tokens"),
-                "total_cost_usd": details.get("total_cost_usd"),
-            }
 
             # Get final teammate response from conversation
             final_response = None
             for msg in reversed(messages):
-                if msg.get("role") == "assistant":
-                    final_response = msg.get("content", "")
+                if msg.role == "assistant":
+                    final_response = msg.content
                     break
 
             # Display summary based on format
@@ -1122,7 +1036,7 @@ class MateCLI:
                 # Compact: just show final response or error message
                 if final_response:
                     print(f"\n{final_response}")
-                elif conversation_error and "404" in conversation_error:
+                elif not_found:
                     print("\n⚠️  No conversation data (agent may have failed)")
             else:
                 # Verbose: full summary
@@ -1134,7 +1048,7 @@ class MateCLI:
                 # Show warning if no conversation data
                 if not messages and conversation_error:
                     print("\n⚠️  No conversation data available")
-                    if "404" in conversation_error:
+                    if not_found:
                         print("   The agent execution may have failed before generating output.")
                         if debug:
                             print(f"   Error: {conversation_error}")
@@ -1149,14 +1063,14 @@ class MateCLI:
                     print(f"{final_response}")
 
                 # Tool executions (names only — the API tracks no per-call status)
-                if tool_executions:
-                    print(f"\n⚡ Tools Used: {len(tool_executions)}")
-                    for tool_exec in tool_executions:
-                        print(f"   🔧 {tool_exec.get('tool_name', 'unknown')}")
+                if tool_names:
+                    print(f"\n⚡ Tools Used: {len(tool_names)}")
+                    for tool_name in tool_names:
+                        print(f"   🔧 {tool_name}")
 
-                # Usage stats (total_cost_usd arrives as a decimal string)
-                total_tokens = usage.get("total_tokens") or 0
-                total_cost = float(usage.get("total_cost_usd") or 0)
+                # Usage stats (cost_usd arrives as a decimal string)
+                total_tokens = outcome.total_tokens if outcome else 0
+                total_cost = float(outcome.cost_usd or 0) if outcome else 0.0
                 if total_tokens or total_cost:
                     print("\n💰 Usage:")
                     if total_tokens:
@@ -1176,12 +1090,12 @@ class MateCLI:
                     print("\n[DEBUG] Full traceback:")
                     traceback.print_exc()
 
-    def _show_mate_usage_guide(self, instance, mode: str | None = None) -> None:
+    def _show_mate_usage_guide(self, instance: "Teammate", mode: str | None = None) -> None:
         """
         Show comprehensive usage guide after teammate creation.
 
         Args:
-            instance: Created teammate instance
+            instance: Created teammate
             mode: Optional mode hint ('task', 'chat', or None for both)
         """
         print("\n" + "=" * 60)
@@ -1191,15 +1105,13 @@ class MateCLI:
         print("\n📋 Agent Details:")
         print(f"   ID: {instance.id}")
         print(f"   Name: {instance.name}")
-        role_value = getattr(instance, "role", None)
-        if role_value:
-            print(f"   Role: {role_value}")
-        if hasattr(instance, "tools") and instance.tools:
+        if instance.role:
+            print(f"   Role: {instance.role}")
+        if instance.tools:
             print(f"   Tools: {', '.join(instance.tools)}")
-        goals_value = getattr(instance, "goals", None)
-        if goals_value:
+        if instance.goals:
             print("   Goals:")
-            for line in goals_value.splitlines():
+            for line in instance.goals.splitlines():
                 print(f"      {line}")
 
         print("\n🚀 How to Use Your Agent:")
@@ -1210,7 +1122,7 @@ class MateCLI:
             print(f'   m8tes agent task {instance.id} "Your task here"')
 
             # Show tool-specific examples if Google Ads tools are available
-            if hasattr(instance, "tools") and any(
+            if any(
                 "google_ads" in tool.lower() or "gaql" in tool.lower() for tool in instance.tools
             ):
                 print("\n   💡 Google Ads Example:")

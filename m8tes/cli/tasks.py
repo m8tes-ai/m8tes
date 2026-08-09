@@ -1,31 +1,48 @@
 """
-Task management CLI commands.
+Task management CLI commands, on the v2 SDK.
 
-Provides interactive commands for creating and managing tasks.
+`TaskCLI` drives `m8tes task …` through the v2 developer client
+(`m8tes._client.M8tes`) — the CLI is an API customer like anyone else, so a fix
+lands once. Nothing here touches the legacy v1 client, task model, or services.
 
-Error contract: fatal failures raise (typed SDK exceptions where possible) so
+Error contract: fatal failures raise typed v2 exceptions (`m8tes._exceptions`) so
 the command layer maps them to a non-zero exit code. Helpers never swallow a
 fatal error — a swallowed error made `m8tes task list` exit 0 on auth failure.
+
+Known v2 gap, surfaced rather than worked around:
+- **`Tasks.list()` has no `status` / `include_disabled` query twin**, so the CLI
+  pages through the list and filters locally to keep both flags meaningful.
 """
 
-from typing import TYPE_CHECKING
+from __future__ import annotations
 
-from ..exceptions import AgentError
+from typing import TYPE_CHECKING, cast
+
+from .._exceptions import RunFailedError
 from .util import parse_id as _parse_id
 
 if TYPE_CHECKING:
-    from ..client import M8tes
+    from .._client import M8tes
+    from .._streaming import RunStream
+    from .._types import Task
+
+
+def _is_visible(task: Task, *, status: str | None, include_disabled: bool) -> bool:
+    """Client-side stand-in for the v1 list filters v2 does not expose as query params."""
+    if status:
+        return task.status == status
+    return include_disabled or task.status != "disabled"
 
 
 class TaskCLI:
     """CLI for task management operations."""
 
-    def __init__(self, client: "M8tes"):
+    def __init__(self, client: M8tes):
         """
         Initialize TaskCLI.
 
         Args:
-            client: M8tes client instance
+            client: v2 SDK client
         """
         self.client = client
 
@@ -42,23 +59,23 @@ class TaskCLI:
         print("Configure your task by providing all required information.")
         print()
 
-        # Step 1: Show available teammates and get mate_id
-        instances = self.client.instances.list()
-        if not instances:
+        # Step 1: Show available agents and get mate_id
+        agents = list(self.client.agents.list().auto_paging_iter())
+        if not agents:
             print("❌ No agents available. Create an agent first.")
             print("💡 Run: m8tes agent create")
             return
 
         print("Available agents:")
         print()
-        for instance in instances:
-            status_emoji = "✅" if instance.status == "enabled" else "⏸️"
-            print(f"  {status_emoji} {instance.id}: {instance.name}")
-            if instance.role:
-                print(f"     Role: {instance.role}")
+        for agent in agents:
+            status_emoji = "✅" if agent.status == "enabled" else "⏸️"
+            print(f"  {status_emoji} {agent.id}: {agent.name}")
+            if agent.role:
+                print(f"     Role: {agent.role}")
         print()
 
-        # Prompt for teammate ID
+        # Prompt for agent ID
         mate_id_str = prompt("Agent ID: ")
         try:
             mate_id = int(mate_id_str)
@@ -130,20 +147,14 @@ class TaskCLI:
         # Create the task
         print("⏳ Creating task...")
         task = self.client.tasks.create(
-            agent_instance_id=mate_id,
+            agent_id=mate_id,
             name=task_name,
             instructions=instructions,
             expected_output=expected_output,
             goals=goals,
         )
 
-        print("✅ Task created successfully!")
-        print(f"   ID: {task.id}")
-        print(f"   Name: {task.name}")
-        print(f"   Status: {task.status}")
-        print()
-        print("💡 To execute this task:")
-        print(f"   m8tes task execute {task.id}")
+        self._print_created(task)
 
     def create_non_interactive(
         self,
@@ -157,20 +168,24 @@ class TaskCLI:
         Non-interactive task creation.
 
         Args:
-            mate_id: Teammate ID to assign task to
+            mate_id: Agent ID to assign task to
             name: Task name
             instructions: Task instructions
             expected_output: Expected output description
             goals: Task goals
         """
         task = self.client.tasks.create(
-            agent_instance_id=_parse_id(mate_id, "Teammate ID"),
+            agent_id=_parse_id(mate_id, "Teammate ID"),
             name=name,
             instructions=instructions,
             expected_output=expected_output,
             goals=goals,
         )
 
+        self._print_created(task)
+
+    def _print_created(self, task: Task) -> None:
+        """Shared confirmation for both creation flows."""
         print("✅ Task created successfully!")
         print(f"   ID: {task.id}")
         print(f"   Name: {task.name}")
@@ -189,8 +204,12 @@ class TaskCLI:
         """
         List tasks with optional filters.
 
+        v2 exposes no status/include_disabled query params on `Tasks.list()`, so
+        those flags are honoured client-side (see the module docstring);
+        `include_archived` maps straight to the query param.
+
         Args:
-            mate_id: Filter by teammate ID
+            mate_id: Filter by agent ID
             status: Filter by status
             include_disabled: Include disabled tasks
             include_archived: Include archived tasks
@@ -198,13 +217,13 @@ class TaskCLI:
         print("📋 Tasks")
         print()
 
-        agent_instance_id = _parse_id(mate_id, "Teammate ID") if mate_id else None
-        tasks = self.client.tasks.list(
-            agent_instance_id=agent_instance_id,
-            status=status,
-            include_disabled=include_disabled,
-            include_archived=include_archived,
-        )
+        agent_id = _parse_id(mate_id, "Teammate ID") if mate_id else None
+        page = self.client.tasks.list(agent_id=agent_id, include_archived=include_archived)
+        tasks = [
+            task
+            for task in page.auto_paging_iter()
+            if _is_visible(task, status=status, include_disabled=include_disabled)
+        ]
 
         if not tasks:
             print("No tasks found.")
@@ -225,8 +244,8 @@ class TaskCLI:
             print(f"{status_emoji} {task.name}")
             print(f"   ID: {task.id}")
             print(f"   Status: {task.status}")
-            if task.agent_instance_id:
-                print(f"   Agent: {task.agent_instance_id}")
+            if task.teammate_id:
+                print(f"   Agent: {task.teammate_id}")
 
             # Truncate instructions
             instructions = (task.instructions or "").strip()
@@ -254,8 +273,8 @@ class TaskCLI:
         print(f"  ID: {task.id}")
         print(f"  Name: {task.name}")
         print(f"  Status: {task.status}")
-        if task.agent_instance_id:
-            print(f"  Agent: {task.agent_instance_id}")
+        if task.teammate_id:
+            print(f"  Agent: {task.teammate_id}")
         print(f"  Instructions: {task.instructions}")
         if task.expected_output:
             print(f"  Expected output: {task.expected_output}")
@@ -275,7 +294,8 @@ class TaskCLI:
         """
         from .display import create_display
 
-        task = self.client.tasks.get(_parse_id(task_id, "Task ID"))
+        parsed_id = _parse_id(task_id, "Task ID")
+        task = self.client.tasks.get(parsed_id)
 
         print(f"🎯 Executing task: {task.name}")
         print()
@@ -284,19 +304,21 @@ class TaskCLI:
         display = create_display("verbose")
         display.start()
 
-        # Stream task execution
+        # Stream the run (RunStream closes the response when iteration ends)
+        stream = cast("RunStream", self.client.tasks.run(parsed_id, stream=True))
         try:
-            for event in task.execute():
+            for event in stream:
                 display.on_event(event)
 
             display.finish()
 
             # Check for errors
             if display.accumulator.has_errors():
+                errors = display.accumulator.get_errors()
                 print("\n❌ Task execution failed:")
-                for error in display.accumulator.get_errors():
+                for error in errors:
                     print(f"   {error}")
-                raise AgentError("Run finished with errors")
+                raise RunFailedError("Run finished with errors", details={"errors": errors})
             print("\n✅ Task completed")
 
         except KeyboardInterrupt:
@@ -342,28 +364,16 @@ class TaskCLI:
             print("   Goals: Updated")
 
     def enable_interactive(self, task_id: str) -> None:
-        """
-        Enable a disabled task.
-
-        Args:
-            task_id: Task ID to enable
-        """
-        task = self.client.tasks.enable(_parse_id(task_id, "Task ID"))
-
-        print("✅ Task enabled successfully!")
+        """Enable a disabled task (re-arms schedules its disable paused)."""
+        task = self.client.tasks.update(_parse_id(task_id, "Task ID"), status="enabled")
+        print("✅ Task enabled!")
         print(f"   ID: {task.id}")
         print(f"   Status: {task.status}")
 
     def disable_interactive(self, task_id: str) -> None:
-        """
-        Disable a task.
-
-        Args:
-            task_id: Task ID to disable
-        """
-        task = self.client.tasks.disable(_parse_id(task_id, "Task ID"))
-
-        print("✅ Task disabled successfully!")
+        """Disable a task (pauses its schedules and event triggers)."""
+        task = self.client.tasks.update(_parse_id(task_id, "Task ID"), status="disabled")
+        print("⏸️  Task disabled!")
         print(f"   ID: {task.id}")
         print(f"   Status: {task.status}")
 
@@ -374,10 +384,9 @@ class TaskCLI:
         Args:
             task_id: Task ID to archive
         """
-        success = self.client.tasks.archive(_parse_id(task_id, "Task ID"))
-
-        if not success:
-            raise AgentError("Archive operation failed")
+        # v2 DELETE archives and answers 204 — failure arrives as a typed exception,
+        # so there is no success flag to check any more.
+        self.client.tasks.delete(_parse_id(task_id, "Task ID"))
 
         print("✅ Task archived successfully!")
         print(f"   ID: {task_id}")
