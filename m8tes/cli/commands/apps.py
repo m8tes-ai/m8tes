@@ -151,7 +151,19 @@ class ConnectCompleteCommand(Command):
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         parser.add_argument("app_name", help="App provider name, for example gmail")
-        parser.add_argument("connection_id", help="Connection ID returned by connect-oauth")
+        parser.add_argument(
+            "connection_id",
+            nargs="?",
+            default="",
+            help="Connection ID returned by connect-oauth (end-user connections only)",
+        )
+        parser.add_argument(
+            "--claim-ticket",
+            help=(
+                "The composio_claim value your redirect_uri came back with. Required for "
+                "account-level connections"
+            ),
+        )
         parser.add_argument("--user-id", help="Scope the connection to one end-user")
 
     def execute(self, args: Namespace, client: M8tes | None = None) -> int:
@@ -165,6 +177,7 @@ class ConnectCompleteCommand(Command):
                 result = v2_client.apps.connect_complete(
                     args.app_name,
                     args.connection_id,
+                    claim_ticket=getattr(args, "claim_ticket", None),
                     user_id=getattr(args, "user_id", None),
                 )
 

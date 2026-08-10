@@ -149,7 +149,14 @@ class FakeApps:
             connection_id="conn_123",
         )
 
-    def connect_complete(self, app_name: str, connection_id: str, *, user_id: str | None = None):
+    def connect_complete(
+        self,
+        app_name: str,
+        connection_id: str = "",
+        *,
+        claim_ticket: str | None = None,
+        user_id: str | None = None,
+    ):
         self._recorder.record(
             "apps.connect_complete",
             app_name=app_name,

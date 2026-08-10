@@ -127,10 +127,33 @@ class Apps:
         return self.connect_oauth(app_name, redirect_uri, user_id=user_id)
 
     def connect_complete(
-        self, app_name: str, connection_id: str, *, user_id: str | None = None
+        self,
+        app_name: str,
+        connection_id: str = "",
+        *,
+        claim_ticket: str | None = None,
+        user_id: str | None = None,
     ) -> AppConnectionResult:
-        """Complete OAuth after user authorization. Returns status confirming connection."""
-        payload: dict = {"connection_id": connection_id}
+        """Complete OAuth after user authorization. Returns status confirming connection.
+
+        Account-level connections (no ``user_id``) require ``claim_ticket``: the connect
+        step must send the user to a m8tes URL, that page comes back carrying a
+        ``composio_claim`` query parameter, and passing it here is what proves the caller is
+        the account that started the flow. Without it a connect link could be forwarded and
+        the recipient's provider account bound to whoever sent it. ``connection_id`` is
+        ignored in that case — the ticket names the connection.
+
+        **So an account-level connect finishes in a browser, not in your backend.** If you
+        want a connect flow your own app drives end to end, use ``user_id`` — an end-user
+        connection keeps your own ``redirect_uri``, takes no ticket, and passes
+        ``connection_id`` as before. That is the lane built for connecting on behalf of
+        someone else, and it is unchanged.
+        """
+        payload: dict = {}
+        if connection_id:
+            payload["connection_id"] = connection_id
+        if claim_ticket:
+            payload["claim_ticket"] = claim_ticket
         if user_id:
             payload["user_id"] = user_id
         resp = self._http.request("POST", f"/apps/{seg(app_name)}/connect/complete", json=payload)

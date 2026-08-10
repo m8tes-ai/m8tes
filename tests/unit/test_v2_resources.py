@@ -1468,7 +1468,25 @@ class TestApps:
         assert result.status == "connected"
         assert result.app == "gmail"
         body = json.loads(responses.calls[0].request.body)
+        # End-user scope is unchanged: the developer names the connection, no ticket.
         assert body == {"connection_id": "conn_1", "user_id": "cust_1"}
+
+    @responses.activate
+    def test_connect_complete_account_scope_sends_the_claim_ticket(self, http):
+        """Account-level completion carries the ticket, and nothing else needs to.
+
+        The ticket is what proves the caller is the account that started the flow; the
+        backend 400s without it. A payload that dropped it would break every first-party
+        connect at the last step.
+        """
+        responses.add(
+            responses.POST,
+            f"{BASE}/apps/gmail/connect/complete",
+            json={"status": "connected", "app": "gmail"},
+            status=200,
+        )
+        Apps(http).connect_complete("gmail", claim_ticket="tk_abc")
+        assert json.loads(responses.calls[0].request.body) == {"claim_ticket": "tk_abc"}
 
     @responses.activate
     def test_disconnect(self, http):
