@@ -23,6 +23,43 @@ _MAX_WARNED_UNKNOWN_TYPES = 128
 #: Ceiling on the length of a single remembered/logged type name.
 _MAX_EVENT_TYPE_CHARS = 64
 
+#: agent-runtime event types that are infrastructure, not developer-facing: they reach
+#: the wire, the SDK has no name for them, and there is nothing a caller would do about
+#: one. They pass through as UNKNOWN (payload still on `event.raw`) but do NOT warn.
+#:
+#: This exists because the warning was firing on a brand-new account's FIRST run. Measured
+#: 2026-08-11 against prod on m8tes 3.0.1 — the current release — the documented quickstart
+#: printed "Unrecognized stream event type 'RUNNER_DIAG' … Upgrading the m8tes SDK may add
+#: support" three times before any agent output. The advice was impossible to follow (there
+#: is no newer SDK) and it was the first thing a new developer saw.
+#:
+#: Kept as a classification, not a mute: `tests/unit/test_runtime_event_parity.py` requires
+#: every agent-runtime `EventType` value to be either named in `StreamEventType` or listed
+#: here, so a new runtime event cannot reach a developer as a spurious upgrade prompt the
+#: way these three did. Add to this set only when a caller genuinely cannot act on the
+#: frame; if a developer would want to match on it, give it a `StreamEventType` instead.
+_INTERNAL_EVENT_TYPES: frozenset[str] = frozenset(
+    {
+        "RUNNER_DIAG",  # agent_runner.py startup diagnostics
+        "message_snapshot",  # persistence payload the backend consumes
+        "system_message",  # generic runtime notice
+        "sdk_init",  # session init; the backend logs tools/config from it
+        "sdk_success",  # terminal marker; callers use DONE
+        "sdk_content_snapshot",  # message content snapshot for persistence
+        "keep-alive",  # SSE heartbeat
+        "ping",  # SSE heartbeat
+        "stderr",  # runner stderr passthrough, surfaced in logs not the API
+        "user_message",  # subagent task prompt echoed back by the SDK
+        "compact_boundary",  # conversation compaction marker
+        # These two are CLI system SUBTYPES, never a wire `type`: agent-runtime rewrites
+        # them to `system_message` before they leave. They are silenced because the string
+        # cannot arrive, NOT because the content is uninteresting — do not use them as
+        # precedent for silencing something a developer could actually receive.
+        "task_started",
+        "task_progress",
+    }
+)
+
 
 class StreamEventType(StrEnum):
     """AI SDK stream event types."""
@@ -93,6 +130,83 @@ class StreamEventType(StrEnum):
     CLAUDE_TOOL_USE = "tool_use"
     CLAUDE_TOOL_RESULT = "tool_result"
 
+    # ── Runtime frames the SDK used to have no name for ──────────────────────────────
+    # Every member below reached developers as an UNKNOWN event plus a "Upgrading the
+    # m8tes SDK may add support" warning that no upgrade could satisfy. They are named
+    # here so a caller can match on them, and so the parity guard
+    # (tests/unit/test_runtime_event_parity.py) stays green without silencing anything
+    # actionable. Each was traced to its emit site before being added.
+
+    # Human-in-the-loop. `awaiting_approval` is the most load-bearing name in this block:
+    # the SDK's own approval flow (`_resources/runs.py`) already keys off it, so treating
+    # it as noise would have broken the feature m8tes sells hardest.
+    PERMISSION_REQUEST = "permission_request"
+    PERMISSION_RESOLVED = "permission_resolved"
+    AWAITING_APPROVAL = "awaiting_approval"
+
+    # Terminal failures. `cancelled` is terminal ALONGSIDE `done` — a consumer loop that
+    # only knows `done` waits forever on a cancelled run.
+    CANCELLED = "cancelled"
+    SDK_ERROR = "sdk_error"
+    AGENT_RUNNER_DIED = "AGENT_RUNNER_DIED"
+    RUNNER_LIFECYCLE_ERROR = "RUNNER_LIFECYCLE_ERROR"
+
+    # Sandbox provisioning failures. The distinction matters to a caller: boot-timeout and
+    # unavailable are safe to retry (nothing ran), quota-exhausted is the one that says
+    # back off instead.
+    SANDBOX_BOOT_TIMEOUT = "SANDBOX_BOOT_TIMEOUT"
+    SANDBOX_QUOTA_EXHAUSTED = "SANDBOX_QUOTA_EXHAUSTED"
+    SANDBOX_UNAVAILABLE = "SANDBOX_UNAVAILABLE"
+    SNAPSHOT_VERSION_MISMATCH = "SNAPSHOT_VERSION_MISMATCH"
+
+    # Integrations and capabilities. The backend treats MCP failures as non-fatal and only
+    # logs them, so this stream is the developer's ONLY channel for "the tool your customer
+    # connected stopped working".
+    MCP_ERROR = "mcp_error"
+    MCP_AUTH_FAILED = "mcp_auth_failed"
+    RATE_LIMIT = "rate_limit"
+    DESKTOP_READY = "desktop-ready"
+
+    # Subagent lifecycle: status/summary/usage for a delegated task. NOT emitted at top
+    # level today — the runtime rewrites it to `system_message` with this as the SUBTYPE,
+    # so matching on this member currently never fires. Named anyway because the value is
+    # in the runtime's own EventType and must be classified as something, and a dead member
+    # is the cheap error here; silencing a frame carrying task status is the expensive one.
+    # The subtype-level gap is guarded in test_runtime_event_parity.py and filed in TODOS.
+    TASK_NOTIFICATION = "task_notification"
+
+    # Claude-native content names that collide with the hyphenated AI-SDK members above,
+    # hence the CLAUDE_ prefix. No top-level emit site was found for these three — they
+    # normally arrive nested inside `content_block_delta`. Named rather than silenced
+    # because a dead enum member costs nothing and silencing streamed reasoning costs a lot.
+    CLAUDE_THINKING = "thinking"
+    CLAUDE_REASONING = "reasoning"
+    CLAUDE_PLAN_DELTA = "plan_delta"
+
+
+#: Frames that mean THE RUN IS OVER AND IT FAILED, none of which is an `error` frame.
+#: `StreamAccumulator` counts these as errors, which is what makes
+#: `raise_on_error=True` (and `has_errors()`) answer "did this run fail" instead of the
+#: much narrower "did it emit a frame literally typed `error`". On a hosted runtime the
+#: sandbox failures below are the LIKELY way a run dies, so leaving them out made the
+#: error flag miss the common case while looking correct in tests built from `error`
+#: frames.
+#:
+#: Membership is a judgement about terminality, not about severity: `MCP_ERROR` is
+#: deliberately absent because the backend treats a broken MCP server as non-fatal and
+#: the run continues, so raising on it would abort runs that go on to succeed.
+TERMINAL_FAILURE_TYPES: frozenset[StreamEventType] = frozenset(
+    {
+        StreamEventType.SDK_ERROR,
+        StreamEventType.AGENT_RUNNER_DIED,
+        StreamEventType.RUNNER_LIFECYCLE_ERROR,
+        StreamEventType.SANDBOX_BOOT_TIMEOUT,
+        StreamEventType.SANDBOX_QUOTA_EXHAUSTED,
+        StreamEventType.SANDBOX_UNAVAILABLE,
+        StreamEventType.SNAPSHOT_VERSION_MISMATCH,
+    }
+)
+
 
 @dataclass
 class StreamEvent:
@@ -152,8 +266,13 @@ class StreamEvent:
             # type per frame would otherwise grow this set for the life of the
             # process. Past the cap we stop recording and stop warning — the first
             # 128 already told the story. Parsing is unaffected either way.
+            #
+            # Classified-internal frames skip the warning entirely (see
+            # _INTERNAL_EVENT_TYPES): they are infrastructure a caller cannot act on, and
+            # telling someone on the newest SDK to upgrade is worse than saying nothing.
             if (
-                event_type_str not in cls._warned_unknown_types
+                event_type_str not in _INTERNAL_EVENT_TYPES
+                and event_type_str not in cls._warned_unknown_types
                 and len(cls._warned_unknown_types) < _MAX_WARNED_UNKNOWN_TYPES
             ):
                 cls._warned_unknown_types.add(event_type_str)
@@ -929,6 +1048,18 @@ class StreamAccumulator:
 
         elif isinstance(event, ErrorEvent):
             self.errors.append(event.error)
+
+        elif event.type in TERMINAL_FAILURE_TYPES:
+            # A run does not only fail via `type: "error"`, and on a hosted runtime that
+            # is not even the usual way. A sandbox that never boots, a runner killed by
+            # OOM, an exhausted quota — each is terminal, each is marked failed by the
+            # backend, and each arrives as its OWN frame rather than an error frame.
+            # Recording them here is what makes `raise_on_error=True` mean "this run
+            # failed" rather than "this run emitted the one frame type we happened to
+            # look at": without it the caller got an empty loop and no exception, which
+            # reads as a successful run with nothing to say.
+            detail = event.raw.get("error") or event.raw.get("message") or event.type
+            self.errors.append(f"{event.type}: {detail}")
 
         elif isinstance(event, MetadataEvent):
             self.metadata_events.append(event.payload)

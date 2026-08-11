@@ -562,12 +562,31 @@ class Runs:
         permission_mode: str | None = None,
         model: str | None = None,
         effort: str | None = None,
+        raise_on_error: bool = False,
     ) -> Generator[str, None, None]:
         """Create a streaming run and yield only text delta strings.
 
         Usage:
             for chunk in client.runs.stream_text(message="Summarize news"):
                 print(chunk, end="", flush=True)
+
+        `raise_on_error=True` raises `RunFailedError` when the run emitted error events,
+        after the stream is exhausted. **Worth setting, and the docs' quickstart does.**
+        This helper filters the stream down to text deltas, so without it an error frame
+        is simply not one of the things yielded: a run that fails outright produces ZERO
+        chunks and your `for` loop exits normally — indistinguishable from a successful
+        empty answer — and a run that fails midway leaves a truncated reply that reads as
+        complete. Off by default so this stays non-breaking; mirrors
+        `runs.create(..., raise_on_error=True)` and `create_and_wait`.
+
+        Terminal failures that are not `error` frames — a dead runner, an exhausted
+        sandbox quota, a boot timeout — count too (`streaming.TERMINAL_FAILURE_TYPES`).
+        On a hosted runtime those are the likely way a run dies, so a flag that only
+        noticed `error` frames would have missed the common case.
+
+        **The check runs after the stream is exhausted**, so `break`-ing out of the loop
+        early skips it: you keep the chunks you consumed and get no exception even if the
+        run went on to fail. Consume the whole stream when you need the guarantee.
         """
         from ..streaming import TextDeltaEvent
 
@@ -589,6 +608,7 @@ class Runs:
             permission_mode=permission_mode,
             model=model,
             effort=effort,
+            raise_on_error=raise_on_error,
         )
         run_stream = cast(RunStream, stream)
         with run_stream:

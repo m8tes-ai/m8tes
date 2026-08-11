@@ -60,8 +60,13 @@ def create_client(
         sys.exit(1)
 
 
-def _real_main(argv: list[str]) -> int:
-    """Real main CLI logic that handles command parsing and execution."""
+def build_parser() -> argparse.ArgumentParser:
+    """Build the top-level `m8tes` parser with every discovered command attached.
+
+    Split out of `_real_main` so the help surface itself is testable: what the command
+    list looks like is a DX property worth pinning, and the only way to assert on it
+    without executing a command is to hold the parser.
+    """
     # Discover and register all commands
     registry.auto_discover_commands()
 
@@ -86,18 +91,33 @@ def _real_main(argv: list[str]) -> int:
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
 
-    # Create subparsers for commands
-    subparsers = parser.add_subparsers(dest="command", help="Available commands")
+    # `metavar` replaces argparse's default `{auth,a,apps,app,google,g,agent,mate,...}`
+    # choice dump. That listing showed every alias inline, so the first thing a new user
+    # read was 15 tokens for 6 commands.
+    subparsers = parser.add_subparsers(dest="command", metavar="<command>")
 
-    # Register all discovered commands
+    # Register all discovered commands under their PRIMARY name only, then wire the
+    # aliases straight into the name→parser map. Passing `aliases=` to `add_parser`
+    # instead would make argparse render each row as `agent (mate, teammate, m, agents)`,
+    # which is the same noise one line further down. Aliases stay fully functional.
+    #
+    # `choices` is the PUBLIC name for that mapping — `_SubParsersAction.__init__` passes
+    # its `_name_parser_map` straight through as `Action.choices`, so the two are the same
+    # dict object and mutating this one is not reaching into a private attribute.
+    # `SuggestingArgumentParser` reads `choices` too, so aliases still get suggested on a
+    # near-miss.
     for command in registry.get_primary_commands():
-        # Create subparser with primary name and aliases
-        subparser = subparsers.add_parser(
-            command.name, aliases=command.aliases, help=command.description
-        )
+        subparser = subparsers.add_parser(command.name, help=command.description)
         command.add_arguments(subparser)
+        for alias in command.aliases:
+            subparsers.choices[alias] = subparser
 
-    # Parse arguments
+    return parser
+
+
+def _real_main(argv: list[str]) -> int:
+    """Real main CLI logic that handles command parsing and execution."""
+    parser = build_parser()
     args = parser.parse_args(argv)
 
     if not args.command:

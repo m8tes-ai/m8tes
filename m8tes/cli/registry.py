@@ -20,6 +20,9 @@ class CommandRegistry:
     def __init__(self) -> None:
         self._commands: dict[str, Command] = {}
         self._command_groups: dict[str, CommandGroup] = {}
+        #: Packages `auto_discover_commands` has already scanned. See its docstring for
+        #: why this is tracked separately from "the registry has commands in it".
+        self._discovered_packages: set[str] = set()
 
     def register_command(self, command: Command) -> None:
         """
@@ -87,9 +90,28 @@ class CommandRegistry:
         """
         Automatically discover commands from a package.
 
+        Idempotent: a second call for the same package is a no-op rather than a
+        `ValueError: Command 'auth' is already registered`. `registry` is a module-level
+        singleton, so discovery running twice in one process used to be impossible only
+        because `_real_main` was its sole caller and ran once. Anything else that wants a
+        parser — a test, an embedding host, a future `m8tes` used as a library — hit the
+        duplicate-registration error for doing nothing wrong.
+
+        Keyed on WHICH PACKAGES have been discovered, not on "are there any commands yet".
+        The cheaper `if self._commands: return` is wrong in a way that fails silently:
+        registering one command of your own before building the parser would make
+        discovery no-op and every built-in disappear (measured — the registry came back as
+        just `["custom"]`, with no error). It also permanently pins a partial registry if
+        one module raised the ImportError swallowed below, since a later retry would see a
+        non-empty registry and decline to run.
+
         Args:
             package_name: Package to scan for command modules
         """
+        if package_name in self._discovered_packages:
+            return
+        self._discovered_packages.add(package_name)
+
         # Common command module names to try
         command_modules = [
             f"{package_name}.auth",
@@ -157,6 +179,9 @@ class CommandRegistry:
         """Clear all registered commands."""
         self._commands.clear()
         self._command_groups.clear()
+        # Without this, clear() would leave the registry permanently un-rediscoverable:
+        # empty of commands but still believing every package had been scanned.
+        self._discovered_packages.clear()
 
 
 # Global command registry instance

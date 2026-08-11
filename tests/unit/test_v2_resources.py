@@ -5,7 +5,7 @@ import json
 import pytest
 import responses
 
-from m8tes._exceptions import NotFoundError
+from m8tes._exceptions import NotFoundError, RunFailedError
 from m8tes._http import HTTPClient
 from m8tes._resources.apps import Apps
 from m8tes._resources.audit_logs import AuditLogs
@@ -959,6 +959,65 @@ class TestRunConvenienceHelpers:
         )
         chunks = list(Runs(http).stream_text(message="Do X"))
         assert chunks == ["Hello", " world"]
+
+    # A failed run must not look like a successful empty one. `stream_text` filters the
+    # stream down to text deltas, so an error frame was dropped on the floor: an
+    # error-only run yielded ZERO chunks and the caller's `for` loop exited normally, and
+    # an error after some text left a truncated answer that read as complete. That is the
+    # "no silent fallbacks" rule broken on the very first call the quickstart shows.
+    # `RunStream` already knew how to raise; `stream_text` just never passed the flag.
+    @responses.activate
+    def test_stream_text_can_raise_on_a_failed_run(self, http):
+        # `error` is the field the parser reads (streaming.py builds ErrorEvent from
+        # `data["error"]`). Naming it `errorText` here would still raise — but on
+        # "Unknown error", so the test would pass for the wrong reason and prove nothing
+        # about the message reaching the caller.
+        sse = (
+            'data: {"type": "text-delta", "delta": "Partial"}\n\n'
+            'data: {"type": "error", "error": "model exploded"}\n\n'
+        )
+        responses.add(responses.POST, f"{BASE}/runs/", body=sse, content_type="text/event-stream")
+        with pytest.raises(RunFailedError) as exc:
+            list(Runs(http).stream_text(message="Do X", raise_on_error=True))
+        assert "model exploded" in str(exc.value)
+
+    # `type: "error"` is not the only way a run fails, and for a hosted runtime it is not
+    # even the common way. A sandbox that never boots, a runner killed by OOM, or an
+    # exhausted quota are TERMINAL failures the backend marks the run failed on, and each
+    # arrives as its own frame — none of them is an `error` frame. Before this, they were
+    # not recorded as errors at all, so `raise_on_error=True` returned an empty loop and
+    # the run looked like a success with nothing to say. That is the same silent-failure
+    # bug one layer down from where it was first fixed.
+    @pytest.mark.parametrize(
+        "frame",
+        [
+            '{"type": "sdk_error", "error": "model call failed"}',
+            '{"type": "AGENT_RUNNER_DIED", "error": "runner died", "suspected_oom": true}',
+            '{"type": "SANDBOX_QUOTA_EXHAUSTED", "error": "no capacity"}',
+            '{"type": "SANDBOX_BOOT_TIMEOUT", "error": "boot timed out"}',
+            '{"type": "SANDBOX_UNAVAILABLE", "error": "unavailable"}',
+            '{"type": "SNAPSHOT_VERSION_MISMATCH", "error": "stale snapshot"}',
+            '{"type": "RUNNER_LIFECYCLE_ERROR", "error": "lifecycle"}',
+        ],
+    )
+    @responses.activate
+    def test_terminal_failure_frames_count_as_errors(self, http, frame):
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/",
+            body=f"data: {frame}\n\n",
+            content_type="text/event-stream",
+        )
+        with pytest.raises(RunFailedError):
+            list(Runs(http).stream_text(message="Do X", raise_on_error=True))
+
+    @responses.activate
+    def test_stream_text_stays_silent_by_default(self, http):
+        """The new flag is opt-in — the old behaviour is unchanged for existing callers."""
+        sse = 'data: {"type": "error", "error": "model exploded"}\n\n'
+        responses.add(responses.POST, f"{BASE}/runs/", body=sse, content_type="text/event-stream")
+        # No raise, no output: exactly the trap the flag exists to let callers avoid.
+        assert list(Runs(http).stream_text(message="Do X")) == []
 
 
 # ── Tasks (advanced) ─────────────────────────────────────────────────

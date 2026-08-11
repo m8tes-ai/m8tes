@@ -27,6 +27,51 @@ def test_client_aliases_are_the_same_objects(client):
     assert client.teammate_templates is client.agent_templates
 
 
+# The legacy aliases stay PLAIN INSTANCE ATTRIBUTES, and that is a decision with a scar.
+#
+# The DX complaint is real: `dir(client)` offers `agents` and `teammates` with identical
+# method sets and nothing says which is canonical, so a developer picks one by coin flip
+# and repeats it through a whole integration. A 2026-08-11 attempt to fix that turned both
+# into properties and filtered them out of `__dir__`. An independent review found three
+# separate breakages in one pass, two of them reproduced here before the revert:
+#
+#   1. `patch.object(client, "teammates", mock)` raised `AttributeError: property
+#      'teammates' has no deleter` on TEARDOWN. mock deletes rather than restores when the
+#      name is not in the instance `__dict__`, so every test suite stubbing the alias broke.
+#      Adding a setter did NOT fix this; it needs a deleter too, and by then the "simple
+#      alias" is four dunder-adjacent methods.
+#   2. `Mock(spec=client)` stopped exposing `teammates` at all, because `spec` is built
+#      from `dir()`. That one is caused by the `__dir__` filter itself and cannot be fixed
+#      while still hiding the name — the two requirements are the same mechanism.
+#   3. A subclass declaring `__slots__ = ("teammates",)` shadows the property.
+#
+# Tidier autocomplete is not worth breaking a permanent alias in three ways. If this is
+# ever revisited, the answer is documentation and the docs' own examples, not a descriptor.
+# See TODOS.md "DX parity with eve.dev".
+def test_legacy_aliases_stay_plain_attributes(client):
+    """Pins the revert, so the descriptor approach cannot come back without reading why."""
+    assert "teammates" in vars(client), "alias must live in the instance __dict__"
+    assert "teammate_templates" in vars(client)
+    assert not isinstance(type(client).__dict__.get("teammates"), property)
+
+
+def test_patch_object_round_trips_on_the_alias(client):
+    """The exact failure that reverted the descriptor version."""
+    from unittest.mock import MagicMock, patch
+
+    with patch.object(client, "teammates", MagicMock()):
+        assert isinstance(client.teammates, MagicMock)
+    # Teardown is the half that broke: it must restore, not raise.
+    assert client.teammates is client.agents
+
+
+def test_mock_spec_still_exposes_the_alias(client):
+    """`Mock(spec=client)` builds from dir(), so filtering dir() silently breaks it."""
+    from unittest.mock import MagicMock
+
+    assert hasattr(MagicMock(spec=client), "teammates")
+
+
 def test_v2_type_alias():
     assert Agent is Teammate
 
