@@ -3441,7 +3441,11 @@ class TestResponseTypes:
             v2_client.permissions.delete(perm.id, user_id=uid)
 
     def test_trigger_response_fields(self, v2_client):
-        """Verify all Trigger fields are populated correctly."""
+        """Verify all Trigger fields are populated correctly.
+
+        `id` is a namespaced STRING, not a row number — schedules and app triggers are
+        separate id sequences, so a bare int named one of each. Asserting only `str` would
+        pass on any string, so assert the value the caller must be able to send back."""
         tm = v2_client.teammates.create(name="TriggerTypeHost")
         try:
             task = v2_client.tasks.create(teammate_id=tm.id, instructions="Trigger types")
@@ -3449,7 +3453,8 @@ class TestResponseTypes:
                 trigger = v2_client.tasks.triggers.create(
                     task.id, type="schedule", cron="0 9 * * *"
                 )
-                assert isinstance(trigger.id, int)
+                assert isinstance(trigger.id, str)
+                assert trigger.id.startswith("schedule_"), trigger.id
                 assert isinstance(trigger.type, str)
                 assert isinstance(trigger.enabled, bool)
                 v2_client.tasks.triggers.delete(task.id, trigger.id)
@@ -4243,13 +4248,17 @@ class TestTriggerErrorPaths:
     """Trigger-specific error conditions."""
 
     def test_delete_nonexistent_trigger_404(self, v2_client):
-        """Delete nonexistent trigger returns 404."""
+        """A well-formed id naming no row is a 404 — NOT the 422 a malformed one gets.
+
+        The distinction is the point: `999999` (bare) is now refused as a malformed id,
+        and asserting NotFoundError against it would pass for the wrong reason if the
+        grammar ever stopped being enforced."""
         tm = v2_client.teammates.create(name="TrigDelHost")
         try:
             task = v2_client.tasks.create(teammate_id=tm.id, instructions="Trigger del")
             try:
                 with pytest.raises(NotFoundError):
-                    v2_client.tasks.triggers.delete(task.id, 999999)
+                    v2_client.tasks.triggers.delete(task.id, "schedule_999999")
             finally:
                 v2_client.tasks.delete(task.id)
         finally:
@@ -4282,13 +4291,14 @@ class TestTriggerErrorPaths:
             v2_client.tasks.triggers.list(999999)
 
     def test_delete_virtual_trigger_rejected(self, v2_client):
-        """Delete trigger with id=0 (webhook/email virtual) returns 422."""
+        """The webhook trigger is not row-backed, so this endpoint refuses it with a 422
+        that points at the webhook endpoints instead."""
         tm = v2_client.teammates.create(name="VirtualTrigHost")
         try:
             task = v2_client.tasks.create(teammate_id=tm.id, instructions="Virtual trig")
             try:
                 with pytest.raises(ValidationError):
-                    v2_client.tasks.triggers.delete(task.id, 0)
+                    v2_client.tasks.triggers.delete(task.id, "webhook")
             finally:
                 v2_client.tasks.delete(task.id)
         finally:

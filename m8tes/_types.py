@@ -537,7 +537,11 @@ class Task:
 class Trigger:
     """A trigger (schedule, webhook, email, or app) attached to a task."""
 
-    id: int
+    #: Unique across every trigger on the task: ``schedule_5`` / ``app_5`` for the
+    #: row-backed ones, ``webhook`` / ``email`` for the singletons. A string because
+    #: schedules and app triggers are separate id sequences — as bare ints, one number
+    #: named two different triggers.
+    id: str
     type: str
     enabled: bool
     cron: str | None = None

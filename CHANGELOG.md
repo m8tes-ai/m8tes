@@ -2,6 +2,32 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [4.0.0] - 2026-08-11
+
+### Changed
+
+- **BREAKING: `Trigger.id` is a string, and `tasks.triggers.update()` / `.delete()` take
+  `trigger_id: str`.** Ids are namespaced by trigger type — `schedule_5`, `app_5`, and
+  `webhook` / `email` for the two a task has at most one of.
+
+  This is a correctness fix, not a cosmetic one. A task's schedules and its Composio app
+  triggers live in separate tables with independent id sequences, so `schedule_5` and
+  `app_5` both existed routinely and both used to be published as `5`. `update()` and
+  `delete()` resolved that by trying schedules first — so deleting an app trigger by the
+  id `list()` had just handed you deleted your **schedule** instead, returned 204, and
+  told you nothing.
+
+  **Migration:** pass back whatever `list()` gave you and you are done. If you stored a
+  bare integer, prefix it with the type it was: `f"schedule_{n}"` or `f"app_{n}"`. A bare
+  id is now refused with a 422 that names the format — deliberately, since the alternative
+  is the server guessing which of two triggers you meant.
+
+  ```python
+  for t in client.tasks.triggers.list(task.id):
+      print(t.id)                                    # -> "schedule_5", "app_5", "webhook"
+  client.tasks.triggers.update(task.id, "schedule_5", enabled=False)
+  client.tasks.triggers.delete(task.id, "app_5")
+  ```
 ## [3.2.0] - 2026-08-11
 
 ### Added

@@ -71,7 +71,7 @@ class TaskTriggers:
     def update(
         self,
         task_id: int,
-        trigger_id: int,
+        trigger_id: str,
         *,
         enabled: bool | None = None,
         cron: str | None = None,
@@ -100,7 +100,7 @@ class TaskTriggers:
         )
         return Trigger.from_dict(resp.json())
 
-    def delete(self, task_id: int, trigger_id: int) -> None:
+    def delete(self, task_id: int, trigger_id: str) -> None:
         self._http.request("DELETE", f"/tasks/{seg(task_id)}/triggers/{seg(trigger_id)}")
 
 
