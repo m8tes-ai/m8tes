@@ -2,6 +2,26 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [3.2.0] - 2026-08-11
+
+### Added
+- **`client.account.change_password(current_password=..., new_password=...)`** — change the
+  account password by proving you know the current one. Returns a fresh session
+  (`access_token` + `refresh_token`), or an MFA challenge when 2FA is on.
+
+  This is the NON-destructive path, and that is the point of it. A password *reset* can only
+  prove control of the mailbox, so it is treated as an account takeover and revokes every
+  credential on the account — API keys included. Proving the current password does not, so
+  your keys and webhook triggers keep working. Reach for reset only when the password is
+  genuinely lost.
+
+### Changed
+- A password **reset** (and account claim, and account deletion) now revokes every bearer
+  credential, not just sessions: both API-key shapes, the webhook tokens on tasks and
+  agents, and iMessage bridges. Previously an `m8_` key minted before a reset kept working
+  after it. If your integration survives a customer's password reset today, it will need a
+  freshly minted key after this.
+
 ## [3.1.0] - 2026-08-11
 
 ### Added

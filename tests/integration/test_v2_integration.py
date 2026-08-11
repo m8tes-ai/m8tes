@@ -2012,8 +2012,16 @@ class TestAuditLogs:
         dash_ids = {log.id for log in dash_rows.data}
         assert api_ids.isdisjoint(dash_ids)
 
+        # Compare only inside the window `all` actually covers. Both sides are separate
+        # newest-first LIMIT queries on a SESSION-scoped account, and each of the three
+        # list calls above is itself an audited v2 request — so rows land BETWEEN them and
+        # the unfiltered window slides forward past the oldest ids the filtered one saw.
+        # A bare `dash_ids <= all_ids` therefore holds only while the account has fewer
+        # rows than the limit, and fails on the oldest id once it does not. Raising the
+        # limit only moves that boundary; clipping to the overlap removes it.
         all_ids = {log.id for log in v2_client.audit_logs.list(auth="all", limit=50).data}
-        assert dash_ids <= all_ids
+        oldest_in_all = min(all_ids)
+        assert {i for i in dash_ids if i >= oldest_in_all} <= all_ids
 
 
 # ── Runs (list/get only — no execution) ─────────────────────────────
@@ -5351,3 +5359,66 @@ class TestSlackInboundAndLessons:
             assert cleared.effort is None
         finally:
             v2_client.teammates.delete(t.id)
+
+
+@pytest.mark.integration
+class TestAccountPassword:
+    """POST /account/password — the non-destructive password change.
+
+    It exists so that changing a password is not an account-takeover event. A password
+    RESET is one: it proves control of the mailbox only, so it runs the credential epoch
+    and revokes every bearer on the account. This route proves possession of the current
+    password, which is a different claim, so the account's portable credentials survive.
+
+    Both halves are asserted through the live API, because the split is the whole design:
+    the m8_ key must still work and the old session must not.
+    """
+
+    def test_api_key_survives_but_the_old_session_does_not(self, backend_url):
+        # _new_v2_client registers with this password; the change is isolated to the
+        # throwaway account it creates.
+        original, rotated = "TestPassword123!", "RotatedPassword456!"
+
+        session = _new_v2_client(backend_url, email_prefix="pwchange")
+        m8_key = session.keys.create(name="survives-the-change").api_key
+        keyed = M8tes(api_key=m8_key, base_url=f"{backend_url}/api/v2", timeout=30)
+        try:
+            result = session.account.change_password(
+                current_password=original, new_password=rotated
+            )
+            assert result["access_token"] and result["refresh_token"]
+
+            # The point of the route: a portable credential is untouched.
+            assert keyed.teammates.list() is not None
+
+            # And the point of bumping token_version: the old session is gone.
+            with pytest.raises(AuthenticationError):
+                session.teammates.list()
+
+            # The pair handed back by the change is a working replacement.
+            renewed = M8tes(
+                api_key=result["access_token"], base_url=f"{backend_url}/api/v2", timeout=30
+            )
+            assert renewed.teammates.list() is not None
+            renewed.close()
+        finally:
+            keyed.close()
+            session.close()
+
+    def test_wrong_current_password_is_rejected(self, backend_url):
+        client = _new_v2_client(backend_url, email_prefix="pwchange-bad")
+        try:
+            with pytest.raises(M8tesError) as exc:
+                client.account.change_password(
+                    current_password="definitely-not-the-password",
+                    new_password="Nope123456!",
+                )
+            assert exc.value.status_code == 401
+            # `teammates.list()` only proves the SESSION survived — a bug that applied the
+            # new password BEFORE checking the current one would pass that unchanged. Prove
+            # the password itself is untouched by using it.
+            assert client.account.change_password(
+                current_password="TestPassword123!", new_password="StillWorks456!"
+            )["access_token"]
+        finally:
+            client.close()
