@@ -365,12 +365,27 @@ class Agents:
         return _list(resp.json().get("reset_fields", []))
 
     def enable_webhook(self, agent_id: int) -> TeammateWebhook:
-        """Enable webhook trigger on a teammate. Returns the webhook URL (shown once)."""
+        """Enable (or rotate) the webhook trigger. Returns the URL (shown once).
+
+        Calling again mints a fresh token, invalidating the previous URL — the rotation
+        path for a leaked whk_ URL.
+        """
         resp = self._http.request("POST", f"/agents/{seg(agent_id)}/webhook")
         return TeammateWebhook.from_dict(resp.json())
 
+    def set_webhook_enabled(self, agent_id: int, *, enabled: bool) -> TeammateWebhook:
+        """Pause or resume the webhook WITHOUT rotating the token — the URL survives.
+
+        Use this to pause for an afternoon; enable_webhook() would mint a new URL you'd
+        have to re-distribute, and disable_webhook() destroys the token outright.
+        """
+        resp = self._http.request(
+            "PATCH", f"/agents/{seg(agent_id)}/webhook", json={"enabled": enabled}
+        )
+        return TeammateWebhook.from_dict(resp.json())
+
     def disable_webhook(self, agent_id: int) -> None:
-        """Disable webhook trigger on a teammate."""
+        """Disable webhook trigger on a teammate. The token is destroyed, not paused."""
         self._http.request("DELETE", f"/agents/{seg(agent_id)}/webhook")
 
     def enable_email_inbox(self, agent_id: int) -> EmailInbox:

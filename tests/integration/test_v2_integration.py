@@ -590,10 +590,14 @@ class TestTeammateWebhooks:
             assert tm.webhook_enabled is True
             assert tm.webhook_url is not None
             assert "mates" in tm.webhook_url
-            # URL not available on subsequent GET (shown once)
+            # The LIVE url is shown once; a later GET returns the MASKED form, so a caller
+            # can tell "has a webhook" from "has none" without the token being retrievable.
             fetched = v2_client.teammates.get(tm.id)
             assert fetched.webhook_enabled is True
-            assert fetched.webhook_url is None
+            assert fetched.webhook_url is not None
+            assert "****" in fetched.webhook_url
+            assert fetched.webhook_url != tm.webhook_url
+            assert tm.webhook_url.rsplit("/", 1)[-1] not in fetched.webhook_url
         finally:
             v2_client.teammates.delete(tm.id)
 
@@ -1259,6 +1263,49 @@ class TestTaskTriggers:
                 v2_client.tasks.triggers.delete(task.id, t2.id)
             finally:
                 v2_client.tasks.delete(task.id)
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+
+@pytest.mark.integration
+class TestMateWebhookToggle:
+    """The agent twin of TestTaskWebhookToggle — pause without destroying the token.
+
+    Added when the mate webhook trio moved off /api/v1 (2026-08-11). Before that, v2
+    could mint and revoke a mate webhook but not PAUSE one, so the console's own toggle
+    was unexpressible through the API we sell.
+    """
+
+    def test_pause_and_resume_keep_the_same_url(self, v2_client):
+        tm = v2_client.teammates.create(name="MateHookToggle")
+        try:
+            minted = v2_client.teammates.enable_webhook(tm.id)
+            assert minted.url
+
+            paused = v2_client.teammates.set_webhook_enabled(tm.id, enabled=False)
+            assert paused.enabled is False
+            resumed = v2_client.teammates.set_webhook_enabled(tm.id, enabled=True)
+            assert resumed.enabled is True
+
+            # Same masked URL across the pause => the token was never touched, so whatever
+            # the customer wired up before the pause still works after it.
+            assert paused.url is not None and paused.url == resumed.url
+            # ...and it masks the live token rather than echoing it back.
+            assert minted.url.rsplit("/", 1)[-1] not in paused.url
+
+            # The read agrees with the write: one fact, not two.
+            fetched = v2_client.teammates.get(tm.id)
+            assert fetched.webhook_enabled is True
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_enable_without_token_is_rejected(self, v2_client):
+        """PATCH with no minted token is a 400 — there is nothing to enable."""
+        tm = v2_client.teammates.create(name="MateHookNoToken")
+        try:
+            with pytest.raises(M8tesError) as excinfo:
+                v2_client.teammates.set_webhook_enabled(tm.id, enabled=True)
+            assert excinfo.value.status_code == 400
         finally:
             v2_client.teammates.delete(tm.id)
 

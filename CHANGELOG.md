@@ -2,6 +2,23 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [4.1.0] - 2026-08-11
+
+### Added
+- **`agents.set_webhook_enabled(agent_id, enabled=...)`** — pause or resume a mate webhook
+  WITHOUT rotating its token, so the URL you already gave an external system keeps working.
+  Previously the only way to stop one was `disable_webhook()`, which destroys the token: to
+  pause for an afternoon you had to mint a new URL afterwards and re-distribute it. Matches
+  `tasks.set_webhook_enabled`, and the three verbs now mean the same thing on both
+  resources — POST mints or rotates, PATCH pauses, DELETE revokes.
+
+### Changed
+- **A mate read now tells you whether a webhook exists.** `webhook_url` on an agent used to
+  be null on every read (it was returned once, at creation), which made "does this agent
+  have a webhook?" unanswerable through the API — and answering it wrong is expensive,
+  because the natural fallback is to mint a token over the one already in use. Reads now
+  carry the MASKED url; the live token is still shown exactly once.
+
 ## [4.0.0] - 2026-08-11
 
 ### Changed

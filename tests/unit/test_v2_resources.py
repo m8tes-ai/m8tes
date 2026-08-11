@@ -352,6 +352,28 @@ class TestTeammates:
         assert responses.calls[0].request.method == "DELETE"
 
     @responses.activate
+    def test_set_webhook_enabled(self, http):
+        """PATCH pauses/resumes without rotating the token — the URL survives.
+
+        Asserts the VERB as well as the body: routed to POST this would still return an
+        enabled=False-shaped object in a mock while minting a new token against the real
+        API, which is the failure this method exists to avoid.
+        """
+        responses.add(
+            responses.PATCH,
+            f"{BASE}/agents/1/webhook",
+            json={
+                "enabled": False,
+                "url": "https://api.m8tes.ai/api/v1/webhooks/mates/1/whk_ab****",
+            },
+        )
+        result = Teammates(http).set_webhook_enabled(1, enabled=False)
+        assert isinstance(result, TeammateWebhook)
+        assert result.enabled is False
+        assert responses.calls[0].request.method == "PATCH"
+        assert json.loads(responses.calls[0].request.body) == {"enabled": False}
+
+    @responses.activate
     def test_enable_webhook_not_found(self, http):
         responses.add(
             responses.POST,
