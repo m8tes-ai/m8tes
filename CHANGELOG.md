@@ -31,6 +31,38 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 ## [3.2.0] - 2026-08-11
 
 ### Added
+- **`runs.stream_text(..., raise_on_error=True)`** — raises `RunFailedError` when the run
+  failed, instead of returning quietly. Off by default, so nothing existing changes.
+  **The docs quickstart now passes it, so this release is what makes the documented
+  snippet runnable.** Worth setting: `stream_text` yields only text deltas, so an error
+  frame is not among the things it yields — without the flag a run that fails outright
+  produces zero chunks and your `for` loop exits normally (indistinguishable from a
+  successful empty answer), and a run that fails midway leaves a truncated reply that
+  reads as complete. Note the check runs after the stream is exhausted, so `break`-ing
+  out early skips it.
+- **15 new `StreamEventType` members you can match on** instead of receiving as `unknown`:
+  `PERMISSION_REQUEST`, `PERMISSION_RESOLVED`, `AWAITING_APPROVAL`, `CANCELLED`,
+  `SDK_ERROR`, `AGENT_RUNNER_DIED`, `SANDBOX_BOOT_TIMEOUT`, `SANDBOX_QUOTA_EXHAUSTED`,
+  `SANDBOX_UNAVAILABLE`, `SNAPSHOT_VERSION_MISMATCH`, `MCP_ERROR`, `MCP_AUTH_FAILED`,
+  `RATE_LIMIT`, `DESKTOP_READY`, plus `RUNNER_LIFECYCLE_ERROR` (reserved upstream; no
+  producer emits it yet). Two worth knowing: `CANCELLED` is terminal *alongside* `done`,
+  so a loop that only knew `done` could wait forever on a cancelled run; and
+  `SANDBOX_QUOTA_EXHAUSTED` is the one sandbox failure you should not retry.
+  **If you branch on `StreamEventType.UNKNOWN`,** these frames no longer land there.
+
+  Four further members exist for completeness but **do not fire on current streams**, so
+  do not write code expecting them: `TASK_NOTIFICATION` (the runtime rewrites it to a
+  `system_message` subtype), and `CLAUDE_THINKING` / `CLAUDE_REASONING` /
+  `CLAUDE_PLAN_DELTA` (these arrive nested inside `content_block_delta`, not at top
+  level). They are named so the runtime↔SDK parity guard can classify them rather than
+  leaving them to surface as spurious "upgrade your SDK" warnings.
+- `streaming.TERMINAL_FAILURE_TYPES` — the frames that mean the run is over and it
+  failed. `has_errors()` and `raise_on_error` now count these, not just `type: "error"`.
+  On a hosted runtime a dead runner or an exhausted sandbox quota is the likely way a run
+  dies, and none of those is an `error` frame, so the previous behaviour missed the common
+  case. `MCP_ERROR` is deliberately excluded — a broken MCP server is non-fatal and the
+  run continues.
+
 - **`client.account.change_password(current_password=..., new_password=...)`** — change the
   account password by proving you know the current one. Returns a fresh session
   (`access_token` + `refresh_token`), or an MFA challenge when 2FA is on.
@@ -40,6 +72,19 @@ All notable changes to the m8tes Python SDK will be documented in this file.
   credential on the account — API keys included. Proving the current password does not, so
   your keys and webhook triggers keep working. Reach for reset only when the password is
   genuinely lost.
+
+### Fixed
+- **The SDK no longer tells you to upgrade when you are already current.** A brand-new
+  account's first documented run printed `Unrecognized stream event type 'RUNNER_DIAG' …
+  Upgrading the m8tes SDK may add support` three times, on the latest release, before any
+  agent output. Infrastructure frames are now classified and pass through quietly, with
+  the payload still on `event.raw`.
+- `m8tes --help` lists 6 commands instead of dumping 15 alias tokens. Every alias still
+  resolves and unknown commands still get a did-you-mean suggestion.
+- `CommandRegistry.auto_discover_commands()` is idempotent per package. It previously
+  raised `ValueError: Command 'auth' is already registered` on a second call, and a first
+  attempt at fixing that keyed on "the registry is non-empty" — which made every built-in
+  silently vanish if a host registered its own command first.
 
 ### Changed
 - A password **reset** (and account claim, and account deletion) now revokes every bearer
