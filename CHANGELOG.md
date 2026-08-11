@@ -2,6 +2,20 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [3.1.0] - 2026-08-11
+
+### Added
+- **`PermissionRequest.timeout_seconds`** — how long an approval gate stays open, so a
+  client can tell a fresh gate from a stale one without inventing its own window.
+  Published by `GET /runs/{id}/permissions` (`client.runs.list_permissions`); defaults to
+  the platform window when an older server omits it, so upgrading is safe against any
+  backend.
+
+  Deliberately **not** a countdown to render: three separate clocks act on a gate — the
+  sandbox's poll, the reaper, and late approval, which stays valid while the run is paused
+  — so a timer drawn from this one number would be wrong, and it would manufacture urgency
+  on a consent surface.
+
 ## [3.0.1] - 2026-08-09
 
 ### Security

@@ -1042,6 +1042,12 @@ class PermissionRequest:
     # would be stored and then ignored. Omit any "always allow" control rather than
     # show one whose press cannot change the outcome.
     can_remember: bool = True
+    # How long the gate stays open. Do NOT render it as a countdown: three clocks act on
+    # a gate — the sandbox's poll, the reaper, and late approval, which stays valid while
+    # the run is paused — so a timer from this one number would be wrong, and it would
+    # manufacture urgency on a consent surface. Use it to tell a fresh gate from a stale
+    # one. Defaults to the platform window when an older server omits it.
+    timeout_seconds: int = 55
 
     @classmethod
     def from_dict(cls, data: dict) -> PermissionRequest:
@@ -1056,6 +1062,7 @@ class PermissionRequest:
             fields=data.get("fields"),
             prose=data.get("prose"),
             can_remember=data.get("can_remember", True),
+            timeout_seconds=data.get("timeout_seconds", 55),
             resolved_at=data.get("resolved_at"),
             tool_use_id=data.get("tool_use_id"),
             auto_resolved=data.get("auto_resolved", False),
