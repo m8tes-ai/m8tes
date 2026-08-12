@@ -3192,6 +3192,37 @@ class TestAppsReadOnly:
 
 
 @pytest.mark.integration
+class TestAppToolDiscovery:
+    """apps.list_tools against a live backend — required for every new v2 endpoint."""
+
+    def test_lists_tools_with_the_read_only_verdict(self, v2_client):
+        """Picks a real Composio app from the catalog rather than hardcoding one, so the
+        test does not start failing the day the seeded catalog changes."""
+        apps = [
+            a for a in v2_client.apps.list().data if getattr(a, "auth_type", None) == "composio"
+        ]
+        if not apps:
+            pytest.skip("no composio app in the catalog")
+
+        tools = v2_client.apps.list_tools(apps[0].name)
+        assert isinstance(tools, SyncPage)
+        assert tools.has_more is False
+        if not tools.data:
+            pytest.skip("composio returned no tools for this app")
+        # The field the endpoint exists for: it must survive the wire and the unwrap as a
+        # real bool, not arrive as a string or default quietly to False.
+        assert all(isinstance(t.read_only, bool) for t in tools.data)
+        assert all(t.approval_mode in {"never", "depends_on_input", "always"} for t in tools.data)
+        # These verdicts are independent: a sensitive read can still require approval.
+        assert all(t.slug for t in tools.data)
+
+    def test_unknown_app_is_a_404(self, v2_client):
+        with pytest.raises(M8tesError) as excinfo:
+            v2_client.apps.list_tools("definitely-not-an-app")
+        assert excinfo.value.status_code == 404
+
+
+@pytest.mark.integration
 class TestAppsWritable:
     def test_connect_api_key_and_disconnect(self, v2_client):
         """API key apps can be connected and disconnected through explicit SDK helpers."""

@@ -2,6 +2,18 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [4.2.0] - 2026-08-11
+
+### Added
+- **`apps.list_tools("github")`** — the tools an app exposes, each labeled `read_only`
+  and `approval_mode` (`never`, `depends_on_input`, or `always`).
+  Returns the standard `SyncPage[AppTool]`; inspect its `.data` and `.has_more` fields.
+  The twin of `apps.list_triggers`: triggers are what wake an agent up, tools are what it
+  may then call. Side effects and approval are separate, and a tool's approval verdict can
+  depend on its input. A call that may mutate, mint access, or spend money is never labeled
+  read-only, even when its vendor metadata or read-shaped name says otherwise. Together the
+  two calls answer
+  "what can this app do, and which parts of it need me?" before you connect it.
 ## [4.1.0] - 2026-08-11
 
 ### Added

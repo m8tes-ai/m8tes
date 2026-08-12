@@ -11,6 +11,7 @@ from .._types import (
     AppConnectionInitiation,
     AppConnectionResult,
     AppProvisionResult,
+    AppTool,
     AppTriggerType,
     SyncPage,
 )
@@ -187,6 +188,19 @@ class Apps:
         body = resp.json()
         items = body["data"] if isinstance(body, dict) and "data" in body else body
         return [AppTriggerType.from_dict(d) for d in items]
+
+    def list_tools(self, app_name: str) -> SyncPage[AppTool]:
+        """List an app's tools with side-effect and approval metadata.
+
+        ``read_only`` says whether the tool changes external state. ``approval_mode``
+        says whether approval/plan mode asks: never, always, or only for some inputs.
+        """
+        resp = self._http.request("GET", f"/apps/{seg(app_name)}/tools")
+        body = resp.json()
+        return SyncPage(
+            data=[AppTool.from_dict(d) for d in body["data"]],
+            has_more=body["has_more"],
+        )
 
     def disconnect(self, app_name: str, *, user_id: str | None = None) -> None:
         """Disconnect an app, optionally scoped to an end-user."""

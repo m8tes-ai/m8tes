@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any, Generic, TypeVar
+from typing import Any, Generic, Literal, TypeVar
 
 T = TypeVar("T")
 
@@ -575,6 +575,27 @@ class Trigger:
             app=data.get("app"),
             trigger_name=data.get("trigger_name"),
             trigger_config=data.get("trigger_config"),
+        )
+
+
+@dataclass
+class AppTool:
+    """A tool an app exposes, with separate side-effect and approval verdicts."""
+
+    slug: str
+    name: str
+    description: str | None = None
+    read_only: bool = False
+    approval_mode: Literal["never", "depends_on_input", "always"] = "always"
+
+    @classmethod
+    def from_dict(cls, data: dict) -> AppTool:
+        return cls(
+            slug=data["slug"],
+            name=data["name"],
+            description=data.get("description"),
+            read_only=bool(data.get("read_only", False)),
+            approval_mode=data.get("approval_mode", "always"),
         )
 
 

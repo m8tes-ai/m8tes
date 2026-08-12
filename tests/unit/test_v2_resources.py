@@ -1910,3 +1910,45 @@ class TestToFilePart:
         from m8tes._resources.runs import _to_file_part
 
         assert _to_file_part(("x.bin", b"\x00")) == ("x.bin", b"\x00")
+
+
+class TestAppTools:
+    """apps.list_tools — the tools half of app discovery."""
+
+    @responses.activate
+    def test_list_tools_keeps_side_effect_and_approval_as_separate_verdicts(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/apps/github/tools",
+            json={
+                "data": [
+                    {
+                        "slug": "GITHUB_LIST_REPOSITORIES",
+                        "name": "List repos",
+                        "description": "Lists repos",
+                        "read_only": True,
+                        "approval_mode": "never",
+                    },
+                    {
+                        "slug": "GITHUB_CREATE_AN_ISSUE_COMMENT",
+                        "name": "Comment",
+                        "read_only": False,
+                        "approval_mode": "always",
+                    },
+                    {
+                        "slug": "GITHUB_DELETE_REPO",
+                        "name": "Delete repo",
+                        "read_only": False,
+                        "approval_mode": "always",
+                    },
+                ],
+                "has_more": False,
+            },
+        )
+        page = Apps(http).list_tools("github")
+        assert isinstance(page, SyncPage)
+        assert page.has_more is False
+        assert [t.read_only for t in page.data] == [True, False, False]
+        assert [t.approval_mode for t in page.data] == ["never", "always", "always"]
+        assert page.data[2].description is None
+        assert responses.calls[0].request.url.endswith("/apps/github/tools")

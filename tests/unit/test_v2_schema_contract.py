@@ -14,6 +14,7 @@ import pytest
 
 from m8tes._types import (
     App,
+    AppTool,
     AppTriggerType,
     AuditLog,
     Memory,
@@ -67,6 +68,7 @@ RunFileResponse = _schemas.RunFileResponse
 RunMessageResponse = _schemas.RunMessageResponse
 TeammateWebhookResponse = _schemas.TeammateWebhookResponse
 AppTriggerTypeSchemaResponse = _schemas.AppTriggerTypeResponse
+AppToolSchemaResponse = _schemas.AppToolResponse
 AuditLogResponse = _schemas.AuditLogResponse
 
 
@@ -94,6 +96,7 @@ SCHEMA_PAIRS = [
     (RunMessageResponse, RunMessage, set()),
     (TeammateWebhookResponse, TeammateWebhook, set()),
     (AppTriggerTypeSchemaResponse, AppTriggerType, set()),
+    (AppToolSchemaResponse, AppTool, set()),
     (AuditLogResponse, AuditLog, set()),
 ]
 
