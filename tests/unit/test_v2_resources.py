@@ -11,6 +11,7 @@ from m8tes._resources.apps import Apps
 from m8tes._resources.audit_logs import AuditLogs
 from m8tes._resources.bridges import Bridges
 from m8tes._resources.memories import Memories
+from m8tes._resources.model_connections import ModelConnections
 from m8tes._resources.permissions import Permissions
 from m8tes._resources.runs import Runs
 from m8tes._resources.tasks import Tasks, TaskTriggers
@@ -41,6 +42,64 @@ BASE = "https://api.test/v2"
 @pytest.fixture
 def http():
     return HTTPClient(api_key="m8_test", base_url=BASE, timeout=5)
+
+
+class TestModelConnections:
+    @responses.activate
+    def test_list_authorize_poll_cancel_and_disconnect(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/model-connections/",
+            json={"data": [], "has_more": False},
+        )
+        authorization = {
+            "provider": "openai",
+            "state": "opaque-state",
+            "status": "pending",
+            "authorization_url": "https://auth.openai.com/codex/device",
+            "user_code": "ABCD-EFGH",
+            "interval_seconds": 5,
+        }
+        responses.add(
+            responses.POST,
+            f"{BASE}/model-connections/openai/authorizations",
+            json=authorization,
+        )
+        responses.add(
+            responses.GET,
+            f"{BASE}/model-connections/openai/authorizations/opaque-state",
+            json={
+                "provider": "openai",
+                "state": "opaque-state",
+                "status": "connected",
+            },
+        )
+        responses.add(
+            responses.DELETE,
+            f"{BASE}/model-connections/openai/authorizations/opaque-state",
+            status=204,
+        )
+        responses.add(
+            responses.DELETE,
+            f"{BASE}/model-connections/claude",
+            json={
+                "provider": "claude",
+                "display_name": "Claude",
+                "connected": False,
+            },
+        )
+        resource = ModelConnections(http)
+
+        assert resource.list().data == []
+        started = resource.authorize("openai")
+        completed = resource.authorization_status("openai", started.state)
+        resource.cancel_authorization("openai", started.state)
+        disconnected = resource.disconnect("claude")
+
+        assert started.user_code == "ABCD-EFGH"
+        assert completed.status == "connected"
+        assert disconnected.connected is False
+        assert responses.calls[1].request.body in (None, b"", "")
 
 
 # ── Teammates ────────────────────────────────────────────────────────

@@ -2,6 +2,13 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [4.3.0] - 2026-08-12
+
+### Added
+- **`client.model_connections`** — list account model plans, start and poll native
+  OpenAI/Codex or xAI/Grok device authorization, and disconnect a provider. Runs can now
+  use Claude, Codex, or Grok subscriptions through the same typed SDK surface.
+
 ## [4.2.0] - 2026-08-11
 
 ### Added

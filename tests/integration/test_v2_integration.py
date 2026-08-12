@@ -122,6 +122,21 @@ def _new_v2_client(backend_url: str, *, email_prefix: str) -> M8tes:
 
 
 @pytest.mark.integration
+class TestModelConnections:
+    def test_codex_native_authorization_lifecycle(self, v2_client):
+        authorization = v2_client.model_connections.authorize("openai")
+        try:
+            assert authorization.status == "pending"
+            assert authorization.authorization_url.startswith("https://auth.openai.com/")
+            assert authorization.user_code
+            listed = {item.provider: item for item in v2_client.model_connections.list().data}
+            assert "openai" in listed
+            assert not hasattr(listed["openai"], "credentials")
+        finally:
+            v2_client.model_connections.cancel_authorization("openai", authorization.state)
+
+
+@pytest.mark.integration
 class TestTeammatesCRUD:
     def test_full_lifecycle(self, v2_client):
         """Create -> list -> get -> update -> delete -> verify excluded from list."""

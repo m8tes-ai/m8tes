@@ -10,6 +10,7 @@ from .built_in_tools import BuiltInTools
 from .keys import Keys
 from .mcp_servers import McpServers
 from .memories import Memories
+from .model_connections import ModelConnections
 from .models import Models
 from .permissions import Permissions
 from .runs import Runs
@@ -34,6 +35,7 @@ __all__ = [
     "Keys",
     "McpServers",
     "Memories",
+    "ModelConnections",
     "Models",
     "Permissions",
     "Runs",

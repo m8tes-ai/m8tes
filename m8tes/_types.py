@@ -101,6 +101,54 @@ class Model:
 
 
 @dataclass
+class ModelConnection:
+    """Write-only account OAuth connection status for a model provider."""
+
+    provider: str
+    display_name: str
+    connected: bool
+    status: str | None = None
+    account_label: str | None = None
+    expires_at: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ModelConnection:
+        return cls(
+            provider=data["provider"],
+            display_name=data["display_name"],
+            connected=bool(data["connected"]),
+            status=data.get("status"),
+            account_label=data.get("account_label"),
+            expires_at=data.get("expires_at"),
+        )
+
+
+@dataclass
+class ModelAuthorization:
+    """A short-lived provider-native device authorization session."""
+
+    provider: str
+    state: str
+    status: str
+    authorization_url: str | None = None
+    user_code: str | None = None
+    expires_at: str | None = None
+    interval_seconds: int = 5
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ModelAuthorization:
+        return cls(
+            provider=data["provider"],
+            state=data["state"],
+            status=data["status"],
+            authorization_url=data.get("authorization_url"),
+            user_code=data.get("user_code"),
+            expires_at=data.get("expires_at"),
+            interval_seconds=data.get("interval_seconds", 5),
+        )
+
+
+@dataclass
 class AgentSystemPrompt:
     """The standing system prompt an agent runs with, verbatim."""
 
@@ -345,6 +393,7 @@ class Run:
     # Claude Pro/Max subscription (prepaid balance untouched); "gateway_virtual_key"
     # / "api_key" = billed to the prepaid balance or plan. None until routed.
     auth_method: str | None = None
+    auth_provider: str | None = None
     retry_of_run_id: int | None = None
     retry_count: int = 0
     # Scheduled-run auto-retry: how many automatic retries this lineage has used,
@@ -422,6 +471,7 @@ class Run:
             task_id=data.get("task_id"),
             error_code=data.get("error_code"),
             auth_method=data.get("auth_method"),
+            auth_provider=data.get("auth_provider"),
             retryable=data.get("retryable", False),
             retry_of_run_id=data.get("retry_of_run_id"),
             retry_count=data.get("retry_count", 0),
