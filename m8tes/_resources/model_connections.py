@@ -10,8 +10,10 @@ from .._types import ModelAuthorization, ModelConnection, SyncPage
 if TYPE_CHECKING:
     from .._http import HTTPClient
 
-ModelConnectionProvider = Literal["claude", "openai", "xai"]
-AuthorizableModelConnectionProvider = Literal["openai", "xai"]
+ModelConnectionProvider = Literal["claude", "openai", "xai", "gemini"]
+AuthorizableModelConnectionProvider = Literal["openai", "xai", "gemini"]
+DeviceModelConnectionProvider = Literal["openai", "xai"]
+CodeModelConnectionProvider = Literal["gemini"]
 
 
 class ModelConnections:
@@ -28,18 +30,29 @@ class ModelConnections:
         )
 
     def authorize(self, provider: AuthorizableModelConnectionProvider) -> ModelAuthorization:
-        """Start native device authorization; show the returned URL and user code."""
+        """Start provider-native authorization; show the returned URL and device code when used."""
         body = self._http.request(
             "POST", f"/model-connections/{seg(provider)}/authorizations"
         ).json()
         return ModelAuthorization.from_dict(body)
 
     def authorization_status(
-        self, provider: AuthorizableModelConnectionProvider, state: str
+        self, provider: DeviceModelConnectionProvider, state: str
     ) -> ModelAuthorization:
-        """Poll once; successful authorization is saved automatically."""
+        """Poll once; successful device authorization is saved automatically."""
         body = self._http.request(
             "GET", f"/model-connections/{seg(provider)}/authorizations/{seg(state)}"
+        ).json()
+        return ModelAuthorization.from_dict(body)
+
+    def complete_authorization(
+        self, provider: CodeModelConnectionProvider, state: str, *, code: str
+    ) -> ModelAuthorization:
+        """Exchange a pasted authorization code and store the connection."""
+        body = self._http.request(
+            "POST",
+            f"/model-connections/{seg(provider)}/authorizations/{seg(state)}",
+            json={"code": code},
         ).json()
         return ModelAuthorization.from_dict(body)
 

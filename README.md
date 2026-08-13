@@ -139,6 +139,24 @@ bot = client.agents.create(name="Ops", model="sonnet")  # or per run: runs.creat
 
 Today that's the Claude models `sonnet`, `opus`, and `fable` (most capable, ~2x cost); OpenAI `gpt-5.5`, `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`; Google `gemini-3.6-flash`; xAI `grok-4.6` (**platform default**) / `grok-4.5`; and open-source `glm-5.2` / `minimax-m3` / `deepseek-v4-pro` / `deepseek-v4-flash-0731` (lowest cost) / `deepseek-v3-2` / `kimi-k2-7-code` / `kimi-k3` / `qwen3.8-max`. Zero-data-retention support is **per model and changes over time**, so never assume it from the model name: read `zdr_supported` on `GET /api/v2/models`, or filter with `?zdr=true`, before sending customer data — `qwen3.8-max`, `grok-4.5`, and `grok-4.6` in particular have no ZDR-capable host at all. `models.list()` is the live source of truth; omit `model` to use the `default`.
 
+## Own provider subscription
+
+Connect a personal Claude, Codex, Grok, or Gemini plan under Account → Model connections so matching account-scoped runs bill that provider instead of prepaid credits. The credential never attaches to a run created with `user_id`.
+
+```python
+# Codex / Grok: device code, then poll until connected
+auth = client.model_connections.authorize("openai")  # or "xai"
+print(auth.authorization_url, auth.user_code)
+status = client.model_connections.authorization_status("openai", auth.state)
+
+# Gemini: paste the code from Google (no device code)
+auth = client.model_connections.authorize("gemini")
+print(auth.authorization_url)  # user_code is None
+client.model_connections.complete_authorization("gemini", auth.state, code="...")
+
+print([c.provider for c in client.model_connections.list().data])
+```
+
 ## Runs
 
 ### Streaming (default)
@@ -443,6 +461,7 @@ client.apps.release("twilio", user_id="cust_123")  # release it back
 | `client.webhooks` | `create` `list` `get` `update` `delete` `list_deliveries` `verify_signature` | Webhook endpoints and delivery tracking |
 | `client.settings` | `get` `update` | Account configuration |
 | `client.billing` | `usage` `plans` `set_overage` | Run usage, plan catalog, and opt-in overage controls |
+| `client.model_connections` | `list` `authorize` `authorization_status` `complete_authorization` `cancel_authorization` `disconnect` | Account-level Claude, Codex, Grok, and Gemini plans |
 | `client.auth` | `get_usage` `resend_verify` | Account usage and verification helpers |
 
 ## Pagination

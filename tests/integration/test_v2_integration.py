@@ -135,6 +135,23 @@ class TestModelConnections:
         finally:
             v2_client.model_connections.cancel_authorization("openai", authorization.state)
 
+    def test_gemini_paste_authorization_lifecycle(self, v2_client):
+        authorization = v2_client.model_connections.authorize("gemini")
+        try:
+            assert authorization.status == "pending"
+            assert authorization.authorization_url.startswith("https://accounts.google.com/")
+            assert authorization.user_code is None
+            listed = {item.provider: item for item in v2_client.model_connections.list().data}
+            assert "gemini" in listed
+            assert not hasattr(listed["gemini"], "credentials")
+            with pytest.raises(NotFoundError):
+                v2_client.model_connections.authorization_status(
+                    "gemini",  # type: ignore[arg-type]
+                    authorization.state,
+                )
+        finally:
+            v2_client.model_connections.cancel_authorization("gemini", authorization.state)
+
 
 @pytest.mark.integration
 class TestTeammatesCRUD:

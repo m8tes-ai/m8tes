@@ -2,6 +2,13 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [Unreleased]
+
+### Added
+- **`client.model_connections.complete_authorization("gemini", state, code=...)`** —
+  paste-code completion for Gemini CLI OAuth. `authorize("gemini")` starts the Google
+  PKCE session (`user_code` is null); list/disconnect treat `gemini` as a first-class
+  provider alongside Claude, Codex, and Grok.
 ## [4.4.0] - 2026-08-13
 
 ### Added

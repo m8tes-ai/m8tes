@@ -75,6 +75,15 @@ class TestModelConnections:
             },
         )
         responses.add(
+            responses.POST,
+            f"{BASE}/model-connections/gemini/authorizations/opaque-state",
+            json={
+                "provider": "gemini",
+                "state": "opaque-state",
+                "status": "connected",
+            },
+        )
+        responses.add(
             responses.DELETE,
             f"{BASE}/model-connections/openai/authorizations/opaque-state",
             status=204,
@@ -93,13 +102,16 @@ class TestModelConnections:
         assert resource.list().data == []
         started = resource.authorize("openai")
         completed = resource.authorization_status("openai", started.state)
+        pasted = resource.complete_authorization("gemini", started.state, code="pasted-google-code")
         resource.cancel_authorization("openai", started.state)
         disconnected = resource.disconnect("claude")
 
         assert started.user_code == "ABCD-EFGH"
         assert completed.status == "connected"
+        assert pasted.status == "connected"
         assert disconnected.connected is False
         assert responses.calls[1].request.body in (None, b"", "")
+        assert b"pasted-google-code" in (responses.calls[3].request.body or b"")
 
 
 # ── Teammates ────────────────────────────────────────────────────────
