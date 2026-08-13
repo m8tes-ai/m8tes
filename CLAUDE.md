@@ -49,6 +49,7 @@ M8tes (entry point)
 ├── agents      → Agents CRUD + webhook enable/disable (client.teammates = permanent alias)
 ├── runs        → Create (streaming/non-streaming), list, get, cancel, reply
 ├── tasks       → Tasks CRUD + triggers (schedule, webhook, email)
+├── channels    → Slack/GitHub install links + white-label app identity (upsert_identity)
 ├── apps        → List tools, manage OAuth connections
 ├── memories    → Pre-populate end-user memories
 ├── permissions → Pre-approve tools for end-users

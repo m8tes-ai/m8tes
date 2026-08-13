@@ -2084,3 +2084,46 @@ class TestChannels:
         assert branded.branded is True
         body = json.loads(responses.calls[2].request.body)
         assert body["signing_secret"] == "sign"
+
+        responses.add(
+            responses.PUT,
+            f"{BASE}/channels/identities",
+            json={
+                "channel": "github",
+                "branded": True,
+                "identity_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                "client_id": "Iv1.acme",
+                "webhook_url": (
+                    "https://www.m8tes.ai/api/v1/webhooks/github-app/"
+                    "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+                ),
+                "github_app_id": "555",
+                "github_app_slug": "acme-code",
+            },
+        )
+        gh = ch.upsert_identity(
+            channel="github",
+            client_id="Iv1.acme",
+            client_secret="oauth",
+            signing_secret="hook",
+            github_app_id="555",
+            github_app_slug="acme-code",
+            github_private_key="test-github-app-pem-placeholder",
+        )
+        assert gh.channel == "github"
+        assert gh.webhook_url.endswith("/github-app/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+        gh_body = json.loads(responses.calls[3].request.body)
+        assert gh_body["github_app_slug"] == "acme-code"
+        assert gh_body["github_private_key"] == "test-github-app-pem-placeholder"
+
+        responses.add(
+            responses.GET,
+            f"{BASE}/channels/install-links",
+            json={
+                "slack": {"authorization_url": "https://slack.com/oauth/v2/authorize?x=1"},
+                "github": {"install_url": "https://github.com/apps/acme-code/installations/new"},
+            },
+        )
+        both = ch.install_links()
+        assert both.github is not None
+        assert "acme-code" in both.github.install_url

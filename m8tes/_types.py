@@ -327,29 +327,35 @@ class Bridge:
 
 @dataclass
 class Channel:
-    """An inbound channel for this account (Slack in this release).
+    """An inbound channel for this account (Slack or GitHub).
 
-    ``branded`` is true when the account has stored its own Slack app credentials.
-    ``events_url`` / ``actions_url`` are what to paste into that Slack app's dashboard.
+    ``branded`` is true when the account has stored its own app credentials.
+    Slack: ``events_url`` / ``actions_url``. GitHub: ``webhook_url``.
     Secrets are never returned.
     """
 
     channel: str
     branded: bool
-    events_url: str
-    actions_url: str
+    events_url: str | None = None
+    actions_url: str | None = None
+    webhook_url: str | None = None
     identity_id: str | None = None
     client_id: str | None = None
+    github_app_id: str | None = None
+    github_app_slug: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> Channel:
         return cls(
             channel=data["channel"],
             branded=data["branded"],
-            events_url=data["events_url"],
-            actions_url=data["actions_url"],
+            events_url=data.get("events_url"),
+            actions_url=data.get("actions_url"),
+            webhook_url=data.get("webhook_url"),
             identity_id=data.get("identity_id"),
             client_id=data.get("client_id"),
+            github_app_id=data.get("github_app_id"),
+            github_app_slug=data.get("github_app_slug"),
         )
 
 
@@ -363,14 +369,28 @@ class SlackInstallLink:
 
 
 @dataclass
+class GitHubInstallLink:
+    install_url: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> GitHubInstallLink:
+        return cls(install_url=data["install_url"])
+
+
+@dataclass
 class ChannelInstallLinks:
-    """Returned by ``client.channels.install_links`` — redirect the user to Slack."""
+    """Returned by ``client.channels.install_links`` — Slack, plus GitHub when configured."""
 
     slack: SlackInstallLink
+    github: GitHubInstallLink | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> ChannelInstallLinks:
-        return cls(slack=SlackInstallLink.from_dict(data["slack"]))
+        github = data.get("github")
+        return cls(
+            slack=SlackInstallLink.from_dict(data["slack"]),
+            github=GitHubInstallLink.from_dict(github) if github else None,
+        )
 
 
 @dataclass

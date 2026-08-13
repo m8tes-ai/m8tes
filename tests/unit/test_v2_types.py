@@ -136,6 +136,14 @@ class TestSlackInstallLinkExport:
         assert SlackInstallLink is Inner
 
 
+class TestGitHubInstallLinkExport:
+    def test_exported_from_package_root(self):
+        from m8tes import GitHubInstallLink
+        from m8tes._types import GitHubInstallLink as Inner
+
+        assert GitHubInstallLink is Inner
+
+
 class TestRunAcknowledgementAndRetryFields:
     """Declared-but-unmapped is the failure these cover.
 

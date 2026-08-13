@@ -17,6 +17,8 @@ from m8tes._types import (
     AppTool,
     AppTriggerType,
     AuditLog,
+    Channel,
+    ChannelInstallLinks,
     Memory,
     PermissionPolicy,
     PermissionRequest,
@@ -70,6 +72,8 @@ TeammateWebhookResponse = _schemas.TeammateWebhookResponse
 AppTriggerTypeSchemaResponse = _schemas.AppTriggerTypeResponse
 AppToolSchemaResponse = _schemas.AppToolResponse
 AuditLogResponse = _schemas.AuditLogResponse
+ChannelResponse = _schemas.ChannelResponse
+ChannelInstallLinksResponse = _schemas.ChannelInstallLinksResponse
 
 
 def _pydantic_fields(model: type) -> set[str]:
@@ -98,6 +102,8 @@ SCHEMA_PAIRS = [
     (AppTriggerTypeSchemaResponse, AppTriggerType, set()),
     (AppToolSchemaResponse, AppTool, set()),
     (AuditLogResponse, AuditLog, set()),
+    (ChannelResponse, Channel, set()),
+    (ChannelInstallLinksResponse, ChannelInstallLinks, set()),
 ]
 
 

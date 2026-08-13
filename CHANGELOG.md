@@ -9,6 +9,20 @@ All notable changes to the m8tes Python SDK will be documented in this file.
   paste-code completion for Gemini CLI OAuth. `authorize("gemini")` starts the Google
   PKCE session (`user_code` is null); list/disconnect treat `gemini` as a first-class
   provider alongside Claude, Codex, and Grok.
+## [4.6.0] - 2026-08-13
+
+### Added
+- **`client.channels` GitHub App identity.** `list()` now returns Slack and GitHub.
+  `upsert_identity(channel="github", github_app_id=..., github_app_slug=...,
+  github_private_key=...)` stores a white-label GitHub App (OAuth client + webhook
+  secret + PEM). `install_links()` includes `github.install_url` when GitHub is
+  configured (the call still 503s if Slack is unavailable). Secrets are never
+  returned.
+
+### Changed
+- **`Channel` field order.** `webhook_url` was inserted before `identity_id` /
+  `client_id`. Keyword construction is unchanged; positional `Channel(...)`
+  callers from 4.5.0 should switch to keywords.
 ## [4.5.0] - 2026-08-13
 
 ### Added
