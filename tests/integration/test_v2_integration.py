@@ -5385,31 +5385,25 @@ class TestSlackInboundAndLessons:
         finally:
             v2_client.teammates.delete(t.id)
 
-    def test_enable_slack_without_handle_derives_one(self, v2_client):
-        """Was a 422. Slack was the only channel that rejected enable-without-a-slug while
-        email auto-generated one, which made the UI toggle un-enablable in one pass.
-
-        `name` is deliberately OMITTED. Passing one makes `body.name` and the resolved name
-        the same value, so the assertion could not tell "derives from the resolved name"
-        from "derives from body.name" — the exact wrong-field bug this pins. With no name,
-        the server falls back to generate_teammate_name() and only the resolved name works.
-        """
+    def test_enable_slack_without_handle_does_not_mint_one(self, v2_client):
         t = v2_client.teammates.create(inbound_slack_enabled=True)
         try:
             assert t.inbound_slack_enabled is True
-            expected = re.sub(r"[^a-z0-9]+", "-", t.name.lower()).strip("-") or "mate"
-            assert t.slack_slug == expected[:58].rstrip("-")
+            assert t.slack_slug is None
         finally:
             v2_client.teammates.delete(t.id)
 
-    def test_update_enable_slack_without_handle_derives_one(self, v2_client):
-        # uuid-suffixed like the sibling above: delete only marks the agent archived, and
-        # the taken-slug set does not filter on status, so a fixed base burns a slug per run.
-        name = f"Sentry Triage {uuid.uuid4().hex[:6]}"
-        t = v2_client.teammates.create(name=name)
+    def test_slack_channels_require_connected_workspace(self, v2_client):
+        t = v2_client.teammates.create(name="ChannelBot")
         try:
-            updated = v2_client.teammates.update(t.id, inbound_slack_enabled=True)
-            assert updated.slack_slug == re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+            with pytest.raises(ValidationError) as exc:
+                v2_client.teammates.update(
+                    t.id,
+                    slack_channels=[{"team_id": "T1", "channel_id": "C0123456789", "name": "ads"}],
+                )
+            assert exc.value.status_code == 422
+            cleared = v2_client.teammates.update(t.id, slack_channels=[])
+            assert cleared.slack_channels == []
         finally:
             v2_client.teammates.delete(t.id)
 

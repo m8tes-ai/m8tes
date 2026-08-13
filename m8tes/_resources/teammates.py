@@ -57,6 +57,7 @@ class Agents:
         allowed_imessage_senders: list[str] | None = None,
         inbound_slack_enabled: bool = False,
         slack_slug: str | None = None,
+        slack_channels: list[dict] | None = None,
         allowed_slack_senders: list[str] | None = None,
         email_inbox: bool = False,
         webhook: bool = False,
@@ -120,6 +121,8 @@ class Agents:
             body["inbound_slack_enabled"] = True
         if slack_slug is not None:
             body["slack_slug"] = slack_slug
+        if slack_channels is not None:
+            body["slack_channels"] = slack_channels
         if allowed_slack_senders is not None:
             body["allowed_slack_senders"] = allowed_slack_senders
         if email_inbox:
@@ -189,6 +192,7 @@ class Agents:
         allowed_imessage_senders: _list[str] | None = None,
         inbound_slack_enabled: bool | None = None,
         slack_slug: str | None = None,
+        slack_channels: _list[dict] | None = None,
         allowed_slack_senders: _list[str] | None = None,
         default_permission_mode: str | None = None,
         model: str | None = _UNSET,
@@ -245,6 +249,8 @@ class Agents:
             body["inbound_slack_enabled"] = inbound_slack_enabled
         if slack_slug is not None:
             body["slack_slug"] = slack_slug
+        if slack_channels is not None:
+            body["slack_channels"] = slack_channels
         if allowed_slack_senders is not None:
             body["allowed_slack_senders"] = allowed_slack_senders
         if default_permission_mode is not None:

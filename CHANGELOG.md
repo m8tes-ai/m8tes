@@ -2,6 +2,13 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [4.4.0] - 2026-08-13
+
+### Added
+- **`slack_channels` on create/update/read.** Bind a Mate to Slack rooms so `@m8tes`
+  in those channels reaches it. Unbound channels and DMs still reach the Company
+  Agent — there is no typed `@m8tes ppc` handle. Pass `[]` to unbind.
+
 ## [4.3.0] - 2026-08-12
 
 ### Added

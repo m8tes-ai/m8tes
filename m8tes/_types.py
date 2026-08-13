@@ -195,6 +195,7 @@ class Teammate:
     allowed_imessage_senders: list[str] | None = None
     inbound_slack_enabled: bool = False
     slack_slug: str | None = None
+    slack_channels: list | None = None
     allowed_slack_senders: list[str] | None = None
     fetchmail_enabled: bool = False
     fetchmail_address: str | None = None
@@ -245,6 +246,7 @@ class Teammate:
             allowed_imessage_senders=data.get("allowed_imessage_senders"),
             inbound_slack_enabled=data.get("inbound_slack_enabled", False),
             slack_slug=data.get("slack_slug"),
+            slack_channels=data.get("slack_channels") or [],
             allowed_slack_senders=data.get("allowed_slack_senders"),
             fetchmail_enabled=data.get("fetchmail_enabled", False),
             fetchmail_address=data.get("fetchmail_address"),
