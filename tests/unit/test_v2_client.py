@@ -4,7 +4,7 @@ import pytest
 
 from m8tes._client import M8tes
 from m8tes._exceptions import AuthenticationError
-from m8tes._resources import Apps, AuditLogs, Runs, Tasks, Teammates
+from m8tes._resources import Apps, AuditLogs, Channels, Runs, Tasks, Teammates
 
 
 class TestClientInit:
@@ -29,6 +29,7 @@ class TestClientInit:
         assert isinstance(client.runs, Runs)
         assert isinstance(client.tasks, Tasks)
         assert isinstance(client.apps, Apps)
+        assert isinstance(client.channels, Channels)
 
     def test_default_base_url(self, monkeypatch):
         monkeypatch.delenv("M8TES_BASE_URL", raising=False)

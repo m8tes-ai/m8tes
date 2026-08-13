@@ -18,7 +18,6 @@ Run: pytest tests/integration/test_v2_integration.py -v -m integration
 import contextlib
 from datetime import UTC, datetime, timedelta
 import os
-import re
 import uuid
 
 import pytest
@@ -5473,6 +5472,48 @@ class TestSlackInboundAndLessons:
             assert cleared.effort is None
         finally:
             v2_client.teammates.delete(t.id)
+
+
+@pytest.mark.integration
+class TestChannels:
+    """V2 /channels: list → upsert identity → list branded, no secrets, install-links."""
+
+    def test_list_upsert_list_and_install_links(self, v2_client):
+        from m8tes._exceptions import APIError
+
+        page = v2_client.channels.list()
+        assert page.data
+        row = page.data[0]
+        assert row.channel == "slack"
+
+        upserted = v2_client.channels.upsert_identity(
+            channel="slack",
+            client_id="cid-e2e",
+            client_secret="csec-e2e-not-in-response",
+            signing_secret="sign-e2e-not-in-response",
+        )
+        assert upserted.branded is True
+        assert upserted.identity_id
+        assert upserted.client_id == "cid-e2e"
+        assert upserted.events_url.endswith(
+            f"/api/v1/webhooks/inbound/slack/{upserted.identity_id}"
+        )
+        body = str(upserted)
+        assert "csec-e2e-not-in-response" not in body
+        assert "sign-e2e-not-in-response" not in body
+
+        listed = v2_client.channels.list().data[0]
+        assert listed.identity_id == upserted.identity_id
+        assert listed.branded is True
+
+        try:
+            links = v2_client.channels.install_links(user_id="cust_e2e")
+        except APIError as exc:
+            if exc.status_code == 503:
+                pytest.skip("Slack inbound not enabled on this backend")
+            raise
+        assert links.slack.authorization_url.startswith("https://slack.com/oauth/v2/authorize")
+        assert "client_id=cid-e2e" in links.slack.authorization_url
 
 
 @pytest.mark.integration

@@ -28,6 +28,7 @@ from ._exceptions import (
 )
 from ._resources.auth import Auth
 from ._resources.billing import Billing
+from ._resources.channels import Channels
 from ._resources.webhooks import Webhooks
 from ._streaming import RunStream
 from ._types import (
@@ -49,6 +50,8 @@ from ._types import (
     Balance,
     Bridge,
     BuiltInTool,
+    Channel,
+    ChannelInstallLinks,
     EmailInbox,
     EndUser,
     EndUserUsage,
@@ -77,6 +80,7 @@ from ._types import (
     RunUsage,
     SignupResult,
     Skill,
+    SlackInstallLink,
     SyncPage,
     Task,
     Teammate,
@@ -141,6 +145,9 @@ __all__ = [
     "BillingError",
     "Bridge",
     "BuiltInTool",
+    "Channel",
+    "ChannelInstallLinks",
+    "Channels",
     "ConflictError",
     "DeploymentError",
     "DoneEvent",
@@ -184,6 +191,7 @@ __all__ = [
     "RunUsage",
     "SignupResult",
     "Skill",
+    "SlackInstallLink",
     "StreamEvent",
     "StreamEventType",
     "SyncPage",

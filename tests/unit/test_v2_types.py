@@ -128,6 +128,14 @@ class TestPermissionMode:
         assert ExportedPermissionMode is PermissionMode
 
 
+class TestSlackInstallLinkExport:
+    def test_exported_from_package_root(self):
+        from m8tes import SlackInstallLink
+        from m8tes._types import SlackInstallLink as Inner
+
+        assert SlackInstallLink is Inner
+
+
 class TestRunAcknowledgementAndRetryFields:
     """Declared-but-unmapped is the failure these cover.
 

@@ -9,6 +9,14 @@ All notable changes to the m8tes Python SDK will be documented in this file.
   paste-code completion for Gemini CLI OAuth. `authorize("gemini")` starts the Google
   PKCE session (`user_code` is null); list/disconnect treat `gemini` as a first-class
   provider alongside Claude, Codex, and Grok.
+## [4.5.0] - 2026-08-13
+
+### Added
+- **`client.channels`** — list Slack channel identity, mint Add-to-Slack
+  install links (`install_links(user_id=...)`), and store a white-label Slack
+  app (`upsert_identity`). Accounts with no identity keep the shared `@m8tes`
+  app. `user_id` on install-links is strict-mode bookkeeping only — it does
+  not stamp the workspace install.
 ## [4.4.0] - 2026-08-13
 
 ### Added

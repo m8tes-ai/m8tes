@@ -326,6 +326,54 @@ class Bridge:
 
 
 @dataclass
+class Channel:
+    """An inbound channel for this account (Slack in this release).
+
+    ``branded`` is true when the account has stored its own Slack app credentials.
+    ``events_url`` / ``actions_url`` are what to paste into that Slack app's dashboard.
+    Secrets are never returned.
+    """
+
+    channel: str
+    branded: bool
+    events_url: str
+    actions_url: str
+    identity_id: str | None = None
+    client_id: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Channel:
+        return cls(
+            channel=data["channel"],
+            branded=data["branded"],
+            events_url=data["events_url"],
+            actions_url=data["actions_url"],
+            identity_id=data.get("identity_id"),
+            client_id=data.get("client_id"),
+        )
+
+
+@dataclass
+class SlackInstallLink:
+    authorization_url: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> SlackInstallLink:
+        return cls(authorization_url=data["authorization_url"])
+
+
+@dataclass
+class ChannelInstallLinks:
+    """Returned by ``client.channels.install_links`` — redirect the user to Slack."""
+
+    slack: SlackInstallLink
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ChannelInstallLinks:
+        return cls(slack=SlackInstallLink.from_dict(data["slack"]))
+
+
+@dataclass
 class HandleLink:
     """A verified iMessage handle (phone/email) linked to a hosted bridge's account."""
 

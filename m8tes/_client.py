@@ -16,6 +16,7 @@ from ._resources import (
     Billing,
     Bridges,
     BuiltInTools,
+    Channels,
     Keys,
     McpServers,
     Memories,
@@ -71,6 +72,7 @@ class M8tes:
         self.agent_templates = AgentTemplates(self._http)
         self.teammate_templates = self.agent_templates  # permanent alias
         self.bridges = Bridges(self._http)
+        self.channels = Channels(self._http)
         self.runs = Runs(self._http)
         self.tasks = Tasks(self._http)
         self.apps = Apps(self._http)

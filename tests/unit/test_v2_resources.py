@@ -10,6 +10,7 @@ from m8tes._http import HTTPClient
 from m8tes._resources.apps import Apps
 from m8tes._resources.audit_logs import AuditLogs
 from m8tes._resources.bridges import Bridges
+from m8tes._resources.channels import Channels
 from m8tes._resources.memories import Memories
 from m8tes._resources.model_connections import ModelConnections
 from m8tes._resources.permissions import Permissions
@@ -2023,3 +2024,63 @@ class TestAppTools:
         assert [t.approval_mode for t in page.data] == ["never", "always", "always"]
         assert page.data[2].description is None
         assert responses.calls[0].request.url.endswith("/apps/github/tools")
+
+
+class TestChannels:
+    @responses.activate
+    def test_list_install_links_and_upsert(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/channels",
+            json={
+                "data": [
+                    {
+                        "channel": "slack",
+                        "branded": False,
+                        "identity_id": None,
+                        "client_id": "cid-global",
+                        "events_url": "https://www.m8tes.ai/api/v1/webhooks/inbound/slack",
+                        "actions_url": "https://www.m8tes.ai/api/v1/webhooks/slack/actions",
+                    }
+                ],
+                "has_more": False,
+            },
+        )
+        responses.add(
+            responses.GET,
+            f"{BASE}/channels/install-links",
+            json={"slack": {"authorization_url": "https://slack.com/oauth/v2/authorize?x=1"}},
+        )
+        responses.add(
+            responses.PUT,
+            f"{BASE}/channels/identities",
+            json={
+                "channel": "slack",
+                "branded": True,
+                "identity_id": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+                "client_id": "cid-custom",
+                "events_url": (
+                    "https://www.m8tes.ai/api/v1/webhooks/inbound/slack/"
+                    "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+                ),
+                "actions_url": (
+                    "https://www.m8tes.ai/api/v1/webhooks/slack/actions/"
+                    "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+                ),
+            },
+        )
+        ch = Channels(http)
+        page = ch.list()
+        assert page.data[0].branded is False
+        links = ch.install_links(user_id="cust_123")
+        assert "slack.com" in links.slack.authorization_url
+        assert "user_id=cust_123" in responses.calls[1].request.url
+        branded = ch.upsert_identity(
+            channel="slack",
+            client_id="cid-custom",
+            client_secret="csec",
+            signing_secret="sign",
+        )
+        assert branded.branded is True
+        body = json.loads(responses.calls[2].request.body)
+        assert body["signing_secret"] == "sign"

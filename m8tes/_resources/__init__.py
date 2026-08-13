@@ -7,6 +7,7 @@ from .auth import Auth
 from .billing import Billing
 from .bridges import Bridges
 from .built_in_tools import BuiltInTools
+from .channels import Channels
 from .keys import Keys
 from .mcp_servers import McpServers
 from .memories import Memories
@@ -32,6 +33,7 @@ __all__ = [
     "Billing",
     "Bridges",
     "BuiltInTools",
+    "Channels",
     "Keys",
     "McpServers",
     "Memories",
