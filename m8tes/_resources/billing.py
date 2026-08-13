@@ -127,9 +127,11 @@ class Billing:
         """Enable/disable auto-reload: when the balance falls below `threshold_cents`,
         `amount_cents` is charged to your saved card off-session and credited.
 
-        Enabling requires a saved payment method — any completed top-up Checkout saves
-        the card; without one this raises `BillingError` with
-        `.code == "NO_SAVED_PAYMENT_METHOD"`. Disabling needs only `enabled=False`.
+        Enabling requires a funded prepaid wallet and a saved payment method.
+        An account that has never added funds raises `PermissionDeniedError` with
+        `.code == "NO_PREPAID_BALANCE"`. A funded wallet without a saved card
+        raises `BillingError` with `.code == "NO_SAVED_PAYMENT_METHOD"`.
+        Disabling needs only `enabled=False`.
 
         `amount_cents` runs from $5 to $10,000 per charge (deliberately lower than the
         manual top-up ceiling — these charges happen off-session). At most one reload
@@ -146,9 +148,10 @@ class Billing:
 
     def set_alert_threshold(self, *, low_balance_threshold_cents: int) -> Balance:
         """Set the balance at which the low-balance warning fires (cents; the critical tier is
-        20% of it). Warnings are delivered by email AND as `balance.low`/`balance.critical`/
-        `balance.depleted` webhook events. 0 warns only on depletion. Returns the refreshed
-        balance with the new thresholds.
+        20% of it). Requires a funded prepaid wallet — otherwise raises
+        `PermissionDeniedError` with `.code == "NO_PREPAID_BALANCE"`. Warnings are delivered
+        by email AND as `balance.low`/`balance.critical`/`balance.depleted` webhook events.
+        0 warns only on depletion. Returns the refreshed balance with the new thresholds.
         """
         resp = self._http.request(
             "PATCH",
