@@ -65,12 +65,16 @@ class TestUsageTimeseries:
             end_date="2026-07-02",
             user_id="alice",
             teammate_id=7,
+            surface="api",
+            settled_meter="wallet",
         )
         params = responses.calls[0].request.params
         assert params["start_date"] == "2026-07-01"
         assert params["end_date"] == "2026-07-02"
         assert params["user_id"] == "alice"
         assert params["teammate_id"] == "7"
+        assert params["surface"] == "api"
+        assert params["settled_meter"] == "wallet"
 
     @responses.activate
     def test_group_by_model_parses_slices(self, billing):

@@ -5,6 +5,10 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 ## [4.4.0] - 2026-08-13
 
 ### Added
+- **`billing.usage_timeseries(settled_meter=...)`** scopes the series to where a run
+  actually settled: `"wallet"` (prepaid ledger), `"plan"`, `"released"`, or `"own_sub"`.
+  `surface=` is still creation intent; pass both when you want embedding work that hit
+  the wallet (`surface="api", settled_meter="wallet"`).
 - **`slack_channels` on create/update/read.** Bind a Mate to Slack rooms so `@m8tes`
   in those channels reaches it. Unbound channels and DMs still reach the Company
   Agent — there is no typed `@m8tes ppc` handle. Pass `[]` to unbind.
