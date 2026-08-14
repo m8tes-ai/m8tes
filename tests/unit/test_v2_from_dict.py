@@ -207,6 +207,26 @@ class TestPermissionRequestFromDict:
         )
         assert p.tool_input is None
         assert p.resolved_at is None
+        assert p.script is None
+
+    def test_script_identity(self):
+        p = PermissionRequest.from_dict(
+            {
+                "request_id": "r1",
+                "tool_name": "mcp__cmcp-1__fetch",
+                "status": "pending",
+                "script": {
+                    "origin": "https://example.com",
+                    "sha256": "abc",
+                    "preview": "def f():\n  pass",
+                },
+            }
+        )
+        assert p.script == {
+            "origin": "https://example.com",
+            "sha256": "abc",
+            "preview": "def f():\n  pass",
+        }
 
 
 class TestPermissionPolicyFromDict:

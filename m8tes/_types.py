@@ -1193,6 +1193,8 @@ class PermissionRequest:
     # manufacture urgency on a consent surface. Use it to tell a fresh gate from a stale
     # one. Defaults to the platform window when an older server omits it.
     timeout_seconds: int = 55
+    # kind=script create card only. Origin + sha256 + preview — never the source.
+    script: dict[str, str] | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> PermissionRequest:
@@ -1213,6 +1215,7 @@ class PermissionRequest:
             auto_resolved=data.get("auto_resolved", False),
             resumed=data.get("resumed"),
             remembered=data.get("remembered"),
+            script=data.get("script"),
         )
 
     @property
@@ -1868,6 +1871,8 @@ class McpServer:
     user_id: str | None = None
     created_at: str = ""
     updated_at: str = ""
+    script_sha256: str | None = None
+    script_allowlist: list[str] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: dict) -> McpServer:
@@ -1886,6 +1891,8 @@ class McpServer:
             user_id=data.get("user_id"),
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at", ""),
+            script_sha256=data.get("script_sha256"),
+            script_allowlist=data.get("script_allowlist") or [],
         )
 
 

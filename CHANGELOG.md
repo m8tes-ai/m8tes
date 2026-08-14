@@ -5,6 +5,10 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 ## [Unreleased]
 
 ### Added
+- **`client.mcp_servers.create(..., kind="script", script_source=...)`** —
+  persist a Python custom tool. Source is write-only; the response carries
+  `script_sha256` and `script_allowlist`. `user_id` is rejected on `kind=script`.
+  `PermissionRequest.script` carries origin + sha256 on the create gate (never the source).
 - **`client.model_connections.complete_authorization("gemini", state, code=...)`** —
   paste-code completion for Gemini CLI OAuth. `authorize("gemini")` starts the Google
   PKCE session (`user_code` is null); list/disconnect treat `gemini` as a first-class

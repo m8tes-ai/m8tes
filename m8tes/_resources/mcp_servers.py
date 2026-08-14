@@ -38,32 +38,41 @@ class McpServers:
         *,
         name: str,
         url: str,
-        tool_defs: builtins.list[dict[str, Any]],
+        tool_defs: builtins.list[dict[str, Any]] | None = None,
+        kind: str = "rest_api",
         auth_type: str = "none",
         auth_config: dict[str, Any] | None = None,
         secret: str | None = None,
         description: str | None = None,
         user_id: str | None = None,
         auto_approve: bool = False,
+        script_source: str | None = None,
+        script_allowlist: builtins.list[str] | None = None,
     ) -> McpServer:
-        """Register a custom tool server. ``auth_type`` is one of none/bearer/
-        custom_header/api_key_in_url/oauth_token; ``secret`` is write-only. Set
-        ``auto_approve=True`` to trust the tool so it runs unattended (skips the per-call
-        approval gate) in scheduled/webhook/API runs."""
+        """Register a custom tool server. ``kind`` is rest_api (default), mcp_http,
+        mcp_sse, or script. ``auth_type`` is one of none/bearer/custom_header/
+        api_key_in_url/oauth_token; ``secret`` is write-only. ``kind=script`` takes
+        ``script_source`` and rejects ``user_id``."""
         body: dict[str, Any] = {
             "name": name,
             "url": url,
-            "tool_defs": tool_defs,
+            "kind": kind,
             "auth_type": auth_type,
             "auth_config": auth_config or {},
             "auto_approve": auto_approve,
         }
+        if tool_defs is not None:
+            body["tool_defs"] = tool_defs
         if secret is not None:
             body["secret"] = secret
         if description is not None:
             body["description"] = description
         if user_id is not None:
             body["user_id"] = user_id
+        if script_source is not None:
+            body["script_source"] = script_source
+        if script_allowlist is not None:
+            body["script_allowlist"] = script_allowlist
         resp = self._http.request("POST", "/mcp-servers", json=body)
         return McpServer.from_dict(resp.json())
 
@@ -91,6 +100,8 @@ class McpServers:
         status: str | None = None,
         auto_approve: bool | None = None,
         user_id: str | None = None,
+        script_source: str | None = None,
+        script_allowlist: builtins.list[str] | None = None,
     ) -> McpServer:
         body: dict[str, Any] = {}
         if auto_approve is not None:
@@ -111,6 +122,10 @@ class McpServers:
             body["description"] = description
         if status is not None:
             body["status"] = status
+        if script_source is not None:
+            body["script_source"] = script_source
+        if script_allowlist is not None:
+            body["script_allowlist"] = script_allowlist
         params = {"user_id": user_id} if user_id else None
         resp = self._http.request(
             "PATCH", f"/mcp-servers/{seg(server_id)}", json=body, params=params
