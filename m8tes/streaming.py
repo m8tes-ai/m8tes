@@ -51,6 +51,7 @@ _INTERNAL_EVENT_TYPES: frozenset[str] = frozenset(
         "stderr",  # runner stderr passthrough, surfaced in logs not the API
         "user_message",  # subagent task prompt echoed back by the SDK
         "compact_boundary",  # conversation compaction marker
+        "conversation_reset",  # /clear mid-session; agents do not emit this today
         # These two are CLI system SUBTYPES, never a wire `type`: agent-runtime rewrites
         # them to `system_message` before they leave. They are silenced because the string
         # cannot arrive, NOT because the content is uninteresting — do not use them as
