@@ -1110,6 +1110,10 @@ class Memory:
     # Which agent this memory is private to, or None for an account-wide one. `list()`
     # returns both kinds together, so this is how you tell them apart.
     agent_instance_id: int | None = None
+    # Which Mate wrote this memory. Distinct from `agent_instance_id` (visibility): an
+    # account-wide fact an agent saved has agent_instance_id=None, but the author is still
+    # that Mate. None for human/API writes, or when the source run is gone.
+    created_by_agent_instance_id: int | None = None
     # "personal" (about the person) or "company" (about their business). None means
     # UNCLASSIFIED. Memories predating the field were classified as "personal", so a null
     # today is one nobody has classified since — or a server too old to send the field.
@@ -1131,6 +1135,7 @@ class Memory:
             source=data.get("source", "api"),
             created_at=data.get("created_at", ""),
             agent_instance_id=data.get("agent_instance_id"),
+            created_by_agent_instance_id=data.get("created_by_agent_instance_id"),
             audience=data.get("audience"),
             scope=data.get("scope", "account"),
         )

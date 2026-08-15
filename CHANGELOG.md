@@ -13,6 +13,14 @@ All notable changes to the m8tes Python SDK will be documented in this file.
   paste-code completion for Gemini CLI OAuth. `authorize("gemini")` starts the Google
   PKCE session (`user_code` is null); list/disconnect treat `gemini` as a first-class
   provider alongside Claude, Codex, and Grok.
+
+## [4.6.1] - 2026-08-15
+
+### Added
+- **`Memory.created_by_agent_instance_id`.** Which Mate wrote a memory, distinct from
+  `agent_instance_id` (visibility). Account-wide agent-saved facts keep
+  `agent_instance_id=None` so every Mate reads them, but still name their author.
+
 ## [4.6.0] - 2026-08-13
 
 ### Added

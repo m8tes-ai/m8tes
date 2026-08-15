@@ -117,6 +117,7 @@ def test_memory_carries_agent_instance_id():
                     "source": "agent",
                     "created_at": "",
                     "agent_instance_id": 42,
+                    "created_by_agent_instance_id": 42,
                 },
                 {
                     "id": 2,
@@ -125,6 +126,7 @@ def test_memory_carries_agent_instance_id():
                     "source": "api",
                     "created_at": "",
                     "agent_instance_id": None,
+                    "created_by_agent_instance_id": None,
                 },
             ],
             "has_more": False,
@@ -133,6 +135,33 @@ def test_memory_carries_agent_instance_id():
     http = HTTPClient(api_key="m8_test", base_url=BASE, timeout=5)
     rows = Memories(http).list().data
     assert [m.agent_instance_id for m in rows] == [42, None]
+
+
+@responses.activate
+def test_memory_carries_created_by_agent_instance_id():
+    """Account-wide agent memories name the writing Mate separately from visibility."""
+    responses.add(
+        responses.GET,
+        f"{BASE}/memories/",
+        json={
+            "data": [
+                {
+                    "id": 3,
+                    "user_id": None,
+                    "content": "HQ is Copenhagen",
+                    "source": "agent",
+                    "created_at": "",
+                    "agent_instance_id": None,
+                    "created_by_agent_instance_id": 7,
+                },
+            ],
+            "has_more": False,
+        },
+    )
+    http = HTTPClient(api_key="m8_test", base_url=BASE, timeout=5)
+    row = Memories(http).list().data[0]
+    assert row.agent_instance_id is None
+    assert row.created_by_agent_instance_id == 7
 
 
 @responses.activate
