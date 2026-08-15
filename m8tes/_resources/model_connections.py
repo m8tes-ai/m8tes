@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Literal
 
 from .._http import seg
-from .._types import ModelAuthorization, ModelConnection, SyncPage
+from .._types import ApplyPreferredModelResult, ModelAuthorization, ModelConnection, SyncPage
 
 if TYPE_CHECKING:
     from .._http import HTTPClient
@@ -28,6 +28,13 @@ class ModelConnections:
             data=[ModelConnection.from_dict(item) for item in body["data"]],
             has_more=body.get("has_more", False),
         )
+
+    def apply_default(self, provider: ModelConnectionProvider) -> ApplyPreferredModelResult:
+        """Set this connected provider as the account default for NULL-alias platform mates."""
+        body = self._http.request(
+            "POST", f"/model-connections/{seg(provider)}/apply-default"
+        ).json()
+        return ApplyPreferredModelResult.from_dict(body)
 
     def authorize(self, provider: AuthorizableModelConnectionProvider) -> ModelAuthorization:
         """Start provider-native authorization; show the returned URL and device code when used."""

@@ -114,6 +114,22 @@ class TestModelConnections:
         assert responses.calls[1].request.body in (None, b"", "")
         assert b"pasted-google-code" in (responses.calls[3].request.body or b"")
 
+    @responses.activate
+    def test_apply_default(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/model-connections/claude/apply-default",
+            json={
+                "provider": "claude",
+                "model": "claude-opus-5",
+                "affected_mate_count": 2,
+            },
+        )
+        result = ModelConnections(http).apply_default("claude")
+        assert result.provider == "claude"
+        assert result.model == "claude-opus-5"
+        assert result.affected_mate_count == 2
+
 
 # ── Teammates ────────────────────────────────────────────────────────
 

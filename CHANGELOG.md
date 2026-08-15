@@ -13,6 +13,11 @@ All notable changes to the m8tes Python SDK will be documented in this file.
   paste-code completion for Gemini CLI OAuth. `authorize("gemini")` starts the Google
   PKCE session (`user_code` is null); list/disconnect treat `gemini` as a first-class
   provider alongside Claude, Codex, and Grok.
+## [4.7.0] - 2026-08-15
+
+### Added
+- **`client.model_connections.apply_default(provider)`** — set a connected model
+  plan as the account default for platform mates with no explicit model.
 
 ## [4.6.1] - 2026-08-15
 

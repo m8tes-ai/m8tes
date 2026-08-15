@@ -124,6 +124,23 @@ class ModelConnection:
 
 
 @dataclass
+class ApplyPreferredModelResult:
+    """Result of Confirm → apply-default for a connected model plan."""
+
+    provider: str
+    model: str
+    affected_mate_count: int
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ApplyPreferredModelResult:
+        return cls(
+            provider=data["provider"],
+            model=data["model"],
+            affected_mate_count=int(data["affected_mate_count"]),
+        )
+
+
+@dataclass
 class ModelAuthorization:
     """A short-lived provider-native device authorization session."""
 
