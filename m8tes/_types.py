@@ -535,6 +535,10 @@ class Run:
     # channel "api" but billing_surface "platform", so the two answer different
     # questions and filtering a developer view on surface alone hides your own traffic.
     channel: str | None = None
+    # Short board/list card excerpt of the closing message (HEADLINE preferred,
+    # else marker-stripped latest prose). Null when there is nothing scannable —
+    # NO-REPLY opt-outs and mid-run narration without a stamped closing included.
+    closing_preview: str | None = None
 
     @property
     def agent_id(self) -> int | None:
@@ -584,6 +588,7 @@ class Run:
             notified_at=data.get("notified_at"),
             repeats_actions=data.get("repeats_actions"),
             last_viewed_at=data.get("last_viewed_at"),
+            closing_preview=data.get("closing_preview"),
         )
 
 
