@@ -1199,6 +1199,9 @@ class PermissionRequest:
     # action it is requesting is CALLED. A UI that shows `tool_name` instead is putting
     # agent-chosen text on a consent surface.
     display_name: str | None = None
+    mate_name: str | None = None
+    task_name: str | None = None
+    consequence: str = ""
     # `[label, value]` pairs: redacted, humanised, opaque ids dropped. The call's own
     # arguments — agent data, shown because an approver needs to see what it does.
     fields: list[list[str]] | None = None
@@ -1228,6 +1231,9 @@ class PermissionRequest:
             created_at=data.get("created_at", ""),
             agent_type=data.get("agent_type"),
             display_name=data.get("display_name"),
+            mate_name=data.get("mate_name"),
+            task_name=data.get("task_name"),
+            consequence=data.get("consequence", ""),
             fields=data.get("fields"),
             prose=data.get("prose"),
             can_remember=data.get("can_remember", True),

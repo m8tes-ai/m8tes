@@ -4690,16 +4690,13 @@ class TestAuthEndpoints:
         )
         assert resp.status_code == 200
         data = resp.json()
-        # New signups default to the time-boxed trial plan (free was removed).
-        assert data["plan"] == "trial"
+        # New signups default to inactive (#1342 dropped trial/free/$5 starter).
+        assert data["plan"] == "inactive"
         assert isinstance(data["runs_used"], int)
-        # KEEP IN SYNC with fastapi/app/services/billing/plan_catalog.py (`trial`
-        # included_runs). #923 raised it 5 -> 50 and left this at 5, so `main` shipped red
-        # here. It cannot be derived over HTTP the way a paid plan can: GET
-        # /api/v2/billing/plans deliberately serves PAID plans only, so the trial number
-        # has no public endpoint to read. Filed in TODOS.md — exposing it (or asserting via
-        # a fixture that reads the catalog) is the real fix.
-        assert data["runs_limit"] == 50
+        # KEEP IN SYNC with fastapi/app/services/billing/plan_catalog.py (`inactive`
+        # included_runs). Paid-plan limits are readable from GET /api/v2/billing/plans;
+        # inactive is not on that list (0 runs, not sold).
+        assert data["runs_limit"] == 0
         assert "cost_used" in data
         assert "cost_limit" in data
         assert "period_end" in data
@@ -4782,10 +4779,10 @@ class TestAuthSDK:
 
         usage = v2_client.auth.get_usage()
         assert isinstance(usage, Usage)
-        # New signups land on the time-boxed trial plan (free is retired).
+        # New signups land on inactive (#1342 dropped trial/free/$5 starter).
         assert usage.plan in ("trial", "pro", "max_5x", "max_20x", "inactive")
         assert usage.runs_used >= 0
-        assert usage.runs_limit > 0
+        assert usage.runs_limit >= 0
         assert usage.cost_used
         assert usage.cost_limit
         assert usage.period_end
