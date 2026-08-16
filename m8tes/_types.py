@@ -1675,10 +1675,10 @@ class Balance:
     auto_reload_enabled: bool = False
     auto_reload_threshold_cents: int | None = None
     auto_reload_amount_cents: int | None = None
-    # The one-time welcome grant every signup receives, in cents, and whether this
-    # account has ever paid for a top-up. Together they let a client say "your first
-    # $X is on us" and stop saying it once real money has been added — without
-    # hardcoding the amount or string-matching the grant's description.
+    # Configured promotional grant (Settings.prepaid_starter_credit_cents, default $0) and
+    # whether this account has ever paid for a top-up. When the grant is > 0, clients can say
+    # a promotional balance is on the wallet until a real top-up; with the funding cutover the
+    # default is $0 so new accounts add funds or connect a model subscription instead.
     starter_credit_cents: int = 0
     has_paid_topup: bool = False
 
