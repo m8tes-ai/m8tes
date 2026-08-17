@@ -5514,6 +5514,27 @@ class TestChannels:
 
 
 @pytest.mark.integration
+class TestGitHubAppCoding:
+    """GET /github-app/status + agents.list_repos — coding setup surface (no real GitHub)."""
+
+    def test_status_and_empty_agent_repos(self, v2_client):
+        status = v2_client.github_app.status()
+        assert status.state in {
+            "not_configured",
+            "disconnected",
+            "suspended",
+            "all_repos",
+            "connected",
+        }
+        agent = v2_client.agents.create(name=f"coding-e2e-{_uid()}")
+        try:
+            page = v2_client.agents.list_repos(agent.id)
+            assert page.data == [] or all(r.repo_full_name for r in page.data)
+        finally:
+            v2_client.agents.delete(agent.id)
+
+
+@pytest.mark.integration
 class TestAccountPassword:
     """POST /account/password — the non-destructive password change.
 

@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Any
 
 from .._http import seg
 from .._types import (
+    AgentRepo,
     AgentSystemPrompt,
     EmailInbox,
     FetchmailInbox,
@@ -326,6 +327,75 @@ class Agents:
             params=_build_params(user_id=user_id),
         )
         return TeammateDocument.from_dict(resp.json())
+
+    def list_repos(self, agent_id: int, *, user_id: str | None = None) -> SyncPage[AgentRepo]:
+        """Repositories this agent can work in (inherits account install when empty)."""
+        resp = self._http.request(
+            "GET",
+            f"/agents/{seg(agent_id)}/repos",
+            params=_build_params(user_id=user_id),
+        )
+        body = resp.json()
+        return SyncPage(
+            data=[AgentRepo.from_dict(d) for d in body["data"]],
+            has_more=body.get("has_more", False),
+        )
+
+    def configure_repo(
+        self,
+        agent_id: int,
+        *,
+        repo_full_name: str,
+        mode: str | None = None,
+        user_id: str | None = None,
+    ) -> AgentRepo:
+        """Bind a repository to this agent. ``repo_id`` is resolved from GitHub."""
+        payload: dict[str, str] = {"repo_full_name": repo_full_name}
+        if mode is not None:
+            payload["mode"] = mode
+        resp = self._http.request(
+            "POST",
+            f"/agents/{seg(agent_id)}/repos",
+            params=_build_params(user_id=user_id),
+            json=payload,
+        )
+        return AgentRepo.from_dict(resp.json())
+
+    def approve_repo_commands(
+        self,
+        agent_id: int,
+        repo_id: int,
+        *,
+        commands_digest: str,
+        user_id: str | None = None,
+    ) -> AgentRepo:
+        """Approve setup/test/lint commands for the digest returned on the repo."""
+        resp = self._http.request(
+            "POST",
+            f"/agents/{seg(agent_id)}/repos/{seg(repo_id)}/approve-commands",
+            params=_build_params(user_id=user_id),
+            json={"commands_digest": commands_digest},
+        )
+        return AgentRepo.from_dict(resp.json())
+
+    def clear_repo_commands(
+        self, agent_id: int, repo_id: int, *, user_id: str | None = None
+    ) -> AgentRepo:
+        """Clear proposed commands without removing the repo binding."""
+        resp = self._http.request(
+            "DELETE",
+            f"/agents/{seg(agent_id)}/repos/{seg(repo_id)}/commands",
+            params=_build_params(user_id=user_id),
+        )
+        return AgentRepo.from_dict(resp.json())
+
+    def remove_repo(self, agent_id: int, repo_id: int, *, user_id: str | None = None) -> None:
+        """Unconfigure one repo. The account GitHub install stays connected."""
+        self._http.request(
+            "DELETE",
+            f"/agents/{seg(agent_id)}/repos/{seg(repo_id)}",
+            params=_build_params(user_id=user_id),
+        )
 
     def disable(self, agent_id: int, *, user_id: str | None = None) -> Teammate:
         """Pause a teammate without archiving: schedules stop firing (reversibly)

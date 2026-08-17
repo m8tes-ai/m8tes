@@ -4,6 +4,14 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.8.0] - 2026-08-16
+
+### Added
+
+- **`client.github_app`** — status, install_url, claim, list_repos, disconnect for m8tes Code.
+- **`client.agents` repo methods** — list_repos, configure_repo, approve_repo_commands,
+  clear_repo_commands, remove_repo.
+
 ### Added
 - **`client.mcp_servers.create(..., kind="script", script_source=...)`** —
   persist a Python custom tool. Source is write-only; the response carries

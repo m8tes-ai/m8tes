@@ -29,11 +29,13 @@ from ._exceptions import (
 from ._resources.auth import Auth
 from ._resources.billing import Billing
 from ._resources.channels import Channels
+from ._resources.github_app import GitHubApp
 from ._resources.webhooks import Webhooks
 from ._streaming import RunStream
 from ._types import (
     AccountSettings,
     Agent,
+    AgentRepo,
     AgentSystemPrompt,
     AgentTemplate,
     ApiKeyCreated,
@@ -56,7 +58,9 @@ from ._types import (
     EmailInbox,
     EndUser,
     EndUserUsage,
+    GitHubAppStatus,
     GitHubInstallLink,
+    GitHubRepository,
     HandleLink,
     Lesson,
     LessonList,
@@ -127,6 +131,7 @@ __all__ = [
     "AccountSettings",
     "Agent",
     "AgentError",
+    "AgentRepo",
     "AgentSystemPrompt",
     "AgentTemplate",
     "ApiKeyCreated",
@@ -158,7 +163,10 @@ __all__ = [
     "EndUser",
     "EndUserUsage",
     "ErrorEvent",
+    "GitHubApp",
+    "GitHubAppStatus",
     "GitHubInstallLink",
+    "GitHubRepository",
     "HandleLink",
     "IntegrationError",
     "Lesson",

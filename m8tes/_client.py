@@ -17,6 +17,7 @@ from ._resources import (
     Bridges,
     BuiltInTools,
     Channels,
+    GitHubApp,
     Keys,
     McpServers,
     Memories,
@@ -73,6 +74,7 @@ class M8tes:
         self.teammate_templates = self.agent_templates  # permanent alias
         self.bridges = Bridges(self._http)
         self.channels = Channels(self._http)
+        self.github_app = GitHubApp(self._http)
         self.runs = Runs(self._http)
         self.tasks = Tasks(self._http)
         self.apps = Apps(self._http)

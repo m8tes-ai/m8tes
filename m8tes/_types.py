@@ -797,6 +797,86 @@ class TeammateDocument:
 
 
 @dataclass
+class RepoSafety:
+    safe_to_run: bool
+    problems: list[str]
+
+    @classmethod
+    def from_dict(cls, data: dict) -> RepoSafety:
+        return cls(safe_to_run=bool(data["safe_to_run"]), problems=list(data.get("problems") or []))
+
+
+@dataclass
+class AgentRepo:
+    """A repository bound to an agent for coding runs."""
+
+    id: int
+    repo_full_name: str
+    repo_id: int
+    default_branch: str
+    mode: str
+    commands_approved: bool
+    commands_digest: str
+    setup_command: str | None = None
+    test_command: str | None = None
+    lint_command: str | None = None
+    safety: RepoSafety | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> AgentRepo:
+        safety = data.get("safety")
+        return cls(
+            id=data["id"],
+            repo_full_name=data["repo_full_name"],
+            repo_id=data["repo_id"],
+            default_branch=data["default_branch"],
+            mode=data["mode"],
+            commands_approved=bool(data["commands_approved"]),
+            commands_digest=data["commands_digest"],
+            setup_command=data.get("setup_command"),
+            test_command=data.get("test_command"),
+            lint_command=data.get("lint_command"),
+            safety=RepoSafety.from_dict(safety) if safety else None,
+        )
+
+
+@dataclass
+class GitHubAppStatus:
+    """Account m8tes Code GitHub App connection state."""
+
+    state: str
+    repo_count: int
+    account_login: str | None = None
+    install_allowed: bool = True
+
+    @classmethod
+    def from_dict(cls, data: dict) -> GitHubAppStatus:
+        return cls(
+            state=data["state"],
+            repo_count=int(data["repo_count"]),
+            account_login=data.get("account_login"),
+            install_allowed=bool(data.get("install_allowed", True)),
+        )
+
+
+@dataclass
+class GitHubRepository:
+    id: int
+    full_name: str
+    default_branch: str
+    private: bool
+
+    @classmethod
+    def from_dict(cls, data: dict) -> GitHubRepository:
+        return cls(
+            id=data["id"],
+            full_name=data["full_name"],
+            default_branch=data["default_branch"],
+            private=bool(data["private"]),
+        )
+
+
+@dataclass
 class RunOutcome:
     """Condensed result of a run — the outcome, not the transcript.
 
