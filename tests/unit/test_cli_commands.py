@@ -398,9 +398,9 @@ class TestMateCommands:
 
         cmd.add_arguments(parser)
 
-        # Test with mate ID
-        args = parser.parse_args(["mate-123"])
-        assert args.mate_id == "mate-123"
+        # Positional renamed mate_id -> agent_id in the agent-era vocabulary sweep.
+        args = parser.parse_args(["agent-123"])
+        assert args.agent_id == "agent-123"
 
     def test_create_command_requires_client(self):
         """Test create command requires authenticated client."""
@@ -511,19 +511,19 @@ class TestMateCommands:
         assert call_kwargs["role"] == "Campaign Optimizer"
 
     @patch("m8tes.cli.mates.MateCLI")
-    def test_get_command_execute_with_mate_id(self, mock_mate_cli_class):
-        """Test get command execution with teammate ID."""
+    def test_get_command_execute_with_agent_id(self, mock_mate_cli_class):
+        """Test get command execution with agent ID."""
         mock_mate_cli = Mock()
         mock_mate_cli_class.return_value = mock_mate_cli
         mock_client = Mock()
 
         cmd = GetCommand()
-        args = Namespace(mate_id="mate-123")
+        args = Namespace(agent_id="agent-123")
 
         result = cmd.execute(args, mock_client)
 
         assert result == 0
-        mock_mate_cli.get_interactive.assert_called_once_with("mate-123")
+        mock_mate_cli.get_interactive.assert_called_once_with("agent-123")
 
     @patch("m8tes.cli.mates.MateCLI")
     def test_update_command_non_interactive_passes_imessage_fields(self, mock_mate_cli_class):
@@ -534,7 +534,7 @@ class TestMateCommands:
 
         cmd = UpdateCommand()
         args = Namespace(
-            mate_id="123",
+            agent_id="123",
             name=None,
             instructions=None,
             non_interactive=True,
@@ -612,7 +612,7 @@ class TestMateCommands:
         mock_client = Mock()
 
         cmd = ChatCommand()
-        args = Namespace(mate_id="123", resume=None, output="verbose")
+        args = Namespace(agent_id="123", resume=None, output="verbose")
 
         result = cmd.execute(args, mock_client)
 
@@ -690,14 +690,16 @@ class TestRunCommands:
         from m8tes.cli.commands.run import ListTeammateRunsCommand
 
         cmd = ListTeammateRunsCommand()
-        assert cmd.name == "list-mate"
+        assert cmd.name == "list-agent"
+        # Legacy spellings stay functional as unadvertised aliases.
         assert "lm" in cmd.aliases
+        assert "list-mate" in cmd.aliases
         assert cmd.requires_auth
         assert "agent" in cmd.description.lower()
         assert "teammate" not in cmd.description.lower()
 
     def test_list_teammate_runs_command_arguments(self):
-        """Test list teammate runs command uses mate_id parameter."""
+        """Test list-agent command uses the agent_id positional."""
         from m8tes.cli.commands.run import ListTeammateRunsCommand
 
         cmd = ListTeammateRunsCommand()
@@ -705,7 +707,7 @@ class TestRunCommands:
         cmd.add_arguments(parser)
 
         args = parser.parse_args(["7", "--limit", "5"])
-        assert args.mate_id == "7"
+        assert args.agent_id == "7"
         assert args.limit == 5
 
     def test_list_teammate_runs_requires_client(self):
@@ -713,7 +715,7 @@ class TestRunCommands:
         from m8tes.cli.commands.run import ListTeammateRunsCommand
 
         cmd = ListTeammateRunsCommand()
-        args = Namespace(mate_id="7", limit=10)
+        args = Namespace(agent_id="7", limit=10)
 
         result = cmd.execute(args, None)
         assert result == 1

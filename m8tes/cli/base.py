@@ -104,18 +104,22 @@ class CommandGroup(Command):
             if isinstance(parser, SuggestingArgumentParser)
             else type(parser)
         )
+        # Same treatment as the top-level parser (main.py): `metavar` replaces the raw
+        # `{create,c,list,ls,...}` choice dump, primaries-only registration keeps alias
+        # noise out of the rows, and wiring aliases into `choices` (the public name for
+        # `_name_parser_map`) keeps every alias resolving and did-you-mean-able.
         subparsers = parser.add_subparsers(
             dest=f"{self.name}_command",
             help=f"{self.description} commands",
             parser_class=parser_class,
+            metavar="<subcommand>",
         )
 
         for command in self.subcommands:
-            # Create subparser with primary name and aliases
-            subparser = subparsers.add_parser(
-                command.name, aliases=command.aliases, help=command.description
-            )
+            subparser = subparsers.add_parser(command.name, help=command.description)
             command.add_arguments(subparser)
+            for alias in command.aliases:
+                subparsers.choices[alias] = subparser
 
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
         """Execute the appropriate subcommand based on parsed arguments."""

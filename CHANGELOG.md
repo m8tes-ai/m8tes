@@ -13,6 +13,56 @@ All notable changes to the m8tes Python SDK will be documented in this file.
   paste-code completion for Gemini CLI OAuth. `authorize("gemini")` starts the Google
   PKCE session (`user_code` is null); list/disconnect treat `gemini` as a first-class
   provider alongside Claude, Codex, and Grok.
+## [4.8.0] - 2026-08-16
+
+### Added
+- **`m8tes.testing`** — test your integration offline, with no spend and no side
+  effects. `MockM8tes` (or `MockTransport().install(client)`) answers the SDK's
+  real HTTP client from registered fixtures, so request building, retries, typed
+  error mapping, and SSE parsing are all the production code paths.
+  `agent_payload` / `run_payload` / `task_payload` / `page_payload` build
+  realistic v2 wire payloads; `StreamBuilder` builds SSE streams the SDK's own
+  parser consumes (including failure streams with a semantic `error_code`);
+  `error_envelope` builds v2 error responses for exception-path tests. Zero
+  extra dependencies. Recorded headers are credential-redacted (`Authorization`
+  is never retained verbatim — `install()` mounts on clients holding real
+  keys), and a query string on a fixture makes it query-aware: the request
+  must send those params, so a tenant-isolation test fails when code drops
+  `user_id` instead of silently matching; `RecordedCall.params` carries the
+  parsed query for assertions.
+- **`exc.error_code`** on every SDK exception — the semantic error code (e.g.
+  `RUN_LIMIT_REACHED`, `TOKEN_BALANCE_DEPLETED`), read from the envelope's
+  top-level `error.error_code` (newer backends) with fallback to
+  `error.details.error_code` (current backends). Branch on it instead of
+  parsing messages; `exc.status_code` stays the int HTTP status.
+
+### Changed
+- **`signup()` docstring now states the funding model correctly.** Runs are
+  prepaid: a new account starts at $0, so top up (https://m8tes.ai/developer) or
+  connect a model subscription before the first run — an unfunded run fails with
+  `TOKEN_BALANCE_DEPLETED` and a `topup_url`. The old wording framed the
+  email-verification allowance as free funding; verification and funding are
+  separate gates (the verification threshold is stated by the docstring and may
+  change server-side — 25 completed runs at time of writing).
+- **`CONTRIBUTING.md` matches the actual contribution path** (issues +
+  support@m8tes.ai; the repo is synced from an internal monorepo and doesn't
+  take external PRs), and `SECURITY.md`'s supported-versions table was replaced
+  with version-agnostic prose so it can't drift again.
+- **CLI finishes the agent-era vocabulary sweep.** `m8tes run list-mate` is now
+  `m8tes run list-agent` (old spellings `list-mate`/`lm` keep working as
+  unadvertised aliases), user-visible positionals say `agent_id` (not
+  `mate_id`), and subcommand group help (`m8tes agent --help`, `m8tes run
+  --help`, …) gets the same clean `<subcommand>` treatment the top level got —
+  no more raw `{create,c,list,ls,...}` choice dump.
+
+### Removed
+- **The repo's own CodeQL workflow.** GitHub's default-setup code scanning has
+  owned this repository since day one and rejects SARIF from committed CodeQL
+  workflows by design ("analyses from advanced configurations cannot be
+  processed when the default setup is enabled"), so the committed workflow
+  failed on every push — 78 runs, zero successes — while default setup already
+  scans a superset (Python + Actions) on every push. Do not re-add a
+  `codeql.yml` here while default setup is enabled.
 
 ## [4.7.1] - 2026-08-16
 

@@ -332,6 +332,87 @@ class TestNestedBillingCode:
         assert exc_info.value.details == {}
 
 
+class TestSemanticErrorCode:
+    """`exc.error_code` carries the semantic app code (e.g. RUN_LIMIT_REACHED).
+
+    Newer backends send it as top-level `error.error_code`; older ones only nest
+    it in `error.details.error_code`. The SDK must surface both, preferring the
+    top-level field, and leave `error_code` None when neither is present.
+    (`error.code` stays the int HTTP status and never leaks into `error_code`.)
+    """
+
+    @responses.activate
+    def test_top_level_error_code_wins(self, http):
+        responses.add(
+            responses.POST,
+            "https://api.m8tes.ai/v2/runs",
+            json={
+                "error": {
+                    "type": "billing_error",
+                    "message": "Balance depleted.",
+                    "code": 402,
+                    "error_code": "TOKEN_BALANCE_DEPLETED",
+                    "details": {"error_code": "STALE_NESTED_CODE"},
+                }
+            },
+            status=402,
+        )
+        with pytest.raises(BillingError) as exc_info:
+            http.request("POST", "/runs")
+        assert exc_info.value.error_code == "TOKEN_BALANCE_DEPLETED"
+
+    @responses.activate
+    def test_falls_back_to_nested_details_error_code(self, http):
+        """Current prod nests the code in details only — must still surface."""
+        responses.add(
+            responses.POST,
+            "https://api.m8tes.ai/v2/runs",
+            json={
+                "error": {
+                    "type": "billing_error",
+                    "message": "Run limit reached.",
+                    "code": 402,
+                    "details": {"error_code": "RUN_LIMIT_REACHED"},
+                }
+            },
+            status=402,
+        )
+        with pytest.raises(BillingError) as exc_info:
+            http.request("POST", "/runs")
+        assert exc_info.value.error_code == "RUN_LIMIT_REACHED"
+
+    @responses.activate
+    def test_absent_everywhere_is_none(self, http):
+        responses.add(
+            responses.GET,
+            "https://api.m8tes.ai/v2/x",
+            json={"error": {"message": "nope", "code": 404}},
+            status=404,
+        )
+        with pytest.raises(NotFoundError) as exc_info:
+            http.request("GET", "/x")
+        assert exc_info.value.error_code is None
+
+    @responses.activate
+    def test_non_string_top_level_error_code_falls_back(self, http):
+        """A malformed (non-string) top-level error_code never becomes the attribute."""
+        responses.add(
+            responses.POST,
+            "https://api.m8tes.ai/v2/runs",
+            json={
+                "error": {
+                    "message": "boom",
+                    "error_code": 402,
+                    "details": {"error_code": "RUN_LIMIT_REACHED"},
+                }
+            },
+            status=402,
+        )
+        with pytest.raises(BillingError) as exc_info:
+            http.request("POST", "/runs")
+        assert exc_info.value.error_code == "RUN_LIMIT_REACHED"
+
+
 class TestRetryLogic:
     """Retry behaviour: 429/5xx retried up to 3 times, network errors retried."""
 

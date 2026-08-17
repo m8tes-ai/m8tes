@@ -14,13 +14,7 @@ We'll acknowledge your report within 48 hours and aim to ship a fix within 14 da
 
 ## Supported versions
 
-We actively maintain the latest major version of the SDK. Security fixes are backported to the previous major version when practical.
-
-| Version | Supported |
-|---------|-----------|
-| 2.x     | ✓         |
-| 1.x     | security fixes when practical |
-| < 1.0   | ✗         |
+We actively maintain the latest major version of the SDK ([current release](https://pypi.org/project/m8tes/)). Security fixes are backported to the previous major version when practical; anything older is unsupported — upgrade to the latest release.
 
 ## Scope
 

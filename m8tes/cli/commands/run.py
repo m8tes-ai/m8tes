@@ -134,28 +134,30 @@ class ListRunsCommand(Command):
 class ListTeammateRunsCommand(Command):
     """List runs for a specific teammate."""
 
-    name = "list-mate"
-    aliases: ClassVar[list[str]] = ["lm"]
+    # Renamed from `list-mate` in the agent-era vocabulary sweep; the old names stay
+    # as unadvertised aliases so existing muscle memory keeps working.
+    name = "list-agent"
+    aliases: ClassVar[list[str]] = ["la", "list-mate", "lm"]
     description = "List runs for a specific agent"
     requires_auth = True
 
     def add_arguments(self, parser: ArgumentParser) -> None:
-        """Add list-mate-specific arguments."""
-        parser.add_argument("mate_id", help="Agent ID")
+        """Add list-agent-specific arguments."""
+        parser.add_argument("agent_id", help="Agent ID")
         parser.add_argument("--limit", type=int, default=10, help="Maximum runs to return")
 
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
-        """Execute teammate run listing."""
+        """Execute per-agent run listing."""
         if not client:
             print("❌ Authentication required")
             return 1
 
         try:
-            mate_id = int(args.mate_id)
+            agent_id = int(args.agent_id)
             limit = getattr(args, "limit", 10)
-            runs = client.runs.list(agent_id=mate_id, limit=limit).data
+            runs = client.runs.list(agent_id=agent_id, limit=limit).data
 
-            print(f"🏃 Runs for Agent {mate_id} (showing {len(runs)})")
+            print(f"🏃 Runs for Agent {agent_id} (showing {len(runs)})")
             print()
 
             if not runs:

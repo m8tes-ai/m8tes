@@ -36,8 +36,13 @@ def signup(
     link to set their own password and activate it, and the returned key is setup-only until
     they do (revoked on activation). This is the recommended flow when an agent onboards a
     human — the agent never holds a login credential. Pass a ``password`` to create a normal
-    account. ``product``: "api" (developer/prepaid) or "platform" (team product). Either way,
-    verify/activate before unrestricted runs (a small preview allowance runs first).
+    account. ``product``: "api" (developer/prepaid) or "platform" (team product).
+
+    Runs are prepaid: a new account starts at $0, so top up (https://m8tes.ai/developer)
+    or connect a model subscription before the first run — an unfunded run fails with
+    TOKEN_BALANCE_DEPLETED and a topup_url. Verification is separate: a preview
+    allowance (25 completed runs by default) lets you build first; after that, runs
+    fail with EMAIL_VERIFICATION_REQUIRED until the owner verifies/activates the account.
 
     ``require_end_user_id`` (strict multi-tenant mode): omit for the product default —
     ON for "api" signups (a forgotten ``user_id`` fails loudly instead of writing to the

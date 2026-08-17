@@ -15,6 +15,7 @@ class M8tesError(Exception):
         retry_after: float | None = None,
         details: dict | None = None,
         doc_url: str | None = None,
+        error_code: str | None = None,
     ):
         super().__init__(message)
         self.message = message
@@ -29,6 +30,11 @@ class M8tesError(Exception):
         # (e.g. "RUN_LIMIT_REACHED", "OVERAGE_CAP_REACHED", "TRIAL_EXPIRED"). Falls
         # back to a top-level string code when no nested code is present.
         self.code = code
+        # The semantic error code from the envelope's top-level error.error_code
+        # (newer backends), falling back to error.details.error_code (current prod).
+        # Branch on this rather than parsing the message; None when the server sent
+        # neither. Never the int HTTP status — that stays on `status_code`.
+        self.error_code = error_code
         # Seconds to wait before retrying, from the Retry-After header. Set on
         # RateLimitError (429); None when the response carried no such header.
         self.retry_after = retry_after

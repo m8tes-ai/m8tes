@@ -379,6 +379,8 @@ def test_matches_the_cross_language_corpus(case):
 @pytest.mark.parametrize("case", CORPUS["refused"], ids=[c["name"] for c in CORPUS["refused"]])
 @responses.activate
 def test_the_corpus_refusals_are_refused(case):
+    """Both clients refuse these before anything is sent — this is the Python half;
+    `parity.test.ts` asserts the TypeScript half throws on the same corpus entries."""
     _catch_all()
     spec = case["python"]
     args = [case["value"] if a == "$VALUE" else a for a in spec["args"]]
@@ -388,6 +390,16 @@ def test_the_corpus_refusals_are_refused(case):
         method(*args, **spec.get("kwargs", {}))
 
     assert len(responses.calls) == 0
+
+    # The corpus convention: `typescript_path` on a refused entry pinned the URL the
+    # TypeScript client STILL BUILT for a value Python refused. Since the TS client
+    # refuses the same set, the field goes away — one creeping back in would claim a
+    # TS regression as documented behavior, so its absence is asserted, not assumed.
+    assert "typescript_path" not in case, (
+        f"{case['name']}: refused entries carry no typescript_path — both clients "
+        f"refuse this value; if the TypeScript client started building a URL for it "
+        f"again, that is a regression to fix, not to record"
+    )
 
 
 def test_the_corpus_covers_the_routes_that_take_a_string_segment():

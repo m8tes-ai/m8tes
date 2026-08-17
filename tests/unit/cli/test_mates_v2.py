@@ -450,19 +450,19 @@ class TestCommandExitCodes:
 
     def test_get_v2_not_found_exits_1(self, client):
         client.agents.get.side_effect = NotFoundError("gone", status_code=404)
-        assert GetCommand().execute(Namespace(mate_id="1"), client) == 1
+        assert GetCommand().execute(Namespace(agent_id="1"), client) == 1
 
     def test_get_non_numeric_id_exits_1(self, client):
         # parse_id raises the LEGACY ValidationError — still mapped to exit 1.
-        assert GetCommand().execute(Namespace(mate_id="abc"), client) == 1
+        assert GetCommand().execute(Namespace(agent_id="abc"), client) == 1
 
     def test_enable_network_failure_exits_1(self, client):
         client.agents.get.side_effect = APIError("connection refused")
-        assert EnableCommand().execute(Namespace(mate_id="1"), client) == 1
+        assert EnableCommand().execute(Namespace(agent_id="1"), client) == 1
 
     def test_archive_not_found_exits_1(self, client):
         client.agents.get.side_effect = NotFoundError("gone", status_code=404)
-        assert ArchiveCommand().execute(Namespace(mate_id="1", force=True), client) == 1
+        assert ArchiveCommand().execute(Namespace(agent_id="1", force=True), client) == 1
 
     def test_task_failed_run_exits_1(self, client, capsys):
         client.agents.get.return_value = _teammate(id=3)

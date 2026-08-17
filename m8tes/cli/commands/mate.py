@@ -222,10 +222,10 @@ class GetCommand(Command):
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add get-specific arguments."""
-        parser.add_argument("mate_id", help="Agent ID to retrieve")
+        parser.add_argument("agent_id", help="Agent ID to retrieve")
 
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
-        """Execute teammate get."""
+        """Execute agent get."""
         if not client:
             print("❌ Authentication required for agent management")
             show_auth_guidance()
@@ -235,8 +235,7 @@ class GetCommand(Command):
 
         mate_cli = MateCLI(client)
         try:
-            mate_id = args.mate_id
-            mate_cli.get_interactive(mate_id)
+            mate_cli.get_interactive(args.agent_id)
             return 0
         except _AUTH_ERRORS as e:
             print(f"❌ Authentication failed: {e}")
@@ -291,7 +290,7 @@ class TaskCommand(Command):
             nargs="+",
             action=_SplitCommandArgsAction,
             help=(
-                "[mate_id] message - mate_id is optional (will auto-detect). "
+                "[agent_id] message - agent_id is optional (will auto-detect). "
                 'Examples: task 7 "Do X" or task "Do X"'
             ),
         )
@@ -335,9 +334,9 @@ class TaskCommand(Command):
             try:
                 mate_id = int(args.command_args[0])
                 if len(args.command_args) < 2:
-                    print("❌ Message required when specifying mate_id")
-                    print("   Usage: m8tes mate task <mate_id> <message>")
-                    print('   Example: m8tes mate task 7 "Do something"')
+                    print("❌ Message required when specifying agent_id")
+                    print("   Usage: m8tes agent task <agent_id> <message>")
+                    print('   Example: m8tes agent task 7 "Do something"')
                     return 1
                 message = " ".join(args.command_args[1:])
             except (ValueError, IndexError):
@@ -390,7 +389,7 @@ class ChatCommand(Command):
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add chat-specific arguments."""
         parser.add_argument(
-            "mate_id",
+            "agent_id",
             nargs="?",
             help="Agent ID (optional, will auto-detect if not provided)",
         )
@@ -420,11 +419,11 @@ class ChatCommand(Command):
         try:
             # Parse mate_id (may be None for auto-detect)
             mate_id = None
-            if args.mate_id:
+            if args.agent_id:
                 try:
-                    mate_id = int(args.mate_id)
+                    mate_id = int(args.agent_id)
                 except ValueError:
-                    print(f"❌ Invalid agent ID: {args.mate_id}")
+                    print(f"❌ Invalid agent ID: {args.agent_id}")
                     return 1
 
             # Get or confirm mate_id (with auto-detection)
@@ -467,7 +466,7 @@ class UpdateCommand(Command):
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add update-specific arguments."""
-        parser.add_argument("mate_id", help="Agent ID to update")
+        parser.add_argument("agent_id", help="Agent ID to update")
         # Non-interactive mode flags
         parser.add_argument("--name", help="New agent name (for non-interactive mode)")
         parser.add_argument(
@@ -504,7 +503,7 @@ class UpdateCommand(Command):
 
         mate_cli = MateCLI(client)
         try:
-            mate_id = args.mate_id
+            mate_id = args.agent_id
 
             # Check for non-interactive mode
             non_interactive = getattr(args, "non_interactive", False)
@@ -567,7 +566,7 @@ class EnableCommand(Command):
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add enable-specific arguments."""
-        parser.add_argument("mate_id", help="Agent ID to enable")
+        parser.add_argument("agent_id", help="Agent ID to enable")
 
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
         """Execute teammate enable."""
@@ -580,7 +579,7 @@ class EnableCommand(Command):
 
         mate_cli = MateCLI(client)
         try:
-            mate_id = args.mate_id
+            mate_id = args.agent_id
             mate_cli.enable_interactive(mate_id)
             return 0
         except _AUTH_ERRORS as e:
@@ -605,7 +604,7 @@ class DisableCommand(Command):
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add disable-specific arguments."""
-        parser.add_argument("mate_id", help="Agent ID to disable")
+        parser.add_argument("agent_id", help="Agent ID to disable")
         parser.add_argument(
             "--force",
             action="store_true",
@@ -623,7 +622,7 @@ class DisableCommand(Command):
 
         mate_cli = MateCLI(client)
         try:
-            mate_id = args.mate_id
+            mate_id = args.agent_id
             force = getattr(args, "force", False)
             mate_cli.disable_interactive(mate_id, force)
             return 0
@@ -649,7 +648,7 @@ class ArchiveCommand(Command):
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add archive-specific arguments."""
-        parser.add_argument("mate_id", help="Agent ID to archive")
+        parser.add_argument("agent_id", help="Agent ID to archive")
         parser.add_argument(
             "--force",
             action="store_true",
@@ -667,7 +666,7 @@ class ArchiveCommand(Command):
 
         mate_cli = MateCLI(client)
         try:
-            mate_id = args.mate_id
+            mate_id = args.agent_id
             force = getattr(args, "force", False)
             mate_cli.archive_interactive(mate_id, force)
             return 0

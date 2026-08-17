@@ -151,3 +151,56 @@ def test_unknown_command_still_suggests_a_close_match(parser, capsys):
         parser.parse_args(["agnt"])
     err = capsys.readouterr().err
     assert "agent" in err, f"no suggestion for a near-miss command: {err!r}"
+
+
+# --- Subgroup help (m8tes agent --help, m8tes run --help) -----------------------
+# Same rule one level down (live DX audit 2026-08-16): the top-level help got the
+# metavar treatment, but subgroups still opened with the raw choice dump
+# ({create,c,list,ls,...}) and advertised aliases per row. And the newest surface
+# still shipped the pre-rename vocabulary: `run list-mate`, a `mate_id` positional.
+
+
+def _subgroup_help(parser, name: str) -> str:
+    import argparse
+
+    action = next(a for a in parser._actions if isinstance(a, argparse._SubParsersAction))
+    return action.choices[name].format_help()
+
+
+def test_subgroup_help_has_no_choice_dump(parser):
+    for group in ("agent", "run", "task", "auth", "apps"):
+        text = _subgroup_help(parser, group)
+        assert "{create,c," not in text, f"raw choice dump in `m8tes {group} --help`"
+        assert "{list," not in text, f"raw choice dump in `m8tes {group} --help`"
+
+
+def test_run_group_speaks_agent_not_mate(parser):
+    text = _subgroup_help(parser, "run")
+    assert "list-agent" in text
+    assert "list-mate" not in text  # alias stays functional, is not advertised
+    assert "mate_id" not in text
+
+
+def test_agent_group_positionals_say_agent_id(parser):
+    import argparse
+
+    action = next(a for a in parser._actions if isinstance(a, argparse._SubParsersAction))
+    agent = action.choices["agent"]
+    sub = next(a for a in agent._actions if isinstance(a, argparse._SubParsersAction))
+    get_help = sub.choices["get"].format_help()
+    assert "agent_id" in get_help
+    assert "mate_id" not in get_help
+    task_help = sub.choices["task"].format_help()
+    assert "mate_id" not in task_help
+
+
+def test_legacy_subcommand_aliases_still_resolve(parser):
+    import argparse
+
+    action = next(a for a in parser._actions if isinstance(a, argparse._SubParsersAction))
+    run_sub = next(
+        a for a in action.choices["run"]._actions if isinstance(a, argparse._SubParsersAction)
+    )
+    for legacy in ("list-mate", "lm"):
+        assert legacy in run_sub.choices, f"`m8tes run {legacy}` must keep working"
+    assert "list-agent" in run_sub.choices

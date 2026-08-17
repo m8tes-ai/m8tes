@@ -11,7 +11,7 @@ the not-yet-ported commands) still raises the legacy `m8tes.exceptions`
 ValidationError for a non-numeric ID.
 """
 
-from argparse import ArgumentParser, Namespace
+from argparse import SUPPRESS, ArgumentParser, Namespace
 from collections.abc import Callable
 from typing import TYPE_CHECKING, ClassVar, Optional
 
@@ -92,9 +92,14 @@ class CreateCommand(Command):
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add create-specific arguments."""
         # Non-interactive mode flags
+        # --agent-id is the advertised spelling; --mate-id keeps old scripts working.
         parser.add_argument(
-            "--mate-id", help="Agent ID to assign task to (for non-interactive mode)"
+            "--agent-id",
+            dest="mate_id",
+            metavar="AGENT_ID",
+            help="Agent ID to assign task to (for non-interactive mode)",
         )
+        parser.add_argument("--mate-id", dest="mate_id", help=SUPPRESS)
         parser.add_argument("--name", help="Task name (for non-interactive mode)")
         parser.add_argument("--instructions", help="Task instructions (for non-interactive mode)")
         parser.add_argument(
@@ -164,9 +169,12 @@ class ListCommand(Command):
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add list-specific arguments."""
         parser.add_argument(
-            "--mate-id",
+            "--agent-id",
+            dest="mate_id",
+            metavar="AGENT_ID",
             help="Filter by agent ID",
         )
+        parser.add_argument("--mate-id", dest="mate_id", help=SUPPRESS)
         parser.add_argument(
             "--status",
             help="Filter by status",

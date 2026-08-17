@@ -25,16 +25,15 @@
     "            to a basename in the handler, so a divergence there would not be free",
     "            either.",
     "",
-    "  `refused` values the Python client refuses outright (m8tes.ValidationError).",
-    "            Encoding them is not enough: an ASGI server percent-decodes the path",
-    "            before routing it, so an escaped separator still selects a different",
-    "            route, and the empty string and the dot segments resolve onto the",
-    "            collection or the parent. `typescript_path` records the URL the",
-    "            TypeScript client builds for the same input TODAY. That is a pin,",
-    "            not an endorsement: the two clients are not yet aligned here, and",
-    "            recording the current value is what makes any change to it",
-    "            deliberate and visible. When both refuse, the field goes away and",
-    "            both halves assert a throw.",
+    "  `refused` values BOTH clients refuse outright before anything is sent",
+    "            (Python: m8tes.ValidationError; TypeScript: ValidationError from",
+    "            src/protocol/seg.ts). Encoding them is not enough: an ASGI server",
+    "            percent-decodes the path before routing it, so an escaped separator",
+    "            still selects a different route, and the empty string and the dot",
+    "            segments resolve onto the collection or the parent. Both halves",
+    "            assert a throw and that no request reached the wire. (These entries",
+    "            once carried `typescript_path`, pinning the URL the TypeScript",
+    "            client still built; the field went away when it started refusing.)",
     "",
     "`$VALUE` is substituted with the case's `value` before the call is made."
   ],
@@ -282,7 +281,6 @@
     {
       "name": "a slash reaches a sibling sub-route once the server decodes",
       "value": "5/messages",
-      "typescript_path": "/runs/5/messages",
       "note": "An escaped separator still selects a different route once decoded.",
       "python": {
         "resource": "runs",
@@ -302,7 +300,6 @@
     {
       "name": "climbing out of the resource prefix entirely",
       "value": "../account/export",
-      "typescript_path": "/users/..%2Faccount%2Fexport",
       "note": "The original report: this left the resource prefix entirely.",
       "python": {
         "resource": "users",
@@ -322,7 +319,6 @@
     {
       "name": "an empty segment collapses onto the collection route",
       "value": "",
-      "typescript_path": "/users/",
       "note": "An empty segment resolves onto the collection route.",
       "python": {
         "resource": "users",
@@ -342,7 +338,6 @@
     {
       "name": "a lone dot collapses onto the collection route",
       "value": ".",
-      "typescript_path": "/users/.",
       "note": "requests resolves the dot segment in prepare_url.",
       "python": {
         "resource": "users",
@@ -362,7 +357,6 @@
     {
       "name": "a lone dot-dot climbs to the parent",
       "value": "..",
-      "typescript_path": "/users/..",
       "note": "requests resolves this to the parent before the request leaves the process; escaping does not survive requote_uri either.",
       "python": {
         "resource": "users",
@@ -382,7 +376,6 @@
     {
       "name": "a trailing separator produces a 307 the client follows to a raw dot segment",
       "value": "../",
-      "typescript_path": "/users/..%2F",
       "note": "Starlette's redirect_slashes answers 307 and requests follows the Location verbatim without re-preparing the URL, so a raw `..` reaches the wire. It lands on the {user_id} route with user_id='..' rather than climbing — but the SDK should not be emitting a dot segment at all.",
       "python": {
         "resource": "users",
@@ -402,7 +395,6 @@
     {
       "name": "an app slug carrying a separator",
       "value": "../../account",
-      "typescript_path": "/apps/..%2F..%2Faccount/connect/api-key",
       "note": "Same class as the users case, on the other string-typed segment.",
       "python": {
         "resource": "apps",
@@ -428,7 +420,6 @@
     {
       "name": "a run filename carrying a separator, which the handler rejects anyway",
       "value": "../../../etc/passwd",
-      "typescript_path": "/runs/42/files/..%2F..%2F..%2Fetc%2Fpasswd/download",
       "note": "The route declares {filename:path}, but its handler sanitizes the filename to a basename, so a value carrying a separator cannot resolve there either — the SDK refuses it with the same rule as every other segment.",
       "python": {
         "resource": "runs",

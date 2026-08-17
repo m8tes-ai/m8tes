@@ -53,27 +53,27 @@ class TestMateCommandExitCodes:
 
     def test_get_auth_failure_exits_1(self):
         client = _client_raising("agents.get", AuthenticationError("Invalid API key"))
-        assert MateGetCommand().execute(Namespace(mate_id="1"), client) == 1
+        assert MateGetCommand().execute(Namespace(agent_id="1"), client) == 1
 
     def test_get_non_numeric_id_exits_1(self):
-        assert MateGetCommand().execute(Namespace(mate_id="abc"), Mock()) == 1
+        assert MateGetCommand().execute(Namespace(agent_id="abc"), Mock()) == 1
 
     def test_update_network_failure_exits_1(self):
         client = _client_raising("agents.get", APIError("connection refused"))
-        args = Namespace(mate_id="1", non_interactive=True, name="x")
+        args = Namespace(agent_id="1", non_interactive=True, name="x")
         assert MateUpdateCommand().execute(args, client) == 1
 
     def test_enable_failure_exits_1(self):
         client = _client_raising("agents.get", APIError("connection refused"))
-        assert MateEnableCommand().execute(Namespace(mate_id="1"), client) == 1
+        assert MateEnableCommand().execute(Namespace(agent_id="1"), client) == 1
 
     def test_disable_failure_exits_1(self):
         client = _client_raising("agents.get", APIError("connection refused"))
-        assert MateDisableCommand().execute(Namespace(mate_id="1", force=True), client) == 1
+        assert MateDisableCommand().execute(Namespace(agent_id="1", force=True), client) == 1
 
     def test_archive_failure_exits_1(self):
         client = _client_raising("agents.get", APIError("connection refused"))
-        assert MateArchiveCommand().execute(Namespace(mate_id="1", force=True), client) == 1
+        assert MateArchiveCommand().execute(Namespace(agent_id="1", force=True), client) == 1
 
 
 class TestTaskCommandExitCodes:

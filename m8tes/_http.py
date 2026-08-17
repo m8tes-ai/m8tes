@@ -76,13 +76,12 @@ def seg(value: object) -> str:
     "None". A lone surrogate still raises `UnicodeEncodeError` from `quote`
     itself, which is not something this can convert.)
 
-    This is STRICTER than the TypeScript client, and by more than it looks:
-    `@m8tes/sdk` encodes three parameters (`userId`, `appName`, `filename`) and
-    interpolates the other ~43 raw, so most of its segments are not protected at
-    all rather than protected-but-lenient. Where both encode, the two are
+    The TypeScript client enforces the same rule: `@m8tes/sdk` routes every
+    dynamic segment through its own seg helper (`src/protocol/seg.ts`), which
+    refuses the same set this one refuses. Where both encode, the two are
     byte-identical apart from `!*'()`, which RFC 3986 reserves and
     `encodeURIComponent` alone leaves literal. Both halves are pinned by
-    `tests/data/path_encoding_parity.json`; the gap is filed in `TODOS.md`.
+    `tests/data/path_encoding_parity.json`.
 
     Every dynamic segment in this SDK goes through this one function — including
     a run's `filename`; see the note below on why that route needs no exception.
@@ -194,6 +193,7 @@ def _raise_for_status(resp: requests.Response, *, method: str = "", path: str = 
     message = f"HTTP {resp.status_code}"
     request_id = None
     code = None
+    error_code: str | None = None
     details: dict | None = None
     doc_url = None
     try:
@@ -233,6 +233,13 @@ def _raise_for_status(resp: requests.Response, *, method: str = "", path: str = 
                 code = nested_code
             elif isinstance(raw_code, str):
                 code = raw_code
+            # Semantic code: newer backends promote it to top-level error.error_code;
+            # older ones only nest it in details. Prefer top-level, fall back nested.
+            top_error_code = error_obj.get("error_code")
+            if isinstance(top_error_code, str):
+                error_code = top_error_code
+            elif isinstance(nested_code, str):
+                error_code = nested_code
     except (ValueError, KeyError, AttributeError):
         logger.debug("Failed to parse error body: %s", resp.text[:200] if resp.text else "empty")
         if _looks_like_html(resp):
@@ -269,6 +276,7 @@ def _raise_for_status(resp: requests.Response, *, method: str = "", path: str = 
         retry_after=retry_after,
         details=details,
         doc_url=doc_url,
+        error_code=error_code,
     )
 
 
