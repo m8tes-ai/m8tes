@@ -11,8 +11,13 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 - **`client.github_app`** — status, install_url, claim, list_repos, disconnect for m8tes Code.
 - **`client.agents` repo methods** — list_repos, configure_repo, approve_repo_commands,
   clear_repo_commands, remove_repo.
-
-### Added
+- **`user_id` end-user scoping on every sub-resource method.** `agents.reset /
+  enable_webhook / set_webhook_enabled / disable_webhook / enable_email_inbox /
+  disable_email_inbox / enable_fetchmail / disable_fetchmail`, `tasks.enable_webhook /
+  set_webhook_enabled / disable_webhook`, and `tasks.triggers.create / list / update /
+  delete` all accept `user_id=` and send it as the query param the API enforces
+  (404 on mismatch, like the by-id methods). Previously these methods could not
+  stay inside an end-user scope at all.
 - **`client.mcp_servers.create(..., kind="script", script_source=...)`** —
   persist a Python custom tool. Source is write-only; the response carries
   `script_sha256` and `script_allowlist`. `user_id` is rejected on `kind=script`.
@@ -21,9 +26,6 @@ All notable changes to the m8tes Python SDK will be documented in this file.
   paste-code completion for Gemini CLI OAuth. `authorize("gemini")` starts the Google
   PKCE session (`user_code` is null); list/disconnect treat `gemini` as a first-class
   provider alongside Claude, Codex, and Grok.
-## [4.8.0] - 2026-08-16
-
-### Added
 - **`m8tes.testing`** — test your integration offline, with no spend and no side
   effects. `MockM8tes` (or `MockTransport().install(client)`) answers the SDK's
   real HTTP client from registered fixtures, so request building, retries, typed

@@ -421,7 +421,9 @@ class Agents:
         )
         return Teammate.from_dict(resp.json())
 
-    def reset(self, agent_id: int, *, fields: _list[str] | None = None) -> _list[str]:
+    def reset(
+        self, agent_id: int, *, fields: _list[str] | None = None, user_id: str | None = None
+    ) -> _list[str]:
         """Clear customer overrides on a template-linked teammate.
 
         Templated teammates store user customizations in an overrides JSON; this
@@ -437,50 +439,74 @@ class Agents:
         body: dict = {}
         if fields is not None:
             body["fields"] = fields
-        resp = self._http.request("POST", f"/agents/{seg(agent_id)}/reset", json=body)
+        resp = self._http.request(
+            "POST",
+            f"/agents/{seg(agent_id)}/reset",
+            json=body,
+            params=_build_params(user_id=user_id),
+        )
         return _list(resp.json().get("reset_fields", []))
 
-    def enable_webhook(self, agent_id: int) -> TeammateWebhook:
+    def enable_webhook(self, agent_id: int, *, user_id: str | None = None) -> TeammateWebhook:
         """Enable (or rotate) the webhook trigger. Returns the URL (shown once).
 
         Calling again mints a fresh token, invalidating the previous URL — the rotation
-        path for a leaked whk_ URL.
+        path for a leaked whk_ URL. Pass user_id to scope to one end-user (404 on mismatch).
         """
-        resp = self._http.request("POST", f"/agents/{seg(agent_id)}/webhook")
+        resp = self._http.request(
+            "POST", f"/agents/{seg(agent_id)}/webhook", params=_build_params(user_id=user_id)
+        )
         return TeammateWebhook.from_dict(resp.json())
 
-    def set_webhook_enabled(self, agent_id: int, *, enabled: bool) -> TeammateWebhook:
+    def set_webhook_enabled(
+        self, agent_id: int, *, enabled: bool, user_id: str | None = None
+    ) -> TeammateWebhook:
         """Pause or resume the webhook WITHOUT rotating the token — the URL survives.
 
         Use this to pause for an afternoon; enable_webhook() would mint a new URL you'd
         have to re-distribute, and disable_webhook() destroys the token outright.
         """
         resp = self._http.request(
-            "PATCH", f"/agents/{seg(agent_id)}/webhook", json={"enabled": enabled}
+            "PATCH",
+            f"/agents/{seg(agent_id)}/webhook",
+            json={"enabled": enabled},
+            params=_build_params(user_id=user_id),
         )
         return TeammateWebhook.from_dict(resp.json())
 
-    def disable_webhook(self, agent_id: int) -> None:
+    def disable_webhook(self, agent_id: int, *, user_id: str | None = None) -> None:
         """Disable webhook trigger on a teammate. The token is destroyed, not paused."""
-        self._http.request("DELETE", f"/agents/{seg(agent_id)}/webhook")
+        self._http.request(
+            "DELETE", f"/agents/{seg(agent_id)}/webhook", params=_build_params(user_id=user_id)
+        )
 
-    def enable_email_inbox(self, agent_id: int) -> EmailInbox:
+    def enable_email_inbox(self, agent_id: int, *, user_id: str | None = None) -> EmailInbox:
         """Enable email inbox on a teammate. Returns the email address."""
-        resp = self._http.request("POST", f"/agents/{seg(agent_id)}/email-inbox")
+        resp = self._http.request(
+            "POST", f"/agents/{seg(agent_id)}/email-inbox", params=_build_params(user_id=user_id)
+        )
         return EmailInbox.from_dict(resp.json())
 
-    def disable_email_inbox(self, agent_id: int) -> None:
+    def disable_email_inbox(self, agent_id: int, *, user_id: str | None = None) -> None:
         """Disable email inbox on a teammate."""
-        self._http.request("DELETE", f"/agents/{seg(agent_id)}/email-inbox")
+        self._http.request(
+            "DELETE",
+            f"/agents/{seg(agent_id)}/email-inbox",
+            params=_build_params(user_id=user_id),
+        )
 
-    def enable_fetchmail(self, agent_id: int) -> FetchmailInbox:
+    def enable_fetchmail(self, agent_id: int, *, user_id: str | None = None) -> FetchmailInbox:
         """Enable read-only email inbox on a teammate. Returns the email address."""
-        resp = self._http.request("POST", f"/agents/{seg(agent_id)}/fetchmail")
+        resp = self._http.request(
+            "POST", f"/agents/{seg(agent_id)}/fetchmail", params=_build_params(user_id=user_id)
+        )
         return FetchmailInbox.from_dict(resp.json())
 
-    def disable_fetchmail(self, agent_id: int) -> None:
+    def disable_fetchmail(self, agent_id: int, *, user_id: str | None = None) -> None:
         """Disable read-only email inbox on a teammate."""
-        self._http.request("DELETE", f"/agents/{seg(agent_id)}/fetchmail")
+        self._http.request(
+            "DELETE", f"/agents/{seg(agent_id)}/fetchmail", params=_build_params(user_id=user_id)
+        )
 
 
 # Permanent back-compat alias — client.teammates keeps working forever.

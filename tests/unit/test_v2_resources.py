@@ -2143,3 +2143,75 @@ class TestChannels:
         both = ch.install_links()
         assert both.github is not None
         assert "acme-code" in both.github.install_url
+
+
+class TestSubresourceScopeForwarding:
+    """Every sub-resource method that gained `user_id` (2026-08-16 scope fix) must
+    put it on the WIRE as a query param — the endpoint enforces it there, so a
+    dropped `params=` silently strips the tenant boundary from the call while
+    every test that omits user_id stays green. One test per resource family,
+    asserting the recorded request's params, same shape as the by-id family."""
+
+    @responses.activate
+    def test_agent_subresources_forward_user_id(self, http):
+        t = Teammates(http)
+        responses.add(responses.POST, f"{BASE}/agents/1/reset", json={"reset_fields": []})
+        responses.add(
+            responses.POST, f"{BASE}/agents/1/webhook", json={"enabled": True, "url": "u"}
+        )
+        responses.add(
+            responses.PATCH, f"{BASE}/agents/1/webhook", json={"enabled": False, "url": "u"}
+        )
+        responses.add(responses.DELETE, f"{BASE}/agents/1/webhook", status=204)
+        responses.add(
+            responses.POST, f"{BASE}/agents/1/email-inbox", json={"enabled": True, "address": "a@b"}
+        )
+        responses.add(responses.DELETE, f"{BASE}/agents/1/email-inbox", status=204)
+        responses.add(
+            responses.POST, f"{BASE}/agents/1/fetchmail", json={"enabled": True, "address": "a@b"}
+        )
+        responses.add(responses.DELETE, f"{BASE}/agents/1/fetchmail", status=204)
+
+        t.reset(1, user_id="alice")
+        t.enable_webhook(1, user_id="alice")
+        t.set_webhook_enabled(1, enabled=False, user_id="alice")
+        t.disable_webhook(1, user_id="alice")
+        t.enable_email_inbox(1, user_id="alice")
+        t.disable_email_inbox(1, user_id="alice")
+        t.enable_fetchmail(1, user_id="alice")
+        t.disable_fetchmail(1, user_id="alice")
+        for call in responses.calls:
+            assert call.request.params.get("user_id") == "alice", call.request.url
+
+    @responses.activate
+    def test_task_subresources_forward_user_id(self, http):
+        tasks = Tasks(http)
+        responses.add(responses.POST, f"{BASE}/tasks/1/webhook", json={"enabled": True, "url": "u"})
+        responses.add(
+            responses.PATCH, f"{BASE}/tasks/1/webhook", json={"enabled": False, "url": "u"}
+        )
+        responses.add(responses.DELETE, f"{BASE}/tasks/1/webhook", status=204)
+        trig = {"id": "schedule_1", "type": "schedule", "enabled": True}
+        responses.add(responses.POST, f"{BASE}/tasks/1/triggers/", json=trig)
+        responses.add(responses.GET, f"{BASE}/tasks/1/triggers/", json={"data": [trig]})
+        responses.add(responses.PATCH, f"{BASE}/tasks/1/triggers/schedule_1", json=trig)
+        responses.add(responses.DELETE, f"{BASE}/tasks/1/triggers/schedule_1", status=204)
+
+        tasks.enable_webhook(1, user_id="alice")
+        tasks.set_webhook_enabled(1, enabled=False, user_id="alice")
+        tasks.disable_webhook(1, user_id="alice")
+        tasks.triggers.create(1, type="schedule", cron="0 9 * * 1", user_id="alice")
+        tasks.triggers.list(1, user_id="alice")
+        tasks.triggers.update(1, "schedule_1", enabled=False, user_id="alice")
+        tasks.triggers.delete(1, "schedule_1", user_id="alice")
+        for call in responses.calls:
+            assert call.request.params.get("user_id") == "alice", call.request.url
+
+    @responses.activate
+    def test_omitted_user_id_sends_no_param(self, http):
+        # The operator view must stay the default: no user_id kwarg → no query param.
+        responses.add(
+            responses.POST, f"{BASE}/agents/1/webhook", json={"enabled": True, "url": "u"}
+        )
+        Teammates(http).enable_webhook(1)
+        assert "user_id" not in responses.calls[0].request.params

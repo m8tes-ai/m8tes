@@ -59,11 +59,21 @@ class TaskTriggers:
             body["user_id"] = user_id
         if allowed_senders is not None:
             body["allowed_senders"] = allowed_senders
-        resp = self._http.request("POST", f"/tasks/{seg(task_id)}/triggers/", json=body)
+        # user_id also rides the query string: the endpoint enforces it as end-user
+        # scope on the task (404 on mismatch), while the body copy picks whose
+        # connected account an app trigger arms.
+        resp = self._http.request(
+            "POST",
+            f"/tasks/{seg(task_id)}/triggers/",
+            json=body,
+            params=_build_params(user_id=user_id),
+        )
         return Trigger.from_dict(resp.json())
 
-    def list(self, task_id: int) -> list[Trigger]:
-        resp = self._http.request("GET", f"/tasks/{seg(task_id)}/triggers/")
+    def list(self, task_id: int, *, user_id: str | None = None) -> list[Trigger]:
+        resp = self._http.request(
+            "GET", f"/tasks/{seg(task_id)}/triggers/", params=_build_params(user_id=user_id)
+        )
         body = resp.json()
         items = body["data"] if isinstance(body, dict) and "data" in body else body
         return [Trigger.from_dict(d) for d in items]
@@ -78,6 +88,7 @@ class TaskTriggers:
         interval_seconds: int | None = None,
         run_at: str | None = None,
         timezone: str | None = None,
+        user_id: str | None = None,
     ) -> Trigger:
         """Update a trigger in place: pause/resume with ``enabled``, or reshape a
         schedule's cron/interval/run_at/timezone — no delete + re-create needed.
@@ -96,12 +107,19 @@ class TaskTriggers:
         if timezone is not None:
             body["timezone"] = timezone
         resp = self._http.request(
-            "PATCH", f"/tasks/{seg(task_id)}/triggers/{seg(trigger_id)}", json=body
+            "PATCH",
+            f"/tasks/{seg(task_id)}/triggers/{seg(trigger_id)}",
+            json=body,
+            params=_build_params(user_id=user_id),
         )
         return Trigger.from_dict(resp.json())
 
-    def delete(self, task_id: int, trigger_id: str) -> None:
-        self._http.request("DELETE", f"/tasks/{seg(task_id)}/triggers/{seg(trigger_id)}")
+    def delete(self, task_id: int, trigger_id: str, *, user_id: str | None = None) -> None:
+        self._http.request(
+            "DELETE",
+            f"/tasks/{seg(task_id)}/triggers/{seg(trigger_id)}",
+            params=_build_params(user_id=user_id),
+        )
 
 
 class Tasks:
@@ -419,16 +437,21 @@ class Tasks:
             "DELETE", f"/tasks/{seg(task_id)}", params=_build_params(user_id=user_id)
         )
 
-    def enable_webhook(self, task_id: int) -> TeammateWebhook:
+    def enable_webhook(self, task_id: int, *, user_id: str | None = None) -> TeammateWebhook:
         """Enable (or rotate) the task's webhook trigger. Returns the URL (shown once).
 
         Calling again generates a fresh token, invalidating the previous URL —
-        use this to rotate a leaked webhook URL.
+        use this to rotate a leaked webhook URL. Pass user_id to scope to one
+        end-user (404 on mismatch).
         """
-        resp = self._http.request("POST", f"/tasks/{seg(task_id)}/webhook")
+        resp = self._http.request(
+            "POST", f"/tasks/{seg(task_id)}/webhook", params=_build_params(user_id=user_id)
+        )
         return TeammateWebhook.from_dict(resp.json())
 
-    def set_webhook_enabled(self, task_id: int, *, enabled: bool) -> TeammateWebhook:
+    def set_webhook_enabled(
+        self, task_id: int, *, enabled: bool, user_id: str | None = None
+    ) -> TeammateWebhook:
         """Pause or resume the webhook WITHOUT rotating the token — the URL survives.
 
         Use this to pause for an afternoon; enable_webhook() would mint a new URL
@@ -436,13 +459,18 @@ class Tasks:
         Enabling requires an existing token (400 otherwise — mint one first).
         """
         resp = self._http.request(
-            "PATCH", f"/tasks/{seg(task_id)}/webhook", json={"enabled": enabled}
+            "PATCH",
+            f"/tasks/{seg(task_id)}/webhook",
+            json={"enabled": enabled},
+            params=_build_params(user_id=user_id),
         )
         return TeammateWebhook.from_dict(resp.json())
 
-    def disable_webhook(self, task_id: int) -> None:
+    def disable_webhook(self, task_id: int, *, user_id: str | None = None) -> None:
         """Disable the task's webhook trigger. POSTs to the old URL stop starting runs."""
-        self._http.request("DELETE", f"/tasks/{seg(task_id)}/webhook")
+        self._http.request(
+            "DELETE", f"/tasks/{seg(task_id)}/webhook", params=_build_params(user_id=user_id)
+        )
 
     # ── Lessons (what the task's agent has learned) ──────────────────────
 
