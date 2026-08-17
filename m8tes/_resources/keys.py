@@ -10,7 +10,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from .._http import seg
-from .._types import ApiKeyCreated, ApiKeyInfo, ApiKeyRotated, NamedApiKey
+from .._types import ApiKeyCreated, ApiKeyInfo, ApiKeyRotated, NamedApiKey, SyncPage
 
 if TYPE_CHECKING:
     from .._http import HTTPClient
@@ -41,10 +41,13 @@ class Keys:
         resp = self._http.request("POST", "/keys/", json=body)
         return ApiKeyCreated.from_dict(resp.json())
 
-    def list(self) -> list[NamedApiKey]:
+    def list(self) -> SyncPage[NamedApiKey]:
         """List the account's named keys (newest first). Secrets are never returned."""
         resp = self._http.request("GET", "/keys/all")
-        return [NamedApiKey.from_dict(r) for r in resp.json()]
+        return SyncPage(
+            data=[NamedApiKey.from_dict(r) for r in resp.json()],
+            has_more=False,
+        )
 
     def rotate(self, key_id: int | None = None) -> ApiKeyRotated | ApiKeyCreated:
         """Rotate a key — the named key ``key_id`` if given, else the default key. The

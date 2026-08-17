@@ -132,7 +132,7 @@ class Tasks:
     def create(
         self,
         *,
-        instructions: str,
+        instructions: str | None = None,
         teammate_id: int | None = None,
         agent_id: int | None = None,
         name: str | None = None,
@@ -151,8 +151,13 @@ class Tasks:
         enable_task_setup_tools: bool | None = None,
         enable_feedback: bool | None = None,
         enable_lessons: bool | None = None,
+        message: str | None = None,
+        prompt: str | None = None,
     ) -> Task:
         """Create a reusable task.
+
+        ``instructions`` is the canonical field. ``message`` and ``prompt`` are
+        accepted as aliases (agents often guess the runs.create kwarg).
 
         The four enable_* fields set this task's default for the built-in tools;
         leave None to inherit the agent default (then the platform default).
@@ -163,6 +168,17 @@ class Tasks:
         inherit the agent's (then the platform default). Use them to put one costly
         task on a stronger model without moving the agent's other work.
         """
+        if instructions is None and message is None and prompt is None:
+            raise TypeError(
+                "tasks.create() missing required argument: 'instructions' "
+                "(aliases: message=, prompt=)"
+            )
+        provided = [v for v in (instructions, message, prompt) if v is not None]
+        if len(set(provided)) > 1:
+            raise TypeError(
+                "tasks.create() got conflicting values among instructions=/message=/prompt="
+            )
+        instructions = provided[0]
         teammate_id = _resolve_agent_id(teammate_id, agent_id)
         if teammate_id is None:
             raise ValueError("agent_id (or legacy teammate_id) is required")

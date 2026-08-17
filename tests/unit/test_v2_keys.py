@@ -114,11 +114,11 @@ def test_list_named():
         status=200,
     )
     keys = Keys(_http()).list()
-    assert len(keys) == 1
-    assert isinstance(keys[0], NamedApiKey)
-    assert keys[0].id == 2
-    assert keys[0].name == "staging"
-    assert keys[0].active is True
+    assert len(keys.data) == 1
+    assert isinstance(keys.data[0], NamedApiKey)
+    assert keys.data[0].id == 2
+    assert keys.data[0].name == "staging"
+    assert keys.data[0].active is True
 
 
 @responses.activate

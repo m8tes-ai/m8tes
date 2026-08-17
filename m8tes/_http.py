@@ -297,9 +297,27 @@ class HTTPClient:
         if "files" in kwargs:
             # Multipart upload: drop the session-level JSON Content-Type so
             # requests sets multipart/form-data with its boundary instead.
+            # Never set Content-Type to None (that produced ValidationError
+            # "Invalid type: None" against prod); pop from both the per-request
+            # headers and the session defaults for this call only.
             headers = dict(kwargs.get("headers") or {})
-            headers.setdefault("Content-Type", None)
+            headers.pop("Content-Type", None)
             kwargs["headers"] = headers
+            session_ct = self._session.headers.pop("Content-Type", None)
+        else:
+            session_ct = None
+        try:
+            return self._request_with_retry_body(
+                method, url, path=path, is_stream=is_stream, **kwargs
+            )
+        finally:
+            if session_ct is not None:
+                self._session.headers["Content-Type"] = session_ct
+
+    def _request_with_retry_body(
+        self, method: str, url: str, *, path: str = "", is_stream: bool = False, **kwargs: Any
+    ) -> requests.Response:
+        """Send request with retry on 429/5xx. Respects Retry-After header."""
         retryable = _is_retryable(method, path, kwargs)
         last_exc: Exception | None = None
         for attempt in range(_MAX_RETRIES):

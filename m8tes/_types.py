@@ -29,6 +29,10 @@ class SyncPage(Generic[T]):
     has_more: bool
     _fetch_next: Callable[..., SyncPage[T]] | None = field(default=None, repr=False)
 
+    def __iter__(self) -> Iterator[T]:
+        """Iterate the current page (Stripe-style); use ``auto_paging_iter`` for all pages."""
+        return iter(self.data)
+
     def auto_paging_iter(self) -> Iterator[T]:
         """Iterate through all pages automatically."""
         page: SyncPage[T] = self

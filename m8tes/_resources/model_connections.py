@@ -11,9 +11,9 @@ if TYPE_CHECKING:
     from .._http import HTTPClient
 
 ModelConnectionProvider = Literal["claude", "openai", "xai", "gemini"]
-AuthorizableModelConnectionProvider = Literal["openai", "xai", "gemini"]
+AuthorizableModelConnectionProvider = Literal["claude", "openai", "xai", "gemini"]
 DeviceModelConnectionProvider = Literal["openai", "xai"]
-CodeModelConnectionProvider = Literal["gemini"]
+CodeModelConnectionProvider = Literal["claude", "gemini"]
 
 
 class ModelConnections:
@@ -37,7 +37,12 @@ class ModelConnections:
         return ApplyPreferredModelResult.from_dict(body)
 
     def authorize(self, provider: AuthorizableModelConnectionProvider) -> ModelAuthorization:
-        """Start provider-native authorization; show the returned URL and device code when used."""
+        """Start provider-native authorization; show the returned URL and device code when used.
+
+        Claude and Gemini return an ``authorization_url`` — open it, then pass the
+        pasted code to ``complete_authorization``. OpenAI/xAI return a device
+        ``user_code`` — poll ``authorization_status`` until connected.
+        """
         body = self._http.request(
             "POST", f"/model-connections/{seg(provider)}/authorizations"
         ).json()
@@ -62,6 +67,22 @@ class ModelConnections:
             json={"code": code},
         ).json()
         return ModelAuthorization.from_dict(body)
+
+    def paste_claude(
+        self,
+        *,
+        access_token: str,
+        refresh_token: str | None = None,
+        expires_at_ms: int | None = None,
+    ) -> ModelConnection:
+        """Store a Claude OAuth token from ``~/.claude/.credentials.json`` (no browser)."""
+        body: dict = {"access_token": access_token}
+        if refresh_token is not None:
+            body["refresh_token"] = refresh_token
+        if expires_at_ms is not None:
+            body["expires_at_ms"] = expires_at_ms
+        resp = self._http.request("POST", "/model-connections/claude/paste", json=body)
+        return ModelConnection.from_dict(resp.json())
 
     def cancel_authorization(
         self, provider: AuthorizableModelConnectionProvider, state: str

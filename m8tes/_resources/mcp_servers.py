@@ -132,6 +132,16 @@ class McpServers:
         )
         return McpServer.from_dict(resp.json())
 
+    def approve(self, server_id: int, *, user_id: str | None = None) -> McpServer:
+        """Trust this server so write/script tools run unattended (sets ``auto_approve``).
+
+        Prefer ``auto_approve=True`` on create. After a script identity change,
+        call this once you have reviewed the new source.
+        """
+        params = {"user_id": user_id} if user_id else None
+        resp = self._http.request("POST", f"/mcp-servers/{seg(server_id)}/approve", params=params)
+        return McpServer.from_dict(resp.json())
+
     def delete(self, server_id: int, *, user_id: str | None = None) -> None:
         params = {"user_id": user_id} if user_id else None
         self._http.request("DELETE", f"/mcp-servers/{seg(server_id)}", params=params)
