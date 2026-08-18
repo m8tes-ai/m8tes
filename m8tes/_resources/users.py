@@ -73,7 +73,7 @@ class Users:
         body = resp.json()
 
         def _fetch_next(**kw: object) -> SyncPage[EndUserUsage]:
-            return self.usage(user_id, **kw)  # type: ignore[arg-type]
+            return self.usage(user_id, limit=limit, **kw)  # type: ignore[arg-type]
 
         return SyncPage(
             data=[EndUserUsage.from_dict(d) for d in body["data"]],
@@ -92,7 +92,7 @@ class Users:
         body = resp.json()
 
         def _fetch_next(**kw: object) -> SyncPage[EndUser]:
-            return self.list(**kw)  # type: ignore[arg-type]
+            return self.list(limit=limit, **kw)  # type: ignore[arg-type]
 
         return SyncPage(
             data=[EndUser.from_dict(d) for d in body["data"]],

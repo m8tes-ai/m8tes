@@ -96,21 +96,34 @@ if TYPE_CHECKING:
     from .._http import HTTPClient
 
 
-def _to_file_part(f: Any) -> tuple[str, bytes]:
+def _to_file_part(f: Any) -> tuple[str, bytes, str]:
     """Normalize a files= item (path str, (name, bytes) tuple, or file object)
-    into the (filename, content) tuple the multipart request expects.
+    into the (filename, content, content_type) triple the multipart request
+    expects.
+
+    The content type is REQUIRED: without it the part goes up untyped and the
+    API rejects the upload with "Invalid type: None" — a customer following the
+    files= docs verbatim hit exactly that (2026-08-16 executable-docs gate; the
+    curl example passed because curl supplies a default part type).
 
     File objects are materialized with .read() so the automatic 429/5xx retry
     re-sends the same bytes instead of an exhausted stream (empty upload).
     """
+    import mimetypes
+
+    def typed(name: str, content: bytes) -> tuple[str, bytes, str]:
+        return (name, content, mimetypes.guess_type(name)[0] or "application/octet-stream")
+
     if isinstance(f, str):
         from pathlib import Path
 
         p = Path(f)
-        return (p.name, p.read_bytes())
+        return typed(p.name, p.read_bytes())
     if isinstance(f, tuple):
-        return f
-    return (getattr(f, "name", "upload.bin").rsplit("/", 1)[-1], f.read())
+        # >= 3: caller already supplied a content type (requests also accepts a
+        # 4-tuple with part headers) — pass through untouched.
+        return f if len(f) >= 3 else typed(f[0], f[1])
+    return typed(getattr(f, "name", "upload.bin").rsplit("/", 1)[-1], f.read())
 
 
 class Runs:
@@ -647,6 +660,7 @@ class Runs:
                 task_id=task_id,
                 user_id=user_id,
                 status=status,
+                limit=limit,
                 **kw,  # type: ignore[arg-type]
             )
 

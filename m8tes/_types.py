@@ -30,7 +30,10 @@ class SyncPage(Generic[T]):
     _fetch_next: Callable[..., SyncPage[T]] | None = field(default=None, repr=False)
 
     def __iter__(self) -> Iterator[T]:
-        """Iterate the current page (Stripe-style); use ``auto_paging_iter`` for all pages."""
+        """Iterate the CURRENT page's items (`for agent in client.agents.list()`),
+        matching the docs and Stripe-style page semantics. Cross-page iteration
+        stays explicit via auto_paging_iter(). (2026-08-16 executable-docs gate:
+        the documented loop raised TypeError — docs and SDK disagreed.)"""
         return iter(self.data)
 
     def auto_paging_iter(self) -> Iterator[T]:

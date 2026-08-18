@@ -1979,9 +1979,10 @@ class TestToFilePart:
 
         p = tmp_path / "report.csv"
         p.write_bytes(b"a,b\n1,2\n")
-        name, content = _to_file_part(str(p))
+        name, content, ctype = _to_file_part(str(p))
         assert name == "report.csv"
         assert content == b"a,b\n1,2\n"
+        assert ctype == "text/csv"  # untyped parts are rejected by the API (2026-08-16)
 
     def test_file_object_is_materialized(self, tmp_path):
         """File objects are read once so HTTP retries re-send identical bytes."""
@@ -1990,14 +1991,36 @@ class TestToFilePart:
         p = tmp_path / "note.txt"
         p.write_bytes(b"hello")
         with open(p, "rb") as fh:
-            name, content = _to_file_part(fh)
+            name, content, ctype = _to_file_part(fh)
         assert name == "note.txt"
         assert content == b"hello"
+        assert ctype == "text/plain"
 
-    def test_tuple_passthrough(self):
+    def test_unknown_extension_defaults_to_octet_stream(self):
         from m8tes._resources.runs import _to_file_part
 
-        assert _to_file_part(("x.bin", b"\x00")) == ("x.bin", b"\x00")
+        assert _to_file_part(("blob.unknownext", b"x"))[2] == "application/octet-stream"
+
+    def test_four_tuple_passes_through_untouched(self):
+        """requests accepts (name, content, type, headers) 4-tuples; the typing
+        shim must not demote them (2026-08-16 review)."""
+        from m8tes._resources.runs import _to_file_part
+
+        part = ("a.bin", b"x", "application/x-own", {"X-Part": "1"})
+        assert _to_file_part(part) == part
+
+    def test_tuple_gains_a_content_type(self):
+        """(name, bytes) pairs are typed on the way through — untyped multipart
+        parts are rejected by the API with "Invalid type: None" (2026-08-16
+        executable-docs gate). Explicit 3-tuples still pass through untouched."""
+        from m8tes._resources.runs import _to_file_part
+
+        assert _to_file_part(("x.bin", b"\x00")) == ("x.bin", b"\x00", "application/octet-stream")
+        assert _to_file_part(("x.bin", b"\x00", "application/x-own")) == (
+            "x.bin",
+            b"\x00",
+            "application/x-own",
+        )
 
 
 class TestAppTools:

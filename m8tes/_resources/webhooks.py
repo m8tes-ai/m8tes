@@ -86,7 +86,7 @@ class Webhooks:
         body = resp.json()
 
         def _fetch_next(**kw: object) -> SyncPage[Webhook]:
-            return self.list(**kw)  # type: ignore[arg-type]
+            return self.list(limit=limit, **kw)  # type: ignore[arg-type]
 
         return SyncPage(
             data=[Webhook.from_dict(d) for d in body["data"]],
@@ -129,7 +129,7 @@ class Webhooks:
         body = resp.json()
 
         def _fetch_next(**kw: object) -> SyncPage[WebhookDelivery]:
-            return self.list_deliveries(webhook_id, **kw)  # type: ignore[arg-type]
+            return self.list_deliveries(webhook_id, limit=limit, **kw)  # type: ignore[arg-type]
 
         return SyncPage(
             data=[WebhookDelivery.from_dict(d) for d in body["data"]],

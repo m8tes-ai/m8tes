@@ -55,6 +55,7 @@ class AuditLogs:
                 method=method,
                 status_code=status_code,
                 auth=auth,
+                limit=limit,
                 **kw,  # type: ignore[arg-type]
             )
 

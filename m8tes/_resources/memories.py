@@ -68,7 +68,7 @@ class Memories:
         body = resp.json()
 
         def _fetch_next(**kw: object) -> SyncPage[Memory]:
-            return self.list(user_id=user_id, query=query, **kw)  # type: ignore[arg-type]
+            return self.list(user_id=user_id, query=query, limit=limit, **kw)  # type: ignore[arg-type]
 
         return SyncPage(
             data=[Memory.from_dict(d) for d in body["data"]],

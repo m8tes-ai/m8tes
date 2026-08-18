@@ -159,7 +159,7 @@ class Agents:
         body = resp.json()
 
         def _fetch_next(**kw: object) -> SyncPage[Teammate]:
-            return self.list(user_id=user_id, include_archived=include_archived, **kw)  # type: ignore[arg-type]
+            return self.list(user_id=user_id, include_archived=include_archived, limit=limit, **kw)  # type: ignore[arg-type]
 
         return SyncPage(
             data=[Teammate.from_dict(d) for d in body["data"]],

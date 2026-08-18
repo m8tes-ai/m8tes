@@ -241,6 +241,7 @@ class Tasks:
                 teammate_id=teammate_id,
                 user_id=user_id,
                 include_archived=include_archived,
+                limit=limit,
                 **kw,  # type: ignore[arg-type]
             )
 

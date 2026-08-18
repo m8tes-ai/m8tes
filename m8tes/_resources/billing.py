@@ -79,7 +79,7 @@ class Billing:
         body = resp.json()
 
         def _fetch_next(**kw: object) -> SyncPage[Receipt]:
-            return self.receipts(**kw)  # type: ignore[arg-type]
+            return self.receipts(limit=limit, **kw)  # type: ignore[arg-type]
 
         return SyncPage(
             data=[Receipt.from_dict(d) for d in body["data"]],

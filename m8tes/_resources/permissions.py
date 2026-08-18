@@ -43,7 +43,7 @@ class Permissions:
         body = resp.json()
 
         def _fetch_next(**kw: object) -> SyncPage[PermissionPolicy]:
-            return self.list(user_id=user_id, **kw)  # type: ignore[arg-type]
+            return self.list(user_id=user_id, limit=limit, **kw)  # type: ignore[arg-type]
 
         return SyncPage(
             data=[PermissionPolicy.from_dict(d) for d in body["data"]],
