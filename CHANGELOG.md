@@ -4,6 +4,13 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.8.1] - 2026-08-17
+
+### Fixed
+- Classify runtime `permission_auto_allowed` as an internal stream type so SDK
+  consumers no longer see a spurious "Upgrading the m8tes SDK may add support"
+  warning for the platform Auto · timeline annotation.
+
 ## [4.8.0] - 2026-08-16
 
 ### Added
