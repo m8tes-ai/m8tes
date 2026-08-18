@@ -17,6 +17,7 @@ from m8tes._resources.permissions import Permissions
 from m8tes._resources.runs import Runs
 from m8tes._resources.tasks import Tasks, TaskTriggers
 from m8tes._resources.teammates import Teammates
+from m8tes._resources.triggers import Triggers
 from m8tes._streaming import RunStream
 from m8tes._types import (
     App,
@@ -1447,6 +1448,49 @@ class TestTaskTriggers:
     def test_delete(self, http):
         responses.add(responses.DELETE, f"{BASE}/tasks/1/triggers/10", status=204)
         TaskTriggers(http).delete(1, 10)
+
+
+class TestTriggers:
+    @responses.activate
+    def test_list_forwards_filters_and_uses_composite_cursor(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/triggers/",
+            json={
+                "data": [
+                    {
+                        "id": "schedule_10",
+                        "task_id": 7,
+                        "task_name": "daily report",
+                        "type": "schedule",
+                        "enabled": False,
+                        "cron": "0 9 * * *",
+                    }
+                ],
+                "has_more": True,
+            },
+        )
+        responses.add(
+            responses.GET,
+            f"{BASE}/triggers/",
+            json={"data": [], "has_more": False},
+        )
+
+        page = Triggers(http).list(user_id="customer_1", type="schedule", task_id=7, limit=1)
+        items = list(page.auto_paging_iter())
+
+        assert isinstance(page.data[0], Trigger)
+        assert page.data[0].task_id == 7
+        assert page.data[0].task_name == "daily report"
+        assert page.data[0].enabled is False
+        assert responses.calls[0].request.params == {
+            "user_id": "customer_1",
+            "type": "schedule",
+            "task_id": "7",
+            "limit": "1",
+        }
+        assert responses.calls[1].request.params["starting_after"] == "7:schedule_10"
+        assert len(items) == 1
 
 
 # ── Apps ─────────────────────────────────────────────────────────────

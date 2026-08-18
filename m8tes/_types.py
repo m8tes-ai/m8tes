@@ -45,7 +45,9 @@ class SyncPage(Generic[T]):
                 break
             last: Any = page.data[-1]
             # Most SDK resources use integer `id` cursors. App pages use `name`.
-            cursor = getattr(last, "id", None)
+            cursor = getattr(last, "pagination_cursor", None)
+            if cursor is None:
+                cursor = getattr(last, "id", None)
             if cursor is None:
                 cursor = getattr(last, "name", None)
             if cursor is None:
@@ -693,6 +695,8 @@ class Trigger:
     id: str
     type: str
     enabled: bool
+    task_id: int | None = None
+    task_name: str | None = None
     cron: str | None = None
     interval_seconds: int | None = None
     #: ISO 8601 fire time of a ONE-TIME schedule; None for recurring triggers. This, not
@@ -708,12 +712,19 @@ class Trigger:
     trigger_name: str | None = None
     trigger_config: dict | None = None
 
+    @property
+    def pagination_cursor(self) -> str | None:
+        """Account-list cursor; nested task triggers have no task_id and do not page."""
+        return f"{self.task_id}:{self.id}" if self.task_id is not None else None
+
     @classmethod
     def from_dict(cls, data: dict) -> Trigger:
         return cls(
             id=data["id"],
             type=data["type"],
             enabled=data.get("enabled", True),
+            task_id=data.get("task_id"),
+            task_name=data.get("task_name"),
             cron=data.get("cron"),
             interval_seconds=data.get("interval_seconds"),
             run_at=data.get("run_at"),

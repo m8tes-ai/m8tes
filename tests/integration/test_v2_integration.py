@@ -1108,6 +1108,38 @@ class TestTaskTriggers:
         finally:
             v2_client.teammates.delete(tm.id)
 
+    def test_account_trigger_list_paginates_schedule_triggers(self, v2_client):
+        """Top-level trigger discovery crosses task boundaries through the SDK cursor."""
+        teammate = v2_client.teammates.create(name="AccountTriggerHost")
+        tasks = []
+        schedule_triggers = []
+        try:
+            for index in range(2):
+                task = v2_client.tasks.create(
+                    teammate_id=teammate.id,
+                    instructions=f"account trigger {index}",
+                )
+                tasks.append(task)
+                schedule_triggers.append(
+                    v2_client.tasks.triggers.create(
+                        task.id,
+                        type="schedule",
+                        cron=f"{index} 9 * * *",
+                    )
+                )
+
+            page = v2_client.triggers.list(type="schedule", limit=1)
+            triggers = list(page.auto_paging_iter())
+
+            assert page.has_more is True
+            assert {trigger.task_id for trigger in triggers}.issuperset({task.id for task in tasks})
+            assert all(trigger.id.startswith("schedule_") for trigger in triggers)
+        finally:
+            for task, trigger in zip(tasks, schedule_triggers, strict=True):
+                v2_client.tasks.triggers.delete(task.id, trigger.id)
+                v2_client.tasks.delete(task.id)
+            v2_client.teammates.delete(teammate.id)
+
     def test_schedule_trigger_with_timezone(self, v2_client):
         """Create schedule trigger with non-UTC timezone."""
         tm = v2_client.teammates.create(name="TZTriggerHost")

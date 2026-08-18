@@ -4,6 +4,11 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **`client.triggers.list()`** — list schedule, webhook, email, and app triggers
+  across an account, with task/type/end-user filters and cursor pagination.
+
 ## [4.9.0] - 2026-08-18
 
 ### Added
@@ -13,6 +18,7 @@ All notable changes to the m8tes Python SDK will be documented in this file.
   available; the default is opt-in per click. Defaults to `True` for older servers.
 - **`PermissionPolicy.source`** — which surface minted a standing grant
   (`"run_approval"` / `"api"`; `None` on rows created before provenance existed).
+
 ## [4.8.1] - 2026-08-17
 
 ### Fixed

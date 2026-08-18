@@ -21,6 +21,7 @@ from .skills import Skills
 from .tasks import Tasks
 from .teammate_templates import AgentTemplates, TeammateTemplates
 from .teammates import Agents, Teammates
+from .triggers import Triggers
 from .users import Users
 from .webhooks import Webhooks
 
@@ -48,6 +49,7 @@ __all__ = [
     "Tasks",
     "TeammateTemplates",
     "Teammates",
+    "Triggers",
     "Users",
     "Webhooks",
 ]
