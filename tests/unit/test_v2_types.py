@@ -1,6 +1,13 @@
 """Tests for v2 SDK dataclass types."""
 
+import m8tes
 from m8tes._types import App, AuditLog, PermissionMode, Run, Task, Teammate, Trigger
+
+
+def test_document_types_are_public_exports():
+    assert m8tes.Document is not None
+    assert m8tes.DocumentDetail is not None
+    assert {"Document", "DocumentDetail"} <= set(m8tes.__all__)
 
 
 class TestTeammate:

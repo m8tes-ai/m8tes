@@ -3,7 +3,7 @@
 Covers all V2 resources: teammates (CRUD, webhooks, email inbox), tasks
 (CRUD, triggers, run edge cases), runs (create, get, cancel, reply, files,
 HITL validation, answer, approve, SDK convenience methods like poll,
-create_and_wait, reply_and_wait, stream_text, streaming), memories,
+create_and_wait, reply_and_wait, stream_text, streaming), documents, memories,
 permissions, webhooks, users, settings, apps. Plus pagination, error
 handling, validation edge cases, multi-tenancy isolation, parameter combos,
 trigger error paths, and context manager usage.
@@ -1429,6 +1429,25 @@ class TestByIdEndUserScope:
                 v2_client.tasks.delete(task.id, user_id="alice")
         finally:
             v2_client.teammates.delete(alice.id)
+
+
+# ── Documents ────────────────────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestDocuments:
+    def test_empty_list_and_missing_document_errors(self, v2_client):
+        """Exercise every document method against the real V2 transport and router."""
+        user_id = _uid()
+        assert v2_client.documents.list(scope="company", user_id=user_id).data == []
+
+        missing_id = 2_147_483_647
+        with pytest.raises(NotFoundError):
+            v2_client.documents.get(missing_id, user_id=user_id)
+        with pytest.raises(NotFoundError):
+            v2_client.documents.update(missing_id, name="missing", user_id=user_id)
+        with pytest.raises(NotFoundError):
+            v2_client.documents.delete(missing_id, user_id=user_id)
 
 
 # ── Memories ─────────────────────────────────────────────────────────

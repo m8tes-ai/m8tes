@@ -4,6 +4,12 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **`client.documents`** — list company or agent documents, read full content by
+  ID, update names and summaries, and delete documents with optional `user_id`
+  isolation.
+
 ## [4.9.0] - 2026-08-18
 
 ### Added
@@ -15,9 +21,6 @@ All notable changes to the m8tes Python SDK will be documented in this file.
   (`"run_approval"` / `"api"`; `None` on rows created before provenance existed).
 ### Added
 
-- **`client.documents`** — list company or agent documents, read full content by
-  ID, update names and summaries, and delete documents with optional `user_id`
-  isolation.
 - **`client.triggers.list()`** — list schedule, webhook, email, and app triggers
   across an account, with task/type/end-user filters and cursor pagination.
 
