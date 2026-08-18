@@ -209,6 +209,7 @@ def test_no_hostile_user_id_reaches_the_network(hostile):
         (lambda c: c.apps.provision("a?b"), "/apps/a%3Fb/provision"),
         (lambda c: c.apps.list_triggers("a?b"), "/apps/a%3Fb/triggers"),
         (lambda c: c.apps.list_tools("a?b"), "/apps/a%3Fb/tools"),
+        (lambda c: c.apps.connections.list("a?b"), "/apps/a%3Fb/connections"),
         (lambda c: c.apps.disconnect("a?b"), "/apps/a%3Fb/connections"),
         (
             lambda c: c.runs.download_file(42, "q3 final.pdf"),

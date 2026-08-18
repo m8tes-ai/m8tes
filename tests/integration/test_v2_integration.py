@@ -3221,6 +3221,16 @@ class TestAppsReadOnly:
         assert page.has_more is False
         assert len(list(page.auto_paging_iter())) == len(page.data)
 
+    def test_list_connections_for_an_end_user(self, v2_client):
+        apps = v2_client.apps.list().data
+        if not apps:
+            pytest.skip("no app in the catalog")
+
+        page = v2_client.apps.connections.list(apps[0].name, user_id=_uid())
+        assert isinstance(page, SyncPage)
+        assert page.data == []
+        assert page.has_more is False
+
 
 @pytest.mark.integration
 class TestAppToolDiscovery:
@@ -3268,6 +3278,9 @@ class TestAppsWritable:
         connected = next((item for item in connected_page.data if item.name == app.name), None)
         assert connected is not None
         assert connected.connected is True
+        connections = v2_client.apps.connections.list(app.name, user_id=user_id)
+        assert len(connections.data) == 1
+        assert connections.data[0].status == "active"
 
         v2_client.apps.disconnect(app.name, user_id=user_id)
 

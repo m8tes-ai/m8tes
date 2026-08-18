@@ -4,6 +4,12 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **`client.apps.connections.list(app_name, user_id=...)`** — list connection status,
+  provider connection ID, account label, scopes, and update time without exposing internal
+  database IDs. `App.logo_url` now carries catalog display metadata.
+
 ## [4.9.0] - 2026-08-18
 
 ### Added
