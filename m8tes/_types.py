@@ -1304,6 +1304,9 @@ class PermissionRequest:
     # would be stored and then ignored. Omit any "always allow" control rather than
     # show one whose press cannot change the outcome.
     can_remember: bool = True
+    # False when the "always allow" control should start UNTICKED (force-ask floor:
+    # spend, access, destroy). The control stays available; the default is opt-in.
+    remember_default: bool = True
     # How long the gate stays open. Do NOT render it as a countdown: three clocks act on
     # a gate — the sandbox's poll, the reaper, and late approval, which stays valid while
     # the run is paused — so a timer from this one number would be wrong, and it would
@@ -1329,6 +1332,7 @@ class PermissionRequest:
             fields=data.get("fields"),
             prose=data.get("prose"),
             can_remember=data.get("can_remember", True),
+            remember_default=data.get("remember_default", True),
             timeout_seconds=data.get("timeout_seconds", 55),
             resolved_at=data.get("resolved_at"),
             tool_use_id=data.get("tool_use_id"),
@@ -1365,6 +1369,8 @@ class PermissionPolicy:
     user_id: str | None
     tool_name: str
     created_at: str
+    # Which surface minted the grant ("run_approval" / "api"); None on legacy rows.
+    source: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> PermissionPolicy:
@@ -1373,6 +1379,7 @@ class PermissionPolicy:
             user_id=data.get("user_id"),
             tool_name=data["tool_name"],
             created_at=data.get("created_at", ""),
+            source=data.get("source"),
         )
 
 

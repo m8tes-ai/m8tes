@@ -101,3 +101,31 @@ def test_delete_account_level_permission_sends_no_user_id():
     http = HTTPClient(api_key="m8_test", base_url=BASE, timeout=5)
     Permissions(http).delete(3)
     assert "user_id" not in responses.calls[0].request.url
+
+
+def test_policy_source_parses_and_defaults_none_for_old_servers():
+    """`source` names the surface that minted the grant; an old server omitting it must
+    parse as None, not KeyError."""
+    with_source = PermissionPolicy.from_dict(
+        {"id": 1, "tool_name": "gmail", "created_at": "2026-08-18", "source": "run_approval"}
+    )
+    assert with_source.source == "run_approval"
+    legacy = PermissionPolicy.from_dict({"id": 2, "tool_name": "gmail"})
+    assert legacy.source is None
+
+
+def test_permission_request_remember_default_parses_and_defaults_true():
+    """remember_default False = the force-ask floor's unticked Always-allow box; an old
+    server omitting the field keeps the historic pre-ticked default."""
+    from m8tes._types import PermissionRequest
+
+    base = {
+        "request_id": "req-1",
+        "tool_name": "mcp__x__spend",
+        "status": "pending",
+        "created_at": "2026-08-18",
+    }
+    assert (
+        PermissionRequest.from_dict({**base, "remember_default": False}).remember_default is False
+    )
+    assert PermissionRequest.from_dict(base).remember_default is True
