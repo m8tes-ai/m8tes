@@ -53,6 +53,13 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 - **`client.triggers.list()`** — list schedule, webhook, email, and app triggers
   across an account, with task/type/end-user filters and cursor pagination.
+- **`client.github_app.setup_url(org=…, name=…)`** — create your own GitHub App via
+  GitHub's App Manifest flow (browser URL). **`complete_setup(ticket=…)`** binds the
+  credentials after GitHub redirects with a claim ticket, then returns the install URL.
+- **`client.github_app.clear_identity()`** — remove own-App credentials after disconnect
+  (revert to the m8tes GitHub App).
+- **`GitHubAppStatus.branded` / `app_slug` / `setup_pending`** — whether the account
+  uses its own App vs the m8tes GitHub App.
 
 ## [4.8.1] - 2026-08-17
 

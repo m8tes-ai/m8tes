@@ -2355,6 +2355,46 @@ class TestChannels:
         assert "acme-code" in both.github.install_url
 
 
+class TestGitHubApp:
+    @responses.activate
+    def test_setup_url_and_clear_identity(self, http):
+        from m8tes._resources.github_app import GitHubApp
+
+        responses.add(
+            responses.GET,
+            f"{BASE}/github-app/setup-url",
+            json={"setup_url": "https://api.example/register?state=s&org=acme"},
+        )
+        responses.add(responses.DELETE, f"{BASE}/github-app/identity", status=204)
+        responses.add(
+            responses.GET,
+            f"{BASE}/github-app/status",
+            json={
+                "state": "disconnected",
+                "repo_count": 0,
+                "account_login": None,
+                "install_allowed": True,
+                "branded": True,
+                "app_slug": "acme-code",
+                "setup_pending": False,
+            },
+        )
+        responses.add(
+            responses.POST,
+            f"{BASE}/github-app/complete-setup",
+            json={"install_url": "https://github.com/apps/acme-code/installations/new"},
+        )
+        gh = GitHubApp(http)
+        assert "org=acme" in gh.setup_url(org="acme")
+        assert "org=acme" in responses.calls[0].request.url
+        assert "acme-code" in gh.complete_setup(ticket="tix")
+        gh.clear_identity()
+        assert responses.calls[2].request.method == "DELETE"
+        status = gh.status()
+        assert status.branded is True
+        assert status.app_slug == "acme-code"
+
+
 class TestSubresourceScopeForwarding:
     """Every sub-resource method that gained `user_id` (2026-08-16 scope fix) must
     put it on the WIRE as a query param — the endpoint enforces it there, so a
