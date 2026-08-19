@@ -973,6 +973,8 @@ class TestRuns:
                 "summary": "Paused 3 wasteful keywords.",
                 "headline": "wasted spend cut",
                 "needs_reply": False,
+                "needs_reply_count": None,
+                "delivery_channel": "email",
                 "output_data": {"saved": 120},
                 "message_count": 14,
                 "input_tokens": 100,
@@ -985,6 +987,7 @@ class TestRuns:
         assert isinstance(outcome, RunOutcome)
         assert outcome.summary == "Paused 3 wasteful keywords."
         assert outcome.needs_reply is False
+        assert outcome.delivery_channel == "email"
         assert outcome.output_data == {"saved": 120}
         assert outcome.cost_usd == "0.4831"
 

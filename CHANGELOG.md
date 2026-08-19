@@ -4,6 +4,11 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **`RunOutcome.delivery_channel` and `RunOutcome.needs_reply_count`** — mirror
+  `GET /runs/{id}/outcome` after agentic scheduled delivery (`set_run_delivery`).
+
 ## [4.9.1] - 2026-08-19
 
 ### Changed

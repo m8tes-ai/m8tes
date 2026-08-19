@@ -899,7 +899,8 @@ class RunOutcome:
     `summary` is the agent's closing message (None when the run ended on a tool
     call); `cost_usd` is the run's metered cost as a decimal string (None until
     cost is recorded); `needs_reply` flags a closing message that asks for a
-    decision — reply via runs.reply().
+    decision — reply via runs.reply(). `delivery_channel` is how the agent chose
+    to deliver the outcome (email, slack, or none) via set_run_delivery.
     """
 
     run_id: int
@@ -907,6 +908,8 @@ class RunOutcome:
     summary: str | None
     headline: str | None
     needs_reply: bool
+    needs_reply_count: int | None
+    delivery_channel: str
     output_data: dict | None
     message_count: int
     input_tokens: int
@@ -922,6 +925,8 @@ class RunOutcome:
             summary=data.get("summary"),
             headline=data.get("headline"),
             needs_reply=data.get("needs_reply", False),
+            needs_reply_count=data.get("needs_reply_count"),
+            delivery_channel=data.get("delivery_channel", "email"),
             output_data=data.get("output_data"),
             message_count=data.get("message_count", 0),
             input_tokens=data.get("input_tokens", 0),
