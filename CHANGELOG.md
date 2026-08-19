@@ -4,8 +4,19 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [4.11.0] - 2026-08-19
 
+## [4.11.0] - 2026-08-19
+
 ### Added
 
+- **Subscription billing is now a public SDK resource.**
+  `client.billing.checkout(...)` returns the typed Stripe redirect for a new
+  subscription or plan change, `client.billing.portal(...)` opens subscription and
+  payment management, and `client.billing.activate_free()` activates the
+  bring-your-own-model plan. These are the same V2 endpoints used by the Platform.
+- `client.runs.mark_viewed(run_id)` records run acknowledgement through the same
+  V2 endpoint the Platform viewer uses and returns the refreshed `Run`.
+- **`RunOutcome.delivery_channel` and `RunOutcome.needs_reply_count`** — mirror
+  `GET /runs/{id}/outcome` after agentic scheduled delivery (`set_run_delivery`).
 - **`client.triggers.list()`** — list schedule, webhook, email, and app triggers
   across an account, with task/type/end-user filters and cursor pagination.
 

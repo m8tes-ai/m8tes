@@ -841,6 +841,17 @@ class Runs:
         resp = self._http.request("POST", f"/runs/{seg(run_id)}/archive")
         return Run.from_dict(resp.json())
 
+    def mark_viewed(self, run_id: int, *, user_id: str | None = None) -> Run:
+        """Mark a run as viewed and return its refreshed acknowledgement state.
+
+        Repeating the call updates ``last_viewed_at`` again.
+        Pass ``user_id`` when the account has strict multi-tenant mode on.
+        """
+        resp = self._http.request(
+            "POST", f"/runs/{seg(run_id)}/view", params=_build_params(user_id=user_id)
+        )
+        return Run.from_dict(resp.json())
+
     def retry(self, run_id: int, *, confirm: bool = False) -> Run:
         """Retry a failed or cancelled run.
 

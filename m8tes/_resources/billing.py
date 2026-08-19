@@ -1,16 +1,16 @@
-"""Billing resource — usage, plan catalog, opt-in overage controls, and prepaid token balance.
+"""Billing resource — subscriptions, usage controls, and prepaid token balance.
 
 Lets developers self-meter spend: read current usage (including accrued overage),
-fetch the public plan catalog, and toggle usage overage with a monthly cap. For
-prepaid-billed accounts, also read the prepaid token balance and add credit via a
-Stripe Checkout top-up.
+fetch the public plan catalog, buy or manage a subscription, and toggle usage
+overage with a monthly cap. For prepaid-billed accounts, also read the prepaid
+token balance and add credit via a Stripe Checkout top-up.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .._types import Balance, Plan, Receipt, SyncPage, Usage, UsageTimeseries
+from .._types import Balance, Plan, Receipt, SubscriptionCheckout, SyncPage, Usage, UsageTimeseries
 from ._utils import _build_params, _resolve_agent_id
 
 if TYPE_CHECKING:
@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 
 class Billing:
-    """client.billing — usage, plans, and opt-in overage settings."""
+    """client.billing — subscriptions, usage, plans, and spend controls."""
 
     def __init__(self, http: HTTPClient):
         self._http = http
@@ -93,23 +93,32 @@ class Billing:
         resp = self._http.request("GET", "/billing/plans")
         return [Plan.from_dict(d) for d in resp.json()]
 
-    def checkout(
-        self,
-        *,
-        plan_id: str,
-        billing_period: str = "monthly",
-    ) -> dict[str, str]:
-        """Start a Stripe Checkout for a paid plan, or a portal URL for active subscribers."""
+    def checkout(self, *, plan_id: str, billing_period: str = "monthly") -> SubscriptionCheckout:
+        """Start a paid subscription checkout or plan change.
+
+        Active subscribers receive a customer-portal redirect with
+        `destination="portal"`; other accounts receive Stripe Checkout.
+        """
         resp = self._http.request(
             "POST",
             "/billing/checkout",
             json={"plan_id": plan_id, "billing_period": billing_period},
         )
-        data = resp.json()
-        return {
-            "url": str(data["url"]),
-            "destination": str(data["destination"]),
-        }
+        return SubscriptionCheckout.from_dict(resp.json())
+
+    def portal(self, *, flow: str | None = None) -> str:
+        """Create a Stripe customer-portal URL for subscription and payment management.
+
+        Pass `flow="subscription_update"` to open the plan-change screen directly.
+        """
+        body = {"flow": flow} if flow is not None else {}
+        resp = self._http.request("POST", "/billing/portal", json=body)
+        return str(resp.json()["url"])
+
+    def activate_free(self) -> Usage:
+        """Activate the free bring-your-own-model plan; idempotent if already active."""
+        resp = self._http.request("POST", "/billing/activate-free")
+        return Usage.from_dict(resp.json())
 
     def set_overage(self, *, enabled: bool, monthly_cap_cents: int) -> Usage:
         """Opt in/out of usage overage and set the monthly spend cap (cents).

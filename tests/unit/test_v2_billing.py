@@ -26,6 +26,51 @@ def billing():
     return Billing(HTTPClient(api_key="m8_test", base_url=BASE, timeout=5))
 
 
+class TestSubscriptionBilling:
+    @responses.activate
+    def test_checkout_returns_typed_redirect(self, billing):
+        responses.add(
+            responses.POST,
+            f"{BASE}/billing/checkout",
+            json={"url": "https://checkout.stripe.test/sub", "destination": "checkout"},
+        )
+
+        session = billing.checkout(plan_id="pro", billing_period="annual")
+
+        assert session.url == "https://checkout.stripe.test/sub"
+        assert session.destination == "checkout"
+        assert responses.calls[0].request.body == b'{"plan_id": "pro", "billing_period": "annual"}'
+
+    @responses.activate
+    def test_portal_returns_url(self, billing):
+        responses.add(
+            responses.POST,
+            f"{BASE}/billing/portal",
+            json={"url": "https://billing.stripe.test/portal"},
+        )
+
+        assert billing.portal(flow="subscription_update") == "https://billing.stripe.test/portal"
+        assert responses.calls[0].request.body == b'{"flow": "subscription_update"}'
+
+    @responses.activate
+    def test_activate_free_returns_usage(self, billing):
+        responses.add(
+            responses.POST,
+            f"{BASE}/billing/activate-free",
+            json={
+                "plan": "free",
+                "runs_used": 0,
+                "runs_limit": 50,
+                "cost_used": "0",
+                "cost_limit": "0",
+                "period_end": "2026-09-18T00:00:00Z",
+                "subscription_status": None,
+            },
+        )
+
+        assert billing.activate_free().plan == "free"
+
+
 class TestUsageTimeseries:
     @responses.activate
     def test_parses_buckets_and_totals(self, billing):

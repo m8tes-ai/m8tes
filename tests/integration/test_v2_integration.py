@@ -2348,7 +2348,7 @@ class TestRunTaskLinkage:
 @pytest.mark.integration
 @pytest.mark.runtime
 class TestRunShareArchiveRuntime:
-    """Success paths for runs.share/unshare/archive against a real run."""
+    """Success paths for run console state against a real run."""
 
     def test_share_unshare_archive_lifecycle(self, v2_client):
         tm = v2_client.teammates.create(name="ShareArchiveHost")
@@ -2367,6 +2367,10 @@ class TestRunShareArchiveRuntime:
             reshared = v2_client.runs.share(run.id)
             assert reshared.share_token != share.share_token
             v2_client.runs.unshare(run.id)
+
+            viewed = v2_client.runs.mark_viewed(run.id)
+            assert viewed.id == run.id
+            assert viewed.last_viewed_at is not None
 
             archived = v2_client.runs.archive(run.id)
             assert archived.id == run.id
@@ -4878,7 +4882,22 @@ class TestAuthSDK:
 
 @pytest.mark.integration
 class TestV2Billing:
-    """client.billing — usage overage fields, plan catalog, and set_overage."""
+    """client.billing — subscriptions, usage, plan catalog, and spend controls."""
+
+    def test_checkout_rejects_unknown_plan_before_stripe(self, v2_client):
+        with pytest.raises(ValidationError):
+            v2_client.billing.checkout(plan_id="enterprise")
+
+    def test_portal_requires_a_stripe_customer(self, v2_client):
+        with pytest.raises(M8tesError) as exc:
+            v2_client.billing.portal()
+        assert exc.value.status_code == 400
+
+    def test_activate_free_is_idempotent_when_account_is_already_free(self, v2_client):
+        current = v2_client.billing.usage()
+        if current.plan != "free":
+            pytest.skip("integration account is not on the free plan")
+        assert v2_client.billing.activate_free().plan == "free"
 
     def test_usage_carries_overage_fields(self, v2_client):
         from m8tes._types import Usage

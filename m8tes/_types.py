@@ -1824,6 +1824,18 @@ class Plan:
 
 
 @dataclass
+class SubscriptionCheckout:
+    """Stripe redirect created for a subscription purchase or plan change."""
+
+    url: str
+    destination: Literal["checkout", "portal"]
+
+    @classmethod
+    def from_dict(cls, data: dict) -> SubscriptionCheckout:
+        return cls(url=data["url"], destination=data.get("destination", "checkout"))
+
+
+@dataclass
 class TokenTransaction:
     """One prepaid token-balance ledger entry (micro-USD; debits are negative)."""
 

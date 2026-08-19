@@ -658,6 +658,32 @@ class TestRuns:
         assert result.id == 42
 
     @responses.activate
+    def test_mark_viewed(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/42/view",
+            json={
+                "id": 42,
+                "status": "completed",
+                "last_viewed_at": "2026-08-19T12:00:00Z",
+            },
+        )
+        result = Runs(http).mark_viewed(42)
+        assert isinstance(result, Run)
+        assert result.id == 42
+        assert result.last_viewed_at is not None
+
+    @responses.activate
+    def test_mark_viewed_forwards_user_id(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/42/view",
+            json={"id": 42, "status": "completed", "last_viewed_at": "2026-08-19T12:00:00Z"},
+        )
+        Runs(http).mark_viewed(42, user_id="alice")
+        assert responses.calls[0].request.params.get("user_id") == "alice"
+
+    @responses.activate
     def test_create_streaming(self, http):
         responses.add(
             responses.POST,
