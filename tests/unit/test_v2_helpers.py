@@ -503,6 +503,40 @@ class TestTasksRunAndWait:
         assert run.status == "completed"
 
     @responses.activate
+    def test_run_and_wait_forwards_user_id_on_poll(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/tasks/5/runs",
+            json={"id": 10, "status": "running", "user_id": "alice"},
+            status=201,
+        )
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/10",
+            json={"id": 10, "status": "completed", "output": "Done", "user_id": "alice"},
+        )
+        Tasks(http).run_and_wait(5, user_id="alice", poll_interval=0.01)
+        assert json.loads(responses.calls[0].request.body)["user_id"] == "alice"
+        assert responses.calls[1].request.params.get("user_id") == "alice"
+
+    @responses.activate
+    def test_run_and_wait_prefers_stamped_user_id_over_caller(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/tasks/5/runs",
+            json={"id": 10, "status": "running", "user_id": "resolved"},
+            status=201,
+        )
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/10",
+            json={"id": 10, "status": "completed", "output": "Done", "user_id": "resolved"},
+        )
+        Tasks(http).run_and_wait(5, user_id="requested", poll_interval=0.01)
+        assert json.loads(responses.calls[0].request.body)["user_id"] == "requested"
+        assert responses.calls[1].request.params.get("user_id") == "resolved"
+
+    @responses.activate
     def test_run_and_wait_with_hitl(self, http):
         responses.add(
             responses.POST,

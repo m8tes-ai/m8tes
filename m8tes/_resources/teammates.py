@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 from .._http import seg
 from .._types import (
@@ -164,6 +164,7 @@ class Agents:
         return SyncPage(
             data=[Teammate.from_dict(d) for d in body["data"]],
             has_more=body["has_more"],
+            next_starting_after=body.get("next_starting_after"),
             _fetch_next=_fetch_next,
         )
 
@@ -186,6 +187,7 @@ class Agents:
         goals: str | None = None,
         metadata: dict | None = None,
         display_order: int | None = _UNSET,
+        visibility: Literal["personal", "organization"] | None = None,
         allowed_senders: _list[str] | None = None,
         inbound_imessage_enabled: bool | None = None,
         imessage_chat_guid: str | None = None,
@@ -236,6 +238,8 @@ class Agents:
         # CLEARS the manual position back to creation order; omitting leaves it alone.
         if display_order is not _UNSET:
             body["display_order"] = display_order
+        if visibility is not None:
+            body["visibility"] = visibility
         if allowed_senders is not None:
             body["allowed_senders"] = allowed_senders
         if inbound_imessage_enabled is not None:
@@ -339,6 +343,7 @@ class Agents:
         return SyncPage(
             data=[AgentRepo.from_dict(d) for d in body["data"]],
             has_more=body.get("has_more", False),
+            next_starting_after=body.get("next_starting_after"),
         )
 
     def configure_repo(

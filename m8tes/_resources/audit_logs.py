@@ -62,5 +62,6 @@ class AuditLogs:
         return SyncPage(
             data=[AuditLog.from_dict(d) for d in body["data"]],
             has_more=body["has_more"],
+            next_starting_after=body.get("next_starting_after"),
             _fetch_next=_fetch_next,
         )

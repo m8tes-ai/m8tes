@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 from .._http import seg
 from .._types import (
     App,
+    AppConnectionDetails,
     AppConnectionInitiation,
     AppConnectionResult,
     AppProvisionResult,
@@ -26,6 +27,7 @@ class Apps:
 
     def __init__(self, http: HTTPClient):
         self._http = http
+        self.connections = AppConnections(http)
 
     def list(
         self,
@@ -65,7 +67,11 @@ class Apps:
         params = _build_params(user_id=user_id)
         resp = self._http.request("GET", "/apps/", params=params)
         body = resp.json()
-        return SyncPage(data=[App.from_dict(d) for d in body["data"]], has_more=body["has_more"])
+        return SyncPage(
+            data=[App.from_dict(d) for d in body["data"]],
+            has_more=body["has_more"],
+            next_starting_after=body.get("next_starting_after"),
+        )
 
     def is_connected(self, app_name: str, *, user_id: str | None = None) -> bool:
         """True if the app is connected for this account or end-user."""
@@ -200,6 +206,7 @@ class Apps:
         return SyncPage(
             data=[AppTool.from_dict(d) for d in body["data"]],
             has_more=body["has_more"],
+            next_starting_after=body.get("next_starting_after"),
         )
 
     def disconnect(self, app_name: str, *, user_id: str | None = None) -> None:
@@ -208,3 +215,23 @@ class Apps:
         if user_id:
             params["user_id"] = user_id
         self._http.request("DELETE", f"/apps/{seg(app_name)}/connections", params=params)
+
+
+class AppConnections:
+    """``client.apps.connections`` — inspect saved app connections."""
+
+    def __init__(self, http: HTTPClient):
+        self._http = http
+
+    def list(self, app_name: str, *, user_id: str | None = None) -> SyncPage[AppConnectionDetails]:
+        """List connections for one app in the exact account or end-user scope."""
+        resp = self._http.request(
+            "GET",
+            f"/apps/{seg(app_name)}/connections",
+            params=_build_params(user_id=user_id),
+        )
+        body = resp.json()
+        return SyncPage(
+            data=[AppConnectionDetails.from_dict(item) for item in body["data"]],
+            has_more=body["has_more"],
+        )

@@ -27,7 +27,10 @@ class SyncPage(Generic[T]):
 
     data: list[T]
     has_more: bool
+    # Keep _fetch_next before next_starting_after so SyncPage(data, has_more, fetcher)
+    # positional callers still bind the fetcher correctly (dataclass field order is ABI).
     _fetch_next: Callable[..., SyncPage[T]] | None = field(default=None, repr=False)
+    next_starting_after: int | str | None = None
 
     def __iter__(self) -> Iterator[T]:
         """Iterate the CURRENT page's items (`for agent in client.agents.list()`),
@@ -39,19 +42,26 @@ class SyncPage(Generic[T]):
     def auto_paging_iter(self) -> Iterator[T]:
         """Iterate through all pages automatically."""
         page: SyncPage[T] = self
+        seen: set[Any] = set()
         while True:
             yield from page.data
             if not page.has_more or not page.data or not page._fetch_next:
                 break
-            last: Any = page.data[-1]
-            # Most SDK resources use integer `id` cursors. App pages use `name`.
-            cursor = getattr(last, "pagination_cursor", None)
+            cursor: Any = page.next_starting_after
             if cursor is None:
-                cursor = getattr(last, "id", None)
-            if cursor is None:
-                cursor = getattr(last, "name", None)
-            if cursor is None:
+                last: Any = page.data[-1]
+                # Most SDK resources use integer `id` cursors. App pages use `name`.
+                # Account trigger lists use task_id:id composite cursors.
+                cursor = getattr(last, "pagination_cursor", None)
+                if cursor is None:
+                    cursor = getattr(last, "id", None)
+                if cursor is None:
+                    cursor = getattr(last, "name", None)
+            if cursor is None or cursor in seen:
+                # Same defense as packages/sdk Page: a non-advancing cursor would
+                # otherwise spin forever (cache/replica lag / buggy has_more).
                 break
+            seen.add(cursor)
             page = page._fetch_next(starting_after=cursor)
 
 
@@ -1108,6 +1118,7 @@ class App:
     category: str
     connected: bool
     auth_type: str = ""  # "composio" | "api_key" | "api_key_proxy" | "platform_provisioned"
+    logo_url: str | None = None
 
     @property
     def needs_oauth(self) -> bool:
@@ -1132,6 +1143,7 @@ class App:
             category=data.get("category", "general"),
             connected=data.get("connected", False),
             auth_type=data.get("auth_type", ""),
+            logo_url=data.get("logo_url"),
         )
 
 
@@ -1164,6 +1176,27 @@ class BuiltInTool:
             enabled=data.get("enabled", False),
             multi_tenant_safe=data.get("multi_tenant_safe", False),
             configurable=data.get("configurable", False),
+        )
+
+
+@dataclass
+class AppConnectionDetails:
+    """A saved app connection without internal database identifiers."""
+
+    connection_id: str | None
+    status: Literal["active", "expired", "revoked"]
+    account_label: str | None
+    scopes: list[str]
+    updated_at: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> AppConnectionDetails:
+        return cls(
+            connection_id=data.get("connection_id"),
+            status=data["status"],
+            account_label=data.get("account_label"),
+            scopes=data.get("scopes", []),
+            updated_at=data["updated_at"],
         )
 
 
@@ -1685,6 +1718,8 @@ class Usage:
     overage_cap_cents: int = 0
     overage_rate_cents: int = 0
     trial_ends_at: str | None = None
+    # True when the account bypasses run/cost gates (internal/test accounts).
+    unlimited_runs: bool = False
 
     @classmethod
     def from_dict(cls, data: dict) -> Usage:
@@ -1701,6 +1736,7 @@ class Usage:
             overage_cap_cents=data.get("overage_cap_cents", 0),
             overage_rate_cents=data.get("overage_rate_cents", 0),
             trial_ends_at=data.get("trial_ends_at"),
+            unlimited_runs=bool(data.get("unlimited_runs", False)),
         )
 
 

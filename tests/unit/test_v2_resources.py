@@ -21,6 +21,7 @@ from m8tes._resources.triggers import Triggers
 from m8tes._streaming import RunStream
 from m8tes._types import (
     App,
+    AppConnectionDetails,
     AppConnectionInitiation,
     AppConnectionResult,
     AuditLog,
@@ -253,6 +254,17 @@ class TestTeammates:
         responses.add(responses.PATCH, f"{BASE}/agents/1", json={"id": 1, "name": "New"})
         t = Teammates(http).update(1, name="New")
         assert t.name == "New"
+
+    @responses.activate
+    def test_update_visibility(self, http):
+        responses.add(
+            responses.PATCH,
+            f"{BASE}/agents/1",
+            json={"id": 1, "name": "Shared", "visibility": "organization"},
+        )
+        teammate = Teammates(http).update(1, visibility="organization")
+        assert teammate.visibility == "organization"
+        assert json.loads(responses.calls[0].request.body) == {"visibility": "organization"}
 
     @responses.activate
     def test_disable_and_enable(self, http):
@@ -755,6 +767,16 @@ class TestRuns:
         assert r.output == "Done"
 
     @responses.activate
+    def test_get_forwards_user_id(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/42",
+            json={"id": 42, "status": "completed", "output": "Done"},
+        )
+        Runs(http).get(42, user_id="alice")
+        assert responses.calls[0].request.params.get("user_id") == "alice"
+
+    @responses.activate
     def test_reply_streaming(self, http):
         responses.add(
             responses.POST,
@@ -825,6 +847,14 @@ class TestRuns:
         )
         r = Runs(http).cancel(1)
         assert r.status == "cancelled"
+
+    @responses.activate
+    def test_cancel_forwards_user_id(self, http):
+        responses.add(
+            responses.POST, f"{BASE}/runs/1/cancel", json={"id": 1, "status": "cancelled"}
+        )
+        Runs(http).cancel(1, user_id="alice")
+        assert responses.calls[0].request.params.get("user_id") == "alice"
 
     @responses.activate
     def test_update_permission_mode(self, http):
@@ -1041,6 +1071,63 @@ class TestRunConvenienceHelpers:
         # Verify create was called with stream=False
         body = json.loads(responses.calls[0].request.body)
         assert body["stream"] is False
+
+    @responses.activate
+    def test_create_and_wait_forwards_user_id_on_poll(self, http):
+        """Strict mode needs user_id on every GET /runs/{id} — create_and_wait must not drop it."""
+        responses.add(responses.POST, f"{BASE}/runs/", json={"id": 1, "status": "running"})
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/1",
+            json={"id": 1, "status": "completed", "output": "done"},
+        )
+        Runs(http).create_and_wait(message="Do X", user_id="alice")
+        assert json.loads(responses.calls[0].request.body)["user_id"] == "alice"
+        assert responses.calls[1].request.params.get("user_id") == "alice"
+
+    @responses.activate
+    def test_create_and_wait_inherits_stamped_user_id_when_create_omits_it(self, http):
+        """Agent-inherited scope on the create response must feed the poll loop."""
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/",
+            json={"id": 1, "status": "running", "user_id": "inherited"},
+        )
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/1",
+            json={"id": 1, "status": "completed", "output": "done", "user_id": "inherited"},
+        )
+        Runs(http).create_and_wait(message="Do X", teammate_id=7)
+        assert "user_id" not in json.loads(responses.calls[0].request.body)
+        assert responses.calls[1].request.params.get("user_id") == "inherited"
+
+    @responses.activate
+    def test_create_and_wait_prefers_stamped_user_id_over_create_kwarg(self, http):
+        """Resolved owner on the create response wins over a different create kwarg."""
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/",
+            json={"id": 1, "status": "running", "user_id": "resolved"},
+        )
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/1",
+            json={"id": 1, "status": "completed", "output": "done", "user_id": "resolved"},
+        )
+        Runs(http).create_and_wait(message="Do X", user_id="requested")
+        assert json.loads(responses.calls[0].request.body)["user_id"] == "requested"
+        assert responses.calls[1].request.params.get("user_id") == "resolved"
+
+    @responses.activate
+    def test_poll_forwards_user_id(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/1",
+            json={"id": 1, "status": "completed", "output": "done"},
+        )
+        Runs(http).poll(1, user_id="alice", interval=0.01)
+        assert responses.calls[0].request.params.get("user_id") == "alice"
 
     @responses.activate
     def test_reply_and_wait(self, http):
@@ -1509,6 +1596,7 @@ class TestApps:
                         "display_name": "Gmail",
                         "category": "email",
                         "connected": False,
+                        "logo_url": "/logos/gmail.svg",
                     }
                 ],
                 "has_more": False,
@@ -1518,6 +1606,7 @@ class TestApps:
         assert len(result.data) == 1
         assert isinstance(result.data[0], App)
         assert result.data[0].name == "gmail"
+        assert result.data[0].logo_url == "/logos/gmail.svg"
         # GET /apps/ accepts ONLY user_id. This test used to call list(limit=2)
         # and assert "limit=2" was on the wire — against a mock, so it passed
         # while a real server answered 422 `Unknown query parameter`. Assert the
@@ -1531,6 +1620,32 @@ class TestApps:
         responses.add(responses.GET, f"{BASE}/apps/", json={"data": [], "has_more": False})
         Apps(http).list(user_id="cust_1")
         assert "user_id=cust_1" in responses.calls[0].request.url
+
+    @responses.activate
+    def test_list_connections_forwards_user_id_and_parses_details(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/apps/gmail/connections",
+            json={
+                "data": [
+                    {
+                        "connection_id": "ca_123",
+                        "status": "expired",
+                        "account_label": "ops@example.com",
+                        "scopes": ["https://mail.google.com/"],
+                        "updated_at": "2026-08-18T12:00:00Z",
+                    }
+                ],
+                "has_more": False,
+            },
+        )
+
+        result = Apps(http).connections.list("gmail", user_id="cust_1")
+
+        assert isinstance(result.data[0], AppConnectionDetails)
+        assert result.data[0].status == "expired"
+        assert result.data[0].account_label == "ops@example.com"
+        assert responses.calls[0].request.params.get("user_id") == "cust_1"
 
     @responses.activate
     def test_every_2_7_1_call_shape_still_works(self, http):

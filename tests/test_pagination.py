@@ -27,6 +27,62 @@ def test_auto_paging_iter_still_crosses_pages():
     assert list(page.auto_paging_iter()) == [one, two, three]
 
 
+def test_positional_third_arg_is_still_fetch_next():
+    """Field order is ABI: SyncPage(data, has_more, fetcher) must bind the fetcher."""
+    from types import SimpleNamespace as N
+
+    page2 = SyncPage(data=[N(id=2)], has_more=False)
+    page = SyncPage([N(id=1)], True, lambda **kw: page2)
+    assert page._fetch_next is not None
+    assert page.next_starting_after is None
+    assert [x.id for x in page.auto_paging_iter()] == [1, 2]
+
+
+def test_auto_paging_prefers_next_starting_after_over_last_id():
+    """Server cursor wins when it differs from the last item's id."""
+    from types import SimpleNamespace as N
+
+    seen: list[object] = []
+
+    def fetch_next(*, starting_after=None, **_kw):
+        seen.append(starting_after)
+        return SyncPage(data=[N(id=99)], has_more=False)
+
+    page = SyncPage(
+        data=[N(id=999)],
+        has_more=True,
+        _fetch_next=fetch_next,
+        next_starting_after=42,
+    )
+    assert [x.id for x in page.auto_paging_iter()] == [999, 99]
+    assert seen == [42]
+
+
+def test_auto_paging_stops_on_non_advancing_cursor():
+    """A stuck has_more+cursor must not spin forever (parity with TS Page)."""
+    from types import SimpleNamespace as N
+
+    calls = {"n": 0}
+
+    def fetch_next(*, starting_after=None, **_kw):
+        calls["n"] += 1
+        return SyncPage(
+            data=[N(id=1)],
+            has_more=True,
+            _fetch_next=fetch_next,
+            next_starting_after=1,
+        )
+
+    page = SyncPage(
+        data=[N(id=1)],
+        has_more=True,
+        _fetch_next=fetch_next,
+        next_starting_after=1,
+    )
+    assert [x.id for x in page.auto_paging_iter()] == [1, 1]
+    assert calls["n"] == 1
+
+
 def test_list_continuation_preserves_caller_limit():
     """auto_paging_iter must keep the caller's page size on EVERY page. The
     continuation closure previously dropped `limit`, so page 2+ silently fell

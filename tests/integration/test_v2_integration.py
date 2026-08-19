@@ -287,6 +287,19 @@ class TestTeammatesCRUD:
         assert all(m.max_effort in {"high", "max"} for m in models)
         assert any(m.max_effort == "max" for m in models)  # Claude tiers
 
+    def test_visibility_roundtrip(self, v2_client):
+        """visibility defaults to personal and PATCHes to organization."""
+        t = v2_client.teammates.create(name="VisibilityBot")
+        try:
+            assert t.visibility == "personal"
+            updated = v2_client.teammates.update(t.id, visibility="organization")
+            assert updated.visibility == "organization"
+            assert v2_client.teammates.get(t.id).visibility == "organization"
+            private = v2_client.teammates.update(t.id, visibility="personal")
+            assert private.visibility == "personal"
+        finally:
+            v2_client.teammates.delete(t.id)
+
     def test_invalid_effort_rejected(self, v2_client):
         with pytest.raises(ValidationError):
             v2_client.teammates.create(name="BadEffortBot", effort="turbo")
@@ -3253,6 +3266,16 @@ class TestAppsReadOnly:
         assert page.has_more is False
         assert len(list(page.auto_paging_iter())) == len(page.data)
 
+    def test_list_connections_for_an_end_user(self, v2_client):
+        apps = v2_client.apps.list().data
+        if not apps:
+            pytest.skip("no app in the catalog")
+
+        page = v2_client.apps.connections.list(apps[0].name, user_id=_uid())
+        assert isinstance(page, SyncPage)
+        assert page.data == []
+        assert page.has_more is False
+
 
 @pytest.mark.integration
 class TestAppToolDiscovery:
@@ -3300,6 +3323,9 @@ class TestAppsWritable:
         connected = next((item for item in connected_page.data if item.name == app.name), None)
         assert connected is not None
         assert connected.connected is True
+        connections = v2_client.apps.connections.list(app.name, user_id=user_id)
+        assert len(connections.data) == 1
+        assert connections.data[0].status == "active"
 
         v2_client.apps.disconnect(app.name, user_id=user_id)
 
@@ -3610,14 +3636,10 @@ class TestResponseTypes:
 
 @pytest.mark.integration
 class TestInputValidation:
-    def test_empty_teammate_name_auto_generates(self, v2_client):
-        """Empty teammate name falls back to the backend-generated default name."""
-        teammate = v2_client.teammates.create(name="")
-        try:
-            assert teammate.name
-            assert teammate.name.strip()
-        finally:
-            v2_client.teammates.delete(teammate.id)
+    def test_empty_teammate_name_rejected(self, v2_client):
+        """Empty/blank name is 422 — omit the field to get a backend-generated name."""
+        with pytest.raises(ValidationError, match="name"):
+            v2_client.teammates.create(name="")
 
     def test_max_length_teammate_name(self, v2_client):
         """255-char name succeeds (max_length=255)."""
