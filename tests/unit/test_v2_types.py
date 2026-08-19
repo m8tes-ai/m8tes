@@ -55,6 +55,14 @@ class TestRun:
         r = Run.from_dict({"id": 1})
         assert r.status == "running"
         assert r.output is None
+        assert r.delivery is None
+        assert r.queued_message_id is None
+
+    def test_from_dict_queued_reply(self):
+        """A reply to a mid-turn run answers delivery='queued' + the message id."""
+        r = Run.from_dict({"id": 1, "delivery": "queued", "queued_message_id": 7})
+        assert r.delivery == "queued"
+        assert r.queued_message_id == 7
 
 
 class TestTask:

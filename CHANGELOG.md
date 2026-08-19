@@ -2,6 +2,27 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [4.12.0] - 2026-08-19
+
+### Added
+
+- **Reply to a live run — messages queue instead of failing (or forking).**
+  `client.runs.reply(run_id, message)` on a run whose current turn is still
+  executing now returns the run with `delivery="queued"` and
+  `queued_message_id`; the message is delivered as the run's next turn the
+  moment the current one ends. A reply that resumed immediately reports
+  `delivery="resumed"`. With `stream=True`, a queued reply joins the live
+  run's ongoing stream (the queued message delivers on the next turn). While
+  the run is live, file attachments and per-reply overrides return `409`.
+- `Run.delivery` / `Run.queued_message_id` fields.
+- `Teammate.last_active_at` / `Teammate.active_run_count` — roster
+  activity/liveness, for picking which agent (or which live run) to message.
+- New webhook events `run.message_received` (a message was queued for a run)
+  and `run.message_cancelled` (a queued message became undeliverable, with a
+  reason).
+- **`RunOutcome.delivery_channel` and `RunOutcome.needs_reply_count`** — mirror
+  `GET /runs/{id}/outcome` after agentic scheduled delivery (`set_run_delivery`).
+
 ## [4.11.0] - 2026-08-19
 
 ### Added

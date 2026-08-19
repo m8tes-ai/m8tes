@@ -258,6 +258,13 @@ class Teammate:
     # Manual roster position (lower sorts first); None until the user places it.
     # Sort by COALESCE(display_order, id) ascending.
     display_order: int | None = None
+    # Activity/liveness (reads only): when this agent's most recent run (last 90
+    # days) last did anything (None = idle longer), and how many runs are
+    # executing or awaiting approval right now. Non-zero active_run_count = live;
+    # message a live run with client.runs.reply(run_id, message) — the reply
+    # queues (delivery="queued").
+    last_active_at: str | None = None
+    active_run_count: int = 0
 
     @classmethod
     def from_dict(cls, data: dict) -> Teammate:
@@ -299,6 +306,8 @@ class Teammate:
             prompt_profile=data.get("prompt_profile") or "platform",
             disabled_builtin_tools=data.get("disabled_builtin_tools") or [],
             display_order=data.get("display_order"),
+            last_active_at=data.get("last_active_at"),
+            active_run_count=data.get("active_run_count", 0),
             status=data.get("status", "enabled"),
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at"),
@@ -558,6 +567,14 @@ class Run:
     # else marker-stripped latest prose). Null when there is nothing scannable —
     # NO-REPLY opt-outs and mid-run narration without a stamped closing included.
     closing_preview: str | None = None
+    # Populated only on runs.reply() responses: "resumed" — the message became the
+    # run's next turn immediately; "queued" — the run was mid-turn, so the message
+    # was parked and is delivered as the next turn the moment the current one ends
+    # (a queued reply returns JSON even with stream=True). None everywhere else.
+    delivery: str | None = None
+    # The queued inbound message's id when delivery == "queued" (the
+    # run.message_received webhook event carries the same id).
+    queued_message_id: int | None = None
 
     @property
     def agent_id(self) -> int | None:
@@ -608,6 +625,8 @@ class Run:
             repeats_actions=data.get("repeats_actions"),
             last_viewed_at=data.get("last_viewed_at"),
             closing_preview=data.get("closing_preview"),
+            delivery=data.get("delivery"),
+            queued_message_id=data.get("queued_message_id"),
         )
 
 
