@@ -1319,6 +1319,22 @@ class TestTasks:
         assert body["user_id"] == "cust_1"
 
     @responses.activate
+    def test_create_sends_permission_mode(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/tasks/",
+            json={"id": 1, "teammate_id": 2, "instructions": "Do"},
+            status=201,
+        )
+        Tasks(http).create(
+            teammate_id=2,
+            instructions="Do",
+            permission_mode="approval",
+        )
+        body = json.loads(responses.calls[0].request.body)
+        assert body["permission_mode"] == "approval"
+
+    @responses.activate
     def test_list(self, http):
         responses.add(
             responses.GET,
@@ -1356,6 +1372,17 @@ class TestTasks:
         Tasks(http).update(1, instructions="X", expected_output="Y")
         body = json.loads(responses.calls[0].request.body)
         assert body == {"instructions": "X", "expected_output": "Y"}
+
+    @responses.activate
+    def test_update_sends_permission_mode(self, http):
+        responses.add(
+            responses.PATCH,
+            f"{BASE}/tasks/1",
+            json={"id": 1, "teammate_id": 2, "instructions": "X"},
+        )
+        Tasks(http).update(1, permission_mode="plan")
+        body = json.loads(responses.calls[0].request.body)
+        assert body == {"permission_mode": "plan"}
 
     @responses.activate
     def test_run_non_streaming(self, http):

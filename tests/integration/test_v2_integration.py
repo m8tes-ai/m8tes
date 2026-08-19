@@ -769,13 +769,17 @@ class TestTasksCRUD:
         tm = v2_client.teammates.create(name="TaskHost")
         try:
             task = v2_client.tasks.create(
-                teammate_id=tm.id, instructions="Weekly summary", name="Weekly"
+                teammate_id=tm.id,
+                instructions="Weekly summary",
+                name="Weekly",
+                permission_mode="approval",
             )
             try:
                 assert isinstance(task, Task)
                 assert task.teammate_id == tm.id
                 assert task.name == "Weekly"
                 assert task.instructions == "Weekly summary"
+                assert task.permission_mode == "approval"
                 assert task.status == "enabled"
 
                 # List
@@ -787,12 +791,18 @@ class TestTasksCRUD:
                 assert fetched.instructions == "Weekly summary"
 
                 # Update
-                updated = v2_client.tasks.update(task.id, instructions="Daily summary")
+                updated = v2_client.tasks.update(
+                    task.id,
+                    instructions="Daily summary",
+                    permission_mode="plan",
+                )
                 assert updated.instructions == "Daily summary"
+                assert updated.permission_mode == "plan"
 
                 # Verify update persisted
                 refetched = v2_client.tasks.get(task.id)
                 assert refetched.instructions == "Daily summary"
+                assert refetched.permission_mode == "plan"
             finally:
                 v2_client.tasks.delete(task.id)
 
