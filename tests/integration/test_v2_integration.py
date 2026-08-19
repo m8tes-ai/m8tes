@@ -287,6 +287,19 @@ class TestTeammatesCRUD:
         assert all(m.max_effort in {"high", "max"} for m in models)
         assert any(m.max_effort == "max" for m in models)  # Claude tiers
 
+    def test_visibility_roundtrip(self, v2_client):
+        """visibility defaults to personal and PATCHes to organization."""
+        t = v2_client.teammates.create(name="VisibilityBot")
+        try:
+            assert t.visibility == "personal"
+            updated = v2_client.teammates.update(t.id, visibility="organization")
+            assert updated.visibility == "organization"
+            assert v2_client.teammates.get(t.id).visibility == "organization"
+            private = v2_client.teammates.update(t.id, visibility="personal")
+            assert private.visibility == "personal"
+        finally:
+            v2_client.teammates.delete(t.id)
+
     def test_invalid_effort_rejected(self, v2_client):
         with pytest.raises(ValidationError):
             v2_client.teammates.create(name="BadEffortBot", effort="turbo")

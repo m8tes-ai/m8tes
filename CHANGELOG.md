@@ -4,6 +4,12 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.10.0] - 2026-08-19
+
+### Added
+
+- `client.agents.update(..., visibility="organization")` can share an agent with its organization.
+
 ## [4.9.1] - 2026-08-19
 
 ### Changed
@@ -40,6 +46,7 @@ All notable changes to the m8tes Python SDK will be documented in this file.
   available; the default is opt-in per click. Defaults to `True` for older servers.
 - **`PermissionPolicy.source`** — which surface minted a standing grant
   (`"run_approval"` / `"api"`; `None` on rows created before provenance existed).
+
 ## [4.8.1] - 2026-08-17
 
 ### Fixed

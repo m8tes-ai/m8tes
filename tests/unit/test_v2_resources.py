@@ -255,6 +255,17 @@ class TestTeammates:
         assert t.name == "New"
 
     @responses.activate
+    def test_update_visibility(self, http):
+        responses.add(
+            responses.PATCH,
+            f"{BASE}/agents/1",
+            json={"id": 1, "name": "Shared", "visibility": "organization"},
+        )
+        teammate = Teammates(http).update(1, visibility="organization")
+        assert teammate.visibility == "organization"
+        assert json.loads(responses.calls[0].request.body) == {"visibility": "organization"}
+
+    @responses.activate
     def test_disable_and_enable(self, http):
         responses.add(
             responses.POST,
