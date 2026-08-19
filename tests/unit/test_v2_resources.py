@@ -22,6 +22,7 @@ from m8tes._resources.teammates import Teammates
 from m8tes._streaming import RunStream
 from m8tes._types import (
     App,
+    AppConnectionDetails,
     AppConnectionInitiation,
     AppConnectionResult,
     AuditLog,
@@ -1467,6 +1468,7 @@ class TestApps:
                         "display_name": "Gmail",
                         "category": "email",
                         "connected": False,
+                        "logo_url": "/logos/gmail.svg",
                     }
                 ],
                 "has_more": False,
@@ -1476,6 +1478,7 @@ class TestApps:
         assert len(result.data) == 1
         assert isinstance(result.data[0], App)
         assert result.data[0].name == "gmail"
+        assert result.data[0].logo_url == "/logos/gmail.svg"
         # GET /apps/ accepts ONLY user_id. This test used to call list(limit=2)
         # and assert "limit=2" was on the wire — against a mock, so it passed
         # while a real server answered 422 `Unknown query parameter`. Assert the
@@ -1489,6 +1492,32 @@ class TestApps:
         responses.add(responses.GET, f"{BASE}/apps/", json={"data": [], "has_more": False})
         Apps(http).list(user_id="cust_1")
         assert "user_id=cust_1" in responses.calls[0].request.url
+
+    @responses.activate
+    def test_list_connections_forwards_user_id_and_parses_details(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/apps/gmail/connections",
+            json={
+                "data": [
+                    {
+                        "connection_id": "ca_123",
+                        "status": "expired",
+                        "account_label": "ops@example.com",
+                        "scopes": ["https://mail.google.com/"],
+                        "updated_at": "2026-08-18T12:00:00Z",
+                    }
+                ],
+                "has_more": False,
+            },
+        )
+
+        result = Apps(http).connections.list("gmail", user_id="cust_1")
+
+        assert isinstance(result.data[0], AppConnectionDetails)
+        assert result.data[0].status == "expired"
+        assert result.data[0].account_label == "ops@example.com"
+        assert responses.calls[0].request.params.get("user_id") == "cust_1"
 
     @responses.activate
     def test_every_2_7_1_call_shape_still_works(self, http):

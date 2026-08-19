@@ -1097,6 +1097,7 @@ class App:
     category: str
     connected: bool
     auth_type: str = ""  # "composio" | "api_key" | "api_key_proxy" | "platform_provisioned"
+    logo_url: str | None = None
 
     @property
     def needs_oauth(self) -> bool:
@@ -1121,6 +1122,7 @@ class App:
             category=data.get("category", "general"),
             connected=data.get("connected", False),
             auth_type=data.get("auth_type", ""),
+            logo_url=data.get("logo_url"),
         )
 
 
@@ -1153,6 +1155,27 @@ class BuiltInTool:
             enabled=data.get("enabled", False),
             multi_tenant_safe=data.get("multi_tenant_safe", False),
             configurable=data.get("configurable", False),
+        )
+
+
+@dataclass
+class AppConnectionDetails:
+    """A saved app connection without internal database identifiers."""
+
+    connection_id: str | None
+    status: Literal["active", "expired", "revoked"]
+    account_label: str | None
+    scopes: list[str]
+    updated_at: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> AppConnectionDetails:
+        return cls(
+            connection_id=data.get("connection_id"),
+            status=data["status"],
+            account_label=data.get("account_label"),
+            scopes=data.get("scopes", []),
+            updated_at=data["updated_at"],
         )
 
 
