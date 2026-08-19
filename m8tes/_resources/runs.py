@@ -303,6 +303,7 @@ class Runs:
         self,
         run_id: int,
         *,
+        user_id: str | None = None,
         interval: float = 2.0,
         timeout: float = 300.0,
         raise_on_error: bool = False,
@@ -311,6 +312,9 @@ class Runs:
 
         For runs with human_in_the_loop=True, use wait() instead — it handles
         awaiting_approval pauses via callbacks so the run can continue.
+
+        Pass ``user_id`` when the account has strict multi-tenant mode on —
+        otherwise every poll GET 422s.
 
         `raise_on_error=True` turns a `failed` run into RunFailedError instead of
         a returned Run, matching `runs.create(..., raise_on_error=True)` on the
@@ -323,7 +327,7 @@ class Runs:
         deadline = _time.monotonic() + timeout
         while True:
             try:
-                run = self.get(run_id)
+                run = self.get(run_id, user_id=user_id)
             except APIError:
                 if _time.monotonic() >= deadline:
                     raise TimeoutError(f"Run {run_id} did not complete within {timeout}s") from None
@@ -341,6 +345,7 @@ class Runs:
         self,
         run_id: int,
         *,
+        user_id: str | None = None,
         on_approval: Callable[[PermissionRequest], str] | None = None,
         on_question: Callable[[PermissionRequest], dict[str, str]] | None = None,
         interval: float = 2.0,
@@ -353,11 +358,15 @@ class Runs:
         - Tool approvals: calls on_approval(req) → "allow" or "deny"
         - AskUserQuestion: calls on_question(req) → {question_text: answer} dict
 
+        Pass ``user_id`` when the account has strict multi-tenant mode on —
+        otherwise every poll GET 422s.
+
         Without callbacks, raises RuntimeError if the run pauses for input.
 
         Usage:
             run = client.runs.wait(
                 run.id,
+                user_id="alice",
                 on_question=lambda req: {"Which segment?": "enterprise"},
                 on_approval=lambda req: "allow",
             )
@@ -379,7 +388,7 @@ class Runs:
 
         while True:
             try:
-                run = self.get(run_id)
+                run = self.get(run_id, user_id=user_id)
             except APIError:
                 if _time.monotonic() >= deadline:
                     raise TimeoutError(f"Run {run_id} did not complete within {timeout}s") from None
@@ -508,8 +517,11 @@ class Runs:
             ),
         )
         # Preserve email_address from initial response — GET /runs/{id} doesn't return it
+        # Prefer the API-stamped owner (truth after create), else the create kwarg.
+        poll_user_id = initial.user_id or user_id
         final = self.wait(
             initial.id,
+            user_id=poll_user_id,
             on_approval=on_approval,
             on_question=on_question,
             interval=poll_interval,
@@ -525,6 +537,7 @@ class Runs:
         run_id: int,
         *,
         message: str,
+        user_id: str | None = None,
         tools: _list[str] | None = None,
         files: _list | None = None,
         permission_mode: str | None = None,
@@ -536,7 +549,10 @@ class Runs:
         poll_interval: float = 2.0,
         poll_timeout: float = 300.0,
     ) -> Run:
-        """Send a follow-up and wait until it completes. Returns the finished Run."""
+        """Send a follow-up and wait until it completes. Returns the finished Run.
+
+        Pass ``user_id`` when the account has strict multi-tenant mode on.
+        """
         run = self.reply(
             run_id,
             message=message,
@@ -550,6 +566,7 @@ class Runs:
         )
         return self.wait(
             cast(Run, run).id,
+            user_id=cast(Run, run).user_id or user_id,
             on_approval=on_approval,
             on_question=on_question,
             interval=poll_interval,
@@ -671,8 +688,12 @@ class Runs:
             _fetch_next=_fetch_next,
         )
 
-    def get(self, run_id: int) -> Run:
-        resp = self._http.request("GET", f"/runs/{seg(run_id)}")
+    def get(self, run_id: int, *, user_id: str | None = None) -> Run:
+        """Get a run by id. Pass ``user_id`` to scope to one end-user (required when
+        the account has strict multi-tenant mode on)."""
+        resp = self._http.request(
+            "GET", f"/runs/{seg(run_id)}", params=_build_params(user_id=user_id)
+        )
         return Run.from_dict(resp.json())
 
     def check(self, *, user_id: str | None = None) -> RunCheck:
@@ -790,8 +811,14 @@ class Runs:
         resp = self._http.request("POST", f"/runs/{seg(run_id)}/reply", json=body, headers=headers)
         return Run.from_dict(resp.json())
 
-    def cancel(self, run_id: int) -> Run:
-        resp = self._http.request("POST", f"/runs/{seg(run_id)}/cancel")
+    def cancel(self, run_id: int, *, user_id: str | None = None) -> Run:
+        """Cancel an active run.
+
+        Pass ``user_id`` when the account has strict multi-tenant mode on.
+        """
+        resp = self._http.request(
+            "POST", f"/runs/{seg(run_id)}/cancel", params=_build_params(user_id=user_id)
+        )
         return Run.from_dict(resp.json())
 
     def share(self, run_id: int) -> RunShare:

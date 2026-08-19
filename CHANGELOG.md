@@ -4,6 +4,17 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.9.1] - 2026-08-19
+
+### Changed
+
+- **`runs.get` / `poll` / `wait` / `create_and_wait` / `reply_and_wait` /
+  `cancel` forward `user_id`.** Strict multi-tenant mode requires `?user_id=`
+  on every by-ID GET and on cancel; `create_and_wait` / `reply_and_wait` /
+  `tasks.run_and_wait` fall back to the response's stamped `user_id` when the
+  caller omitted it (agent-inherited scope). When both are present, poll prefers
+  the stamped owner.
+
 ### Changed
 
 - **`signup()` docstring and README install pin tell the real funding story.** New
