@@ -7,7 +7,7 @@
 
 **Give every customer their own AI agent — through one API.**
 
-Hosted runtime, 150+ integrations, scheduling, memory, human-in-the-loop approvals, and per-user isolation via `user_id`. Ship autonomous agents to production in minutes.
+Hosted runtime, 190+ integrations, scheduling, memory, human-in-the-loop approvals, and per-user isolation via `user_id`. Ship autonomous agents to production in minutes.
 
 ## Install
 
@@ -76,7 +76,7 @@ for log in page.data:
 | Build it yourself | With m8tes |
 |---|---|
 | Sandboxed execution environment | ✅ Hosted runtime, zero infra |
-| OAuth for every app you connect | ✅ 150+ integrations with managed OAuth |
+| OAuth for every app you connect | ✅ 190+ integrations with managed OAuth |
 | Scheduling, webhook, email, and iMessage triggers | ✅ Built in — set once, runs forever |
 | Human-in-the-loop approval flows | ✅ Three modes: autonomous, approval, plan |
 | Memory that persists across executions | ✅ Per-user memory out of the box |
@@ -89,7 +89,7 @@ for log in page.data:
 ## What's included
 
 - **Hosted agent runtime** — agents run in isolated sandboxes. You ship the workflow, not the infra.
-- **150+ managed integrations** — Gmail, Slack, Notion, HubSpot, Stripe, Linear, Google Ads. OAuth and token refresh handled.
+- **190+ managed integrations** — Gmail, Slack, Notion, HubSpot, Stripe, Linear, Google Ads. OAuth and token refresh handled.
 - **Human-in-the-loop** — require approval before sensitive actions. Keep the speed without giving up control.
 - **Scheduled runs, webhooks, email, and iMessage triggers** — set the cadence once. Daily, weekly, or hourly runs happen automatically.
 - **Persistent memory** — agents remember past conversations and build on them. Per-user scoping for multi-tenant apps.
@@ -117,7 +117,7 @@ eve, LangChain, CrewAI, and the OpenAI Agents SDK are agent frameworks. They hel
 | An agent is | Code you write and deploy | An API resource created at runtime |
 | Agent execution | Local or your cloud — you host it | Hosted sandbox |
 | Multi-tenancy | Build isolation yourself | One `user_id` parameter |
-| Tool integrations | Build and maintain | 150+ with managed OAuth |
+| Tool integrations | Build and maintain | 190+ with managed OAuth |
 | Scheduling & triggers | Write your own | Built in |
 | Memory | DIY persistence layer | Per-user memory out of the box |
 | Human-in-the-loop | Build approval flows | Three modes built in |
