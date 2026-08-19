@@ -4,6 +4,12 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **`signup()` docstring and README install pin tell the real funding story.** New
+  accounts start at $0 (fund before the first run); the 25-run preview is a
+  verification gate on *funded* runs, not free credit. Install pin is now
+  `m8tes>=4.8` (was `>=3.2`) so `MockM8tes` and `exc.error_code` are in range.
 ### Added
 
 - **`client.apps.connections.list(app_name, user_id=...)`** — list connection status,

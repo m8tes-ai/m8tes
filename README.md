@@ -12,7 +12,7 @@ Hosted runtime, 150+ integrations, scheduling, memory, human-in-the-loop approva
 ## Install
 
 ```bash
-pip install -U "m8tes>=3.2"
+pip install -U "m8tes>=4.8"
 ```
 
 ## Quick start
