@@ -1294,6 +1294,52 @@ class Memory:
 
 
 @dataclass
+class Document:
+    """A company- or agent-scoped persistent document."""
+
+    id: int
+    scope: str
+    name: str
+    summary: str
+    mime_type: str
+    size_bytes: int
+    source: str
+    source_run_id: int | None = None
+    agent_id: int | None = None
+    user_id: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Document:
+        return cls(
+            id=data["id"],
+            scope=data["scope"],
+            name=data["name"],
+            summary=data["summary"],
+            mime_type=data["mime_type"],
+            size_bytes=data["size_bytes"],
+            source=data["source"],
+            source_run_id=data.get("source_run_id"),
+            agent_id=data.get("agent_id"),
+            user_id=data.get("user_id"),
+            created_at=data.get("created_at"),
+            updated_at=data.get("updated_at"),
+        )
+
+
+@dataclass
+class DocumentDetail(Document):
+    """A persistent document with its full text content."""
+
+    content: str = ""
+
+    @classmethod
+    def from_dict(cls, data: dict) -> DocumentDetail:
+        return cls(**Document.from_dict(data).__dict__, content=data["content"])
+
+
+@dataclass
 class PermissionRequest:
     """A pending or resolved tool permission request on a run."""
 

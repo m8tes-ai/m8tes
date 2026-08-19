@@ -1,6 +1,7 @@
 """Tests for v2 SDK resource classes — verify correct HTTP calls and response parsing."""
 
 import json
+from typing import ClassVar
 
 import pytest
 import responses
@@ -11,6 +12,7 @@ from m8tes._resources.apps import Apps
 from m8tes._resources.audit_logs import AuditLogs
 from m8tes._resources.bridges import Bridges
 from m8tes._resources.channels import Channels
+from m8tes._resources.documents import Documents
 from m8tes._resources.memories import Memories
 from m8tes._resources.model_connections import ModelConnections
 from m8tes._resources.permissions import Permissions
@@ -1810,6 +1812,76 @@ class TestApps:
 
 
 # ── Memories ────────────────────────────────────────────────────────
+
+
+class TestDocuments:
+    document: ClassVar[dict] = {
+        "id": 7,
+        "scope": "teammate",
+        "name": "latest-report",
+        "summary": "Weekly report",
+        "mime_type": "text/markdown",
+        "size_bytes": 12,
+        "source": "agent_generated",
+        "source_run_id": 42,
+        "agent_id": 3,
+        "user_id": "cust_1",
+        "created_at": "2026-08-18T09:00:00Z",
+        "updated_at": "2026-08-18T09:00:00Z",
+    }
+
+    @responses.activate
+    def test_list_sends_scope_agent_and_user_id(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/documents",
+            json={"data": [self.document], "has_more": False},
+            status=200,
+        )
+
+        page = Documents(http).list(scope="teammate", agent_id=3, user_id="cust_1")
+
+        assert page.data[0].agent_id == 3
+        assert "scope=teammate" in responses.calls[0].request.url
+        assert "agent_id=3" in responses.calls[0].request.url
+        assert "user_id=cust_1" in responses.calls[0].request.url
+
+    @responses.activate
+    def test_get_returns_content(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/documents/7",
+            json={**self.document, "content": "# Report"},
+            status=200,
+        )
+
+        document = Documents(http).get(7, user_id="cust_1")
+
+        assert document.content == "# Report"
+        assert "user_id=cust_1" in responses.calls[0].request.url
+
+    @responses.activate
+    def test_update_sends_only_changed_metadata(self, http):
+        responses.add(
+            responses.PATCH,
+            f"{BASE}/documents/7",
+            json={**self.document, "name": "report"},
+            status=200,
+        )
+
+        document = Documents(http).update(7, name="report", user_id="cust_1")
+
+        assert document.name == "report"
+        assert json.loads(responses.calls[0].request.body) == {"name": "report"}
+        assert "user_id=cust_1" in responses.calls[0].request.url
+
+    @responses.activate
+    def test_delete_sends_user_id(self, http):
+        responses.add(responses.DELETE, f"{BASE}/documents/7", status=204)
+
+        Documents(http).delete(7, user_id="cust_1")
+
+        assert "user_id=cust_1" in responses.calls[0].request.url
 
 
 class TestMemories:
