@@ -870,12 +870,15 @@ class AgentRepo:
 
 @dataclass
 class GitHubAppStatus:
-    """Account m8tes Code GitHub App connection state."""
+    """Account GitHub App connection state."""
 
     state: str
     repo_count: int
     account_login: str | None = None
     install_allowed: bool = True
+    branded: bool = False
+    app_slug: str | None = None
+    setup_pending: bool = False
 
     @classmethod
     def from_dict(cls, data: dict) -> GitHubAppStatus:
@@ -884,6 +887,9 @@ class GitHubAppStatus:
             repo_count=int(data["repo_count"]),
             account_login=data.get("account_login"),
             install_allowed=bool(data.get("install_allowed", True)),
+            branded=bool(data.get("branded", False)),
+            app_slug=data.get("app_slug"),
+            setup_pending=bool(data.get("setup_pending", False)),
         )
 
 
