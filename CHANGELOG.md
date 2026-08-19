@@ -8,6 +8,9 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ### Added
 
+- **`client.tasks.create` / `client.tasks.update` `permission_mode`** — `autonomous`,
+  `approval`, or `plan`. Omitted on update leaves the saved mode unchanged.
+
 - `client.agents.update(..., visibility="organization")` can share an agent with its organization.
 
 ## [4.9.1] - 2026-08-19
