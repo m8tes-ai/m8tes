@@ -93,6 +93,24 @@ class Billing:
         resp = self._http.request("GET", "/billing/plans")
         return [Plan.from_dict(d) for d in resp.json()]
 
+    def checkout(
+        self,
+        *,
+        plan_id: str,
+        billing_period: str = "monthly",
+    ) -> dict[str, str]:
+        """Start a Stripe Checkout for a paid plan, or a portal URL for active subscribers."""
+        resp = self._http.request(
+            "POST",
+            "/billing/checkout",
+            json={"plan_id": plan_id, "billing_period": billing_period},
+        )
+        data = resp.json()
+        return {
+            "url": str(data["url"]),
+            "destination": str(data["destination"]),
+        }
+
     def set_overage(self, *, enabled: bool, monthly_cap_cents: int) -> Usage:
         """Opt in/out of usage overage and set the monthly spend cap (cents).
 
