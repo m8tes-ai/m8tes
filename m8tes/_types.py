@@ -27,7 +27,10 @@ class SyncPage(Generic[T]):
 
     data: list[T]
     has_more: bool
+    # Keep _fetch_next before next_starting_after so SyncPage(data, has_more, fetcher)
+    # positional callers still bind the fetcher correctly (dataclass field order is ABI).
     _fetch_next: Callable[..., SyncPage[T]] | None = field(default=None, repr=False)
+    next_starting_after: int | str | None = None
 
     def __iter__(self) -> Iterator[T]:
         """Iterate the CURRENT page's items (`for agent in client.agents.list()`),
@@ -39,17 +42,23 @@ class SyncPage(Generic[T]):
     def auto_paging_iter(self) -> Iterator[T]:
         """Iterate through all pages automatically."""
         page: SyncPage[T] = self
+        seen: set[Any] = set()
         while True:
             yield from page.data
             if not page.has_more or not page.data or not page._fetch_next:
                 break
-            last: Any = page.data[-1]
-            # Most SDK resources use integer `id` cursors. App pages use `name`.
-            cursor = getattr(last, "id", None)
+            cursor: Any = page.next_starting_after
             if cursor is None:
-                cursor = getattr(last, "name", None)
-            if cursor is None:
+                last: Any = page.data[-1]
+                # Most SDK resources use integer `id` cursors. App pages use `name`.
+                cursor = getattr(last, "id", None)
+                if cursor is None:
+                    cursor = getattr(last, "name", None)
+            if cursor is None or cursor in seen:
+                # Same defense as packages/sdk Page: a non-advancing cursor would
+                # otherwise spin forever (cache/replica lag / buggy has_more).
                 break
+            seen.add(cursor)
             page = page._fetch_next(starting_after=cursor)
 
 
@@ -1697,6 +1706,8 @@ class Usage:
     overage_cap_cents: int = 0
     overage_rate_cents: int = 0
     trial_ends_at: str | None = None
+    # True when the account bypasses run/cost gates (internal/test accounts).
+    unlimited_runs: bool = False
 
     @classmethod
     def from_dict(cls, data: dict) -> Usage:
@@ -1713,6 +1724,7 @@ class Usage:
             overage_cap_cents=data.get("overage_cap_cents", 0),
             overage_rate_cents=data.get("overage_rate_cents", 0),
             trial_ends_at=data.get("trial_ends_at"),
+            unlimited_runs=bool(data.get("unlimited_runs", False)),
         )
 
 

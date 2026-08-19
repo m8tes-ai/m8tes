@@ -42,6 +42,7 @@ class GitHubApp:
         return SyncPage(
             data=[GitHubRepository.from_dict(d) for d in body["data"]],
             has_more=body.get("has_more", False),
+            next_starting_after=body.get("next_starting_after"),
         )
 
     def disconnect(self) -> None:

@@ -12,6 +12,10 @@ All notable changes to the m8tes Python SDK will be documented in this file.
   `m8tes>=4.8` (was `>=3.2`) so `MockM8tes` and `exc.error_code` are in range.
 ### Added
 
+- **`Usage.unlimited_runs`** — mirrors `GET /api/v2/usage` so clients can tell when
+  run/cost gates are bypassed (internal/test accounts).
+- **`SyncPage.next_starting_after`** — cursor from the list envelope for the next
+  `starting_after` page request.
 - **`client.apps.connections.list(app_name, user_id=...)`** — list connection status,
   provider connection ID, account label, scopes, and update time without exposing internal
   database IDs. `App.logo_url` now carries catalog display metadata.

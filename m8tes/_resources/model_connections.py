@@ -27,6 +27,7 @@ class ModelConnections:
         return SyncPage(
             data=[ModelConnection.from_dict(item) for item in body["data"]],
             has_more=body.get("has_more", False),
+            next_starting_after=body.get("next_starting_after"),
         )
 
     def apply_default(self, provider: ModelConnectionProvider) -> ApplyPreferredModelResult:
