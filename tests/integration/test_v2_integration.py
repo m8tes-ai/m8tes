@@ -287,6 +287,19 @@ class TestTeammatesCRUD:
         assert all(m.max_effort in {"high", "max"} for m in models)
         assert any(m.max_effort == "max" for m in models)  # Claude tiers
 
+    def test_visibility_roundtrip(self, v2_client):
+        """visibility defaults to personal and PATCHes to organization."""
+        t = v2_client.teammates.create(name="VisibilityBot")
+        try:
+            assert t.visibility == "personal"
+            updated = v2_client.teammates.update(t.id, visibility="organization")
+            assert updated.visibility == "organization"
+            assert v2_client.teammates.get(t.id).visibility == "organization"
+            private = v2_client.teammates.update(t.id, visibility="personal")
+            assert private.visibility == "personal"
+        finally:
+            v2_client.teammates.delete(t.id)
+
     def test_invalid_effort_rejected(self, v2_client):
         with pytest.raises(ValidationError):
             v2_client.teammates.create(name="BadEffortBot", effort="turbo")
@@ -5524,7 +5537,7 @@ class TestChannels:
 
 @pytest.mark.integration
 class TestGitHubAppCoding:
-    """GET /github-app/status + agents.list_repos — coding setup surface (no real GitHub)."""
+    """Coding GitHub App via the SDK — status, own-App setup_url, repos. No real GitHub."""
 
     def test_status_and_empty_agent_repos(self, v2_client):
         status = v2_client.github_app.status()
@@ -5541,6 +5554,27 @@ class TestGitHubAppCoding:
             assert page.data == [] or all(r.repo_full_name for r in page.data)
         finally:
             v2_client.agents.delete(agent.id)
+
+    def test_own_app_setup_url_pending_and_clear(self, v2_client):
+        """API-user path: mint a browser URL, see setup_pending, revert. No GitHub."""
+        status = v2_client.github_app.status()
+        if status.state in {"connected", "all_repos", "suspended"}:
+            pytest.skip("session client already has a GitHub install")
+        try:
+            url = v2_client.github_app.setup_url()
+            assert "github-app/register" in url
+            assert "state=" in url
+            pending = v2_client.github_app.status()
+            assert pending.setup_pending is True
+        finally:
+            v2_client.github_app.clear_identity()
+        after = v2_client.github_app.status()
+        assert after.setup_pending is False
+
+    def test_complete_setup_rejects_a_bogus_ticket(self, v2_client):
+        with pytest.raises(M8tesError) as exc:
+            v2_client.github_app.complete_setup(ticket="not-a-real-ticket")
+        assert exc.value.status_code == 400
 
 
 @pytest.mark.integration
