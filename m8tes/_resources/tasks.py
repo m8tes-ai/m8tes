@@ -248,6 +248,7 @@ class Tasks:
         return SyncPage(
             data=[Task.from_dict(d) for d in body["data"]],
             has_more=body["has_more"],
+            next_starting_after=body.get("next_starting_after"),
             _fetch_next=_fetch_next,
         )
 
@@ -440,8 +441,11 @@ class Tasks:
             model=model,
             effort=effort,
         )
+        finished = cast(Run, run)
+        # Prefer the API-stamped owner (same rule as runs.create_and_wait).
         return Runs(self._http).wait(
-            cast(Run, run).id,
+            finished.id,
+            user_id=finished.user_id or user_id,
             on_approval=on_approval,
             on_question=on_question,
             interval=poll_interval,

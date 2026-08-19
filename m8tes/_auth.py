@@ -40,9 +40,9 @@ def signup(
 
     Runs are prepaid: a new account starts at $0, so top up (https://m8tes.ai/developer)
     or connect a model subscription before the first run — an unfunded run fails with
-    TOKEN_BALANCE_DEPLETED and a topup_url. Verification is separate: a preview
-    allowance (25 completed runs by default) lets you build first; after that, runs
-    fail with EMAIL_VERIFICATION_REQUIRED until the owner verifies/activates the account.
+    TOKEN_BALANCE_DEPLETED and a topup_url. Email verification is separate: once funded,
+    you can complete up to 25 runs before verifying; after that, runs fail with
+    EMAIL_VERIFICATION_REQUIRED until the owner verifies/activates the account.
 
     ``require_end_user_id`` (strict multi-tenant mode): omit for the product default —
     ON for "api" signups (a forgotten ``user_id`` fails loudly instead of writing to the

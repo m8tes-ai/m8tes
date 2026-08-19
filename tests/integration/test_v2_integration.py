@@ -3610,14 +3610,10 @@ class TestResponseTypes:
 
 @pytest.mark.integration
 class TestInputValidation:
-    def test_empty_teammate_name_auto_generates(self, v2_client):
-        """Empty teammate name falls back to the backend-generated default name."""
-        teammate = v2_client.teammates.create(name="")
-        try:
-            assert teammate.name
-            assert teammate.name.strip()
-        finally:
-            v2_client.teammates.delete(teammate.id)
+    def test_empty_teammate_name_rejected(self, v2_client):
+        """Empty/blank name is 422 — omit the field to get a backend-generated name."""
+        with pytest.raises(ValidationError, match="name"):
+            v2_client.teammates.create(name="")
 
     def test_max_length_teammate_name(self, v2_client):
         """255-char name succeeds (max_length=255)."""

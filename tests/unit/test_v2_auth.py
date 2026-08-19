@@ -88,6 +88,29 @@ def test_get_usage():
     assert isinstance(usage, Usage)
     assert usage.plan == "free"
     assert usage.runs_used == 1
+    assert usage.unlimited_runs is False
+
+
+@responses.activate
+def test_get_usage_unlimited_runs():
+    responses.add(
+        responses.GET,
+        f"{BASE}/usage/",
+        json={
+            "plan": "free",
+            "runs_used": 100,
+            "runs_limit": 50,
+            "cost_used": "0.25",
+            "cost_limit": "5.00",
+            "period_end": "2026-03-31T00:00:00Z",
+            "subscription_status": None,
+            "unlimited_runs": True,
+        },
+        status=200,
+    )
+
+    usage = Auth(_http()).get_usage()
+    assert usage.unlimited_runs is True
 
 
 @responses.activate

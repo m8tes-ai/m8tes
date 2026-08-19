@@ -757,6 +757,16 @@ class TestRuns:
         assert r.output == "Done"
 
     @responses.activate
+    def test_get_forwards_user_id(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/42",
+            json={"id": 42, "status": "completed", "output": "Done"},
+        )
+        Runs(http).get(42, user_id="alice")
+        assert responses.calls[0].request.params.get("user_id") == "alice"
+
+    @responses.activate
     def test_reply_streaming(self, http):
         responses.add(
             responses.POST,
@@ -827,6 +837,14 @@ class TestRuns:
         )
         r = Runs(http).cancel(1)
         assert r.status == "cancelled"
+
+    @responses.activate
+    def test_cancel_forwards_user_id(self, http):
+        responses.add(
+            responses.POST, f"{BASE}/runs/1/cancel", json={"id": 1, "status": "cancelled"}
+        )
+        Runs(http).cancel(1, user_id="alice")
+        assert responses.calls[0].request.params.get("user_id") == "alice"
 
     @responses.activate
     def test_update_permission_mode(self, http):
@@ -1043,6 +1061,63 @@ class TestRunConvenienceHelpers:
         # Verify create was called with stream=False
         body = json.loads(responses.calls[0].request.body)
         assert body["stream"] is False
+
+    @responses.activate
+    def test_create_and_wait_forwards_user_id_on_poll(self, http):
+        """Strict mode needs user_id on every GET /runs/{id} — create_and_wait must not drop it."""
+        responses.add(responses.POST, f"{BASE}/runs/", json={"id": 1, "status": "running"})
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/1",
+            json={"id": 1, "status": "completed", "output": "done"},
+        )
+        Runs(http).create_and_wait(message="Do X", user_id="alice")
+        assert json.loads(responses.calls[0].request.body)["user_id"] == "alice"
+        assert responses.calls[1].request.params.get("user_id") == "alice"
+
+    @responses.activate
+    def test_create_and_wait_inherits_stamped_user_id_when_create_omits_it(self, http):
+        """Agent-inherited scope on the create response must feed the poll loop."""
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/",
+            json={"id": 1, "status": "running", "user_id": "inherited"},
+        )
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/1",
+            json={"id": 1, "status": "completed", "output": "done", "user_id": "inherited"},
+        )
+        Runs(http).create_and_wait(message="Do X", teammate_id=7)
+        assert "user_id" not in json.loads(responses.calls[0].request.body)
+        assert responses.calls[1].request.params.get("user_id") == "inherited"
+
+    @responses.activate
+    def test_create_and_wait_prefers_stamped_user_id_over_create_kwarg(self, http):
+        """Resolved owner on the create response wins over a different create kwarg."""
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/",
+            json={"id": 1, "status": "running", "user_id": "resolved"},
+        )
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/1",
+            json={"id": 1, "status": "completed", "output": "done", "user_id": "resolved"},
+        )
+        Runs(http).create_and_wait(message="Do X", user_id="requested")
+        assert json.loads(responses.calls[0].request.body)["user_id"] == "requested"
+        assert responses.calls[1].request.params.get("user_id") == "resolved"
+
+    @responses.activate
+    def test_poll_forwards_user_id(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/1",
+            json={"id": 1, "status": "completed", "output": "done"},
+        )
+        Runs(http).poll(1, user_id="alice", interval=0.01)
+        assert responses.calls[0].request.params.get("user_id") == "alice"
 
     @responses.activate
     def test_reply_and_wait(self, http):

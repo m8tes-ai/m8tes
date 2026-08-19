@@ -45,4 +45,5 @@ class BuiltInTools:
         return SyncPage(
             data=[BuiltInTool.from_dict(d) for d in body["data"]],
             has_more=body["has_more"],
+            next_starting_after=body.get("next_starting_after"),
         )

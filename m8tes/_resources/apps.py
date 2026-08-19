@@ -67,7 +67,11 @@ class Apps:
         params = _build_params(user_id=user_id)
         resp = self._http.request("GET", "/apps/", params=params)
         body = resp.json()
-        return SyncPage(data=[App.from_dict(d) for d in body["data"]], has_more=body["has_more"])
+        return SyncPage(
+            data=[App.from_dict(d) for d in body["data"]],
+            has_more=body["has_more"],
+            next_starting_after=body.get("next_starting_after"),
+        )
 
     def is_connected(self, app_name: str, *, user_id: str | None = None) -> bool:
         """True if the app is connected for this account or end-user."""
@@ -202,6 +206,7 @@ class Apps:
         return SyncPage(
             data=[AppTool.from_dict(d) for d in body["data"]],
             has_more=body["has_more"],
+            next_starting_after=body.get("next_starting_after"),
         )
 
     def disconnect(self, app_name: str, *, user_id: str | None = None) -> None:

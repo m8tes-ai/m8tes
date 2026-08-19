@@ -173,7 +173,7 @@ def _declared_floor() -> tuple[int, ...]:
 #: cost is a manual step; the benefit is a guard that actually fails. `test_…_kwarg_exists`
 #: above covers the related and more likely error (documenting an argument that does not
 #: exist at all), which is what this constant cannot see.
-_REQUIRED_FLOOR = (3, 2)
+_REQUIRED_FLOOR = (4, 8)
 
 
 @requires_frontend

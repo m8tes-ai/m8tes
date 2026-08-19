@@ -4,11 +4,32 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.9.1] - 2026-08-19
+
+### Changed
+
+- **`runs.get` / `poll` / `wait` / `create_and_wait` / `reply_and_wait` /
+  `cancel` forward `user_id`.** Strict multi-tenant mode requires `?user_id=`
+  on every by-ID GET and on cancel; `create_and_wait` / `reply_and_wait` /
+  `tasks.run_and_wait` fall back to the response's stamped `user_id` when the
+  caller omitted it (agent-inherited scope). When both are present, poll prefers
+  the stamped owner.
+
+### Changed
+
+- **`signup()` docstring and README install pin tell the real funding story.** New
+  accounts start at $0 (fund before the first run); the 25-run preview is a
+  verification gate on *funded* runs, not free credit. Install pin is now
+  `m8tes>=4.8` (was `>=3.2`) so `MockM8tes` and `exc.error_code` are in range.
 ### Added
 
 - **`client.documents`** — list company or agent documents, read full content by
   ID, update names and summaries, and delete documents with optional `user_id`
   isolation.
+- **`Usage.unlimited_runs`** — mirrors `GET /api/v2/usage` so clients can tell when
+  run/cost gates are bypassed (internal/test accounts).
+- **`SyncPage.next_starting_after`** — cursor from the list envelope for the next
+  `starting_after` page request.
 - **`client.apps.connections.list(app_name, user_id=...)`** — list connection status,
   provider connection ID, account label, scopes, and update time without exposing internal
   database IDs. `App.logo_url` now carries catalog display metadata.
