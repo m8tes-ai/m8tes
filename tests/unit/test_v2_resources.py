@@ -1,6 +1,7 @@
 """Tests for v2 SDK resource classes — verify correct HTTP calls and response parsing."""
 
 import json
+from typing import ClassVar
 
 import pytest
 import responses
@@ -11,6 +12,7 @@ from m8tes._resources.apps import Apps
 from m8tes._resources.audit_logs import AuditLogs
 from m8tes._resources.bridges import Bridges
 from m8tes._resources.channels import Channels
+from m8tes._resources.documents import Documents
 from m8tes._resources.memories import Memories
 from m8tes._resources.model_connections import ModelConnections
 from m8tes._resources.permissions import Permissions
@@ -985,6 +987,8 @@ class TestRuns:
                 "summary": "Paused 3 wasteful keywords.",
                 "headline": "wasted spend cut",
                 "needs_reply": False,
+                "needs_reply_count": None,
+                "delivery_channel": "email",
                 "output_data": {"saved": 120},
                 "message_count": 14,
                 "input_tokens": 100,
@@ -997,6 +1001,7 @@ class TestRuns:
         assert isinstance(outcome, RunOutcome)
         assert outcome.summary == "Paused 3 wasteful keywords."
         assert outcome.needs_reply is False
+        assert outcome.delivery_channel == "email"
         assert outcome.output_data == {"saved": 120}
         assert outcome.cost_usd == "0.4831"
 
@@ -1317,6 +1322,22 @@ class TestTasks:
         assert body["user_id"] == "cust_1"
 
     @responses.activate
+    def test_create_sends_permission_mode(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/tasks/",
+            json={"id": 1, "teammate_id": 2, "instructions": "Do"},
+            status=201,
+        )
+        Tasks(http).create(
+            teammate_id=2,
+            instructions="Do",
+            permission_mode="approval",
+        )
+        body = json.loads(responses.calls[0].request.body)
+        assert body["permission_mode"] == "approval"
+
+    @responses.activate
     def test_list(self, http):
         responses.add(
             responses.GET,
@@ -1354,6 +1375,17 @@ class TestTasks:
         Tasks(http).update(1, instructions="X", expected_output="Y")
         body = json.loads(responses.calls[0].request.body)
         assert body == {"instructions": "X", "expected_output": "Y"}
+
+    @responses.activate
+    def test_update_sends_permission_mode(self, http):
+        responses.add(
+            responses.PATCH,
+            f"{BASE}/tasks/1",
+            json={"id": 1, "teammate_id": 2, "instructions": "X"},
+        )
+        Tasks(http).update(1, permission_mode="plan")
+        body = json.loads(responses.calls[0].request.body)
+        assert body == {"permission_mode": "plan"}
 
     @responses.activate
     def test_run_non_streaming(self, http):
@@ -1824,6 +1856,76 @@ class TestApps:
 
 
 # ── Memories ────────────────────────────────────────────────────────
+
+
+class TestDocuments:
+    document: ClassVar[dict] = {
+        "id": 7,
+        "scope": "teammate",
+        "name": "latest-report",
+        "summary": "Weekly report",
+        "mime_type": "text/markdown",
+        "size_bytes": 12,
+        "source": "agent_generated",
+        "source_run_id": 42,
+        "agent_id": 3,
+        "user_id": "cust_1",
+        "created_at": "2026-08-18T09:00:00Z",
+        "updated_at": "2026-08-18T09:00:00Z",
+    }
+
+    @responses.activate
+    def test_list_sends_scope_agent_and_user_id(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/documents",
+            json={"data": [self.document], "has_more": False},
+            status=200,
+        )
+
+        page = Documents(http).list(scope="teammate", agent_id=3, user_id="cust_1")
+
+        assert page.data[0].agent_id == 3
+        assert "scope=teammate" in responses.calls[0].request.url
+        assert "agent_id=3" in responses.calls[0].request.url
+        assert "user_id=cust_1" in responses.calls[0].request.url
+
+    @responses.activate
+    def test_get_returns_content(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/documents/7",
+            json={**self.document, "content": "# Report"},
+            status=200,
+        )
+
+        document = Documents(http).get(7, user_id="cust_1")
+
+        assert document.content == "# Report"
+        assert "user_id=cust_1" in responses.calls[0].request.url
+
+    @responses.activate
+    def test_update_sends_only_changed_metadata(self, http):
+        responses.add(
+            responses.PATCH,
+            f"{BASE}/documents/7",
+            json={**self.document, "name": "report"},
+            status=200,
+        )
+
+        document = Documents(http).update(7, name="report", user_id="cust_1")
+
+        assert document.name == "report"
+        assert json.loads(responses.calls[0].request.body) == {"name": "report"}
+        assert "user_id=cust_1" in responses.calls[0].request.url
+
+    @responses.activate
+    def test_delete_sends_user_id(self, http):
+        responses.add(responses.DELETE, f"{BASE}/documents/7", status=204)
+
+        Documents(http).delete(7, user_id="cust_1")
+
+        assert "user_id=cust_1" in responses.calls[0].request.url
 
 
 class TestMemories:

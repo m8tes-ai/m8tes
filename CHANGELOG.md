@@ -2,15 +2,19 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
-## [Unreleased]
+## [4.11.0] - 2026-08-19
 
 ### Added
 
 - **`client.triggers.list()`** — list schedule, webhook, email, and app triggers
   across an account, with task/type/end-user filters and cursor pagination.
+
 ## [4.10.0] - 2026-08-19
 
 ### Added
+
+- **`client.tasks.create` / `client.tasks.update` `permission_mode`** — `autonomous`,
+  `approval`, or `plan`. Omitted on update leaves the saved mode unchanged.
 
 - `client.agents.update(..., visibility="organization")` can share an agent with its organization.
 
@@ -33,6 +37,9 @@ All notable changes to the m8tes Python SDK will be documented in this file.
   `m8tes>=4.8` (was `>=3.2`) so `MockM8tes` and `exc.error_code` are in range.
 ### Added
 
+- **`client.documents`** — list company or agent documents, read full content by
+  ID, update names and summaries, and delete documents with optional `user_id`
+  isolation.
 - **`Usage.unlimited_runs`** — mirrors `GET /api/v2/usage` so clients can tell when
   run/cost gates are bypassed (internal/test accounts).
 - **`SyncPage.next_starting_after`** — cursor from the list envelope for the next
@@ -50,6 +57,10 @@ All notable changes to the m8tes Python SDK will be documented in this file.
   available; the default is opt-in per click. Defaults to `True` for older servers.
 - **`PermissionPolicy.source`** — which surface minted a standing grant
   (`"run_approval"` / `"api"`; `None` on rows created before provenance existed).
+### Added
+
+- **`client.triggers.list()`** — list schedule, webhook, email, and app triggers
+  across an account, with task/type/end-user filters and cursor pagination.
 - **`client.github_app.setup_url(org=…, name=…)`** — create your own GitHub App via
   GitHub's App Manifest flow (browser URL). **`complete_setup(ticket=…)`** binds the
   credentials after GitHub redirects with a claim ticket, then returns the install URL.

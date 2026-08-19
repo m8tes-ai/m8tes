@@ -8,6 +8,7 @@ from .billing import Billing
 from .bridges import Bridges
 from .built_in_tools import BuiltInTools
 from .channels import Channels
+from .documents import Documents
 from .github_app import GitHubApp
 from .keys import Keys
 from .mcp_servers import McpServers
@@ -36,6 +37,7 @@ __all__ = [
     "Bridges",
     "BuiltInTools",
     "Channels",
+    "Documents",
     "GitHubApp",
     "Keys",
     "McpServers",

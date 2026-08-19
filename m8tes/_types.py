@@ -917,7 +917,8 @@ class RunOutcome:
     `summary` is the agent's closing message (None when the run ended on a tool
     call); `cost_usd` is the run's metered cost as a decimal string (None until
     cost is recorded); `needs_reply` flags a closing message that asks for a
-    decision — reply via runs.reply().
+    decision — reply via runs.reply(). `delivery_channel` is how the agent chose
+    to deliver the outcome (email, slack, or none) via set_run_delivery.
     """
 
     run_id: int
@@ -925,6 +926,8 @@ class RunOutcome:
     summary: str | None
     headline: str | None
     needs_reply: bool
+    needs_reply_count: int | None
+    delivery_channel: str
     output_data: dict | None
     message_count: int
     input_tokens: int
@@ -940,6 +943,8 @@ class RunOutcome:
             summary=data.get("summary"),
             headline=data.get("headline"),
             needs_reply=data.get("needs_reply", False),
+            needs_reply_count=data.get("needs_reply_count"),
+            delivery_channel=data.get("delivery_channel", "email"),
             output_data=data.get("output_data"),
             message_count=data.get("message_count", 0),
             input_tokens=data.get("input_tokens", 0),
@@ -1298,6 +1303,52 @@ class Memory:
             audience=data.get("audience"),
             scope=data.get("scope", "account"),
         )
+
+
+@dataclass
+class Document:
+    """A company- or agent-scoped persistent document."""
+
+    id: int
+    scope: str
+    name: str
+    summary: str
+    mime_type: str
+    size_bytes: int
+    source: str
+    source_run_id: int | None = None
+    agent_id: int | None = None
+    user_id: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Document:
+        return cls(
+            id=data["id"],
+            scope=data["scope"],
+            name=data["name"],
+            summary=data["summary"],
+            mime_type=data["mime_type"],
+            size_bytes=data["size_bytes"],
+            source=data["source"],
+            source_run_id=data.get("source_run_id"),
+            agent_id=data.get("agent_id"),
+            user_id=data.get("user_id"),
+            created_at=data.get("created_at"),
+            updated_at=data.get("updated_at"),
+        )
+
+
+@dataclass
+class DocumentDetail(Document):
+    """A persistent document with its full text content."""
+
+    content: str = ""
+
+    @classmethod
+    def from_dict(cls, data: dict) -> DocumentDetail:
+        return cls(**Document.from_dict(data).__dict__, content=data["content"])
 
 
 @dataclass

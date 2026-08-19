@@ -3,7 +3,7 @@
 Covers all V2 resources: teammates (CRUD, webhooks, email inbox), tasks
 (CRUD, triggers, run edge cases), runs (create, get, cancel, reply, files,
 HITL validation, answer, approve, SDK convenience methods like poll,
-create_and_wait, reply_and_wait, stream_text, streaming), memories,
+create_and_wait, reply_and_wait, stream_text, streaming), documents, memories,
 permissions, webhooks, users, settings, apps. Plus pagination, error
 handling, validation edge cases, multi-tenancy isolation, parameter combos,
 trigger error paths, and context manager usage.
@@ -769,13 +769,17 @@ class TestTasksCRUD:
         tm = v2_client.teammates.create(name="TaskHost")
         try:
             task = v2_client.tasks.create(
-                teammate_id=tm.id, instructions="Weekly summary", name="Weekly"
+                teammate_id=tm.id,
+                instructions="Weekly summary",
+                name="Weekly",
+                permission_mode="approval",
             )
             try:
                 assert isinstance(task, Task)
                 assert task.teammate_id == tm.id
                 assert task.name == "Weekly"
                 assert task.instructions == "Weekly summary"
+                assert task.permission_mode == "approval"
                 assert task.status == "enabled"
 
                 # List
@@ -787,12 +791,18 @@ class TestTasksCRUD:
                 assert fetched.instructions == "Weekly summary"
 
                 # Update
-                updated = v2_client.tasks.update(task.id, instructions="Daily summary")
+                updated = v2_client.tasks.update(
+                    task.id,
+                    instructions="Daily summary",
+                    permission_mode="plan",
+                )
                 assert updated.instructions == "Daily summary"
+                assert updated.permission_mode == "plan"
 
                 # Verify update persisted
                 refetched = v2_client.tasks.get(task.id)
                 assert refetched.instructions == "Daily summary"
+                assert refetched.permission_mode == "plan"
             finally:
                 v2_client.tasks.delete(task.id)
 
@@ -1474,6 +1484,25 @@ class TestByIdEndUserScope:
                 v2_client.tasks.delete(task.id, user_id="alice")
         finally:
             v2_client.teammates.delete(alice.id)
+
+
+# ── Documents ────────────────────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestDocuments:
+    def test_empty_list_and_missing_document_errors(self, v2_client):
+        """Exercise every document method against the real V2 transport and router."""
+        user_id = _uid()
+        assert v2_client.documents.list(scope="company", user_id=user_id).data == []
+
+        missing_id = 2_147_483_647
+        with pytest.raises(NotFoundError):
+            v2_client.documents.get(missing_id, user_id=user_id)
+        with pytest.raises(NotFoundError):
+            v2_client.documents.update(missing_id, name="missing", user_id=user_id)
+        with pytest.raises(NotFoundError):
+            v2_client.documents.delete(missing_id, user_id=user_id)
 
 
 # ── Memories ─────────────────────────────────────────────────────────

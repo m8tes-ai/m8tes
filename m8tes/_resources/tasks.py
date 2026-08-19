@@ -146,6 +146,7 @@ class Tasks:
         schedule_timezone: str = "UTC",
         model: str | None = None,
         effort: str | None = None,
+        permission_mode: str | None = None,
         enable_memory: bool | None = None,
         enable_history: bool | None = None,
         enable_task_setup_tools: bool | None = None,
@@ -211,6 +212,8 @@ class Tasks:
             body["model"] = model
         if effort is not None:
             body["effort"] = effort
+        if permission_mode is not None:
+            body["permission_mode"] = permission_mode
         if schedule is not None:
             body["schedule"] = schedule
             body["schedule_timezone"] = schedule_timezone
@@ -272,6 +275,7 @@ class Tasks:
         email_notifications: bool | None = None,
         model: str | None = _UNSET,
         effort: str | None = _UNSET,
+        permission_mode: str | None = None,
         enable_memory: bool | None = _UNSET,
         enable_history: bool | None = _UNSET,
         enable_task_setup_tools: bool | None = _UNSET,
@@ -325,6 +329,8 @@ class Tasks:
             body["model"] = model
         if effort is not _UNSET:
             body["effort"] = effort
+        if permission_mode is not None:
+            body["permission_mode"] = permission_mode
         if status is not None:
             body["status"] = status
         resp = self._http.request(
