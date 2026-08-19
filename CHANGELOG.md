@@ -4,8 +4,6 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [4.11.0] - 2026-08-19
 
-## [4.11.0] - 2026-08-19
-
 ### Added
 
 - **Subscription billing is now a public SDK resource.**
