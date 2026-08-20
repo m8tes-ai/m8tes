@@ -2,6 +2,14 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [4.13.0] - 2026-08-20
+
+### Added
+
+- `Teammate.active_run_id` — when a Mate has exactly one live run, the roster
+  returns that run id for `client.runs.reply` / discovery without an extra
+  `list_runs` call. Null when idle or when multiple live runs exist.
+
 ## [4.12.0] - 2026-08-19
 
 ### Added

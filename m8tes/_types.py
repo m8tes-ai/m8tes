@@ -259,12 +259,13 @@ class Teammate:
     # Sort by COALESCE(display_order, id) ascending.
     display_order: int | None = None
     # Activity/liveness (reads only): when this agent's most recent run (last 90
-    # days) last did anything (None = idle longer), and how many runs are
-    # executing or awaiting approval right now. Non-zero active_run_count = live;
-    # message a live run with client.runs.reply(run_id, message) — the reply
-    # queues (delivery="queued").
+    # days) last did anything (None = idle longer), how many runs are executing
+    # or awaiting approval right now, and active_run_id when exactly one is live.
+    # Non-zero active_run_count = live; message with client.runs.reply(run_id,
+    # message) — the reply queues (delivery="queued").
     last_active_at: str | None = None
     active_run_count: int = 0
+    active_run_id: int | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> Teammate:
@@ -308,6 +309,7 @@ class Teammate:
             display_order=data.get("display_order"),
             last_active_at=data.get("last_active_at"),
             active_run_count=data.get("active_run_count", 0),
+            active_run_id=data.get("active_run_id"),
             status=data.get("status", "enabled"),
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at"),
