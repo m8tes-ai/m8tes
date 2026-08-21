@@ -2,6 +2,17 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [4.14.0] - 2026-08-21
+
+### Added
+
+- **`client.model_connections.clear_default()`** — clear the account model-plan
+  default (`DELETE /model-connections/preferred-default`) so platform mates fall
+  back to m8tes credits.
+- **`client.runs.retry(..., use_credits=True)`** — pin the platform default
+  model on retry so a broken OAuth/subscription run does not replay the same
+  credential.
+
 ## [4.13.0] - 2026-08-20
 
 ### Added

@@ -134,6 +134,15 @@ class TestModelConnections:
         assert result.model == "claude-opus-5"
         assert result.affected_mate_count == 2
 
+    @responses.activate
+    def test_clear_default(self, http):
+        responses.add(
+            responses.DELETE,
+            f"{BASE}/model-connections/preferred-default",
+            json={"cleared": True},
+        )
+        assert ModelConnections(http).clear_default() is True
+
 
 # ── Teammates ────────────────────────────────────────────────────────
 

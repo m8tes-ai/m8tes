@@ -37,6 +37,11 @@ class ModelConnections:
         ).json()
         return ApplyPreferredModelResult.from_dict(body)
 
+    def clear_default(self) -> bool:
+        """Clear the account model-plan default so platform mates use m8tes credits again."""
+        body = self._http.request("DELETE", "/model-connections/preferred-default").json()
+        return bool(body.get("cleared"))
+
     def authorize(self, provider: AuthorizableModelConnectionProvider) -> ModelAuthorization:
         """Start provider-native authorization; show the returned URL and device code when used.
 

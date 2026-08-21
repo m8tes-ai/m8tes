@@ -852,7 +852,7 @@ class Runs:
         )
         return Run.from_dict(resp.json())
 
-    def retry(self, run_id: int, *, confirm: bool = False) -> Run:
+    def retry(self, run_id: int, *, confirm: bool = False, use_credits: bool = False) -> Run:
         """Retry a failed or cancelled run.
 
         Creates and returns a NEW run that re-executes the original's task — poll
@@ -864,9 +864,16 @@ class Runs:
         'retry_needs_confirmation'. Pass confirm=True to proceed. Check
         run.retryable before calling to avoid a guaranteed ConflictError on a
         non-retryable run.
+
+        Pass ``use_credits=True`` to pin the platform default model (m8tes credits)
+        instead of replaying the original run's concrete / OAuth model.
         """
-        params = {"confirm": "true"} if confirm else None
-        resp = self._http.request("POST", f"/runs/{seg(run_id)}/retry", params=params)
+        params: dict[str, str] = {}
+        if confirm:
+            params["confirm"] = "true"
+        if use_credits:
+            params["use_credits"] = "true"
+        resp = self._http.request("POST", f"/runs/{seg(run_id)}/retry", params=params or None)
         return Run.from_dict(resp.json())
 
     def update_permission_mode(
