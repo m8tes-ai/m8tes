@@ -24,6 +24,7 @@ from .teammate_templates import AgentTemplates, TeammateTemplates
 from .teammates import Agents, Teammates
 from .triggers import Triggers
 from .users import Users
+from .value import Value
 from .webhooks import Webhooks
 
 __all__ = [
@@ -53,5 +54,6 @@ __all__ = [
     "Teammates",
     "Triggers",
     "Users",
+    "Value",
     "Webhooks",
 ]

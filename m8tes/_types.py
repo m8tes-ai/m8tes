@@ -2201,6 +2201,148 @@ class Skill:
         )
 
 
+@dataclass
+class ValueUseCase:
+    """A business responsibility inferred from actual agent work."""
+
+    id: int
+    name: str
+    goal: str
+    status: str
+    measurement_model: dict[str, Any]
+    responsible_user_id: int | None
+    source_run_id: int | None
+    user_id: str | None
+    created_at: str
+    updated_at: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ValueUseCase:
+        return cls(
+            id=data["id"],
+            name=data["name"],
+            goal=data["goal"],
+            status=data["status"],
+            measurement_model=data.get("measurement_model", {}),
+            responsible_user_id=data.get("responsible_user_id"),
+            source_run_id=data.get("source_run_id"),
+            user_id=data.get("user_id"),
+            created_at=data.get("created_at", ""),
+            updated_at=data.get("updated_at", ""),
+        )
+
+
+@dataclass
+class ValueObservation:
+    """One measured, attributed, estimated, or unquantified outcome."""
+
+    id: int
+    use_case_id: int
+    kind: str
+    evidence_level: str
+    title: str
+    amount_usd: str | None
+    metric_name: str | None
+    metric_value: str | None
+    metric_unit: str | None
+    evidence: list[dict[str, Any]]
+    source_run_id: int | None
+    observed_at: str
+    confirmation_status: str
+    confirmed_by_user_id: int | None
+    confirmed_at: str | None
+    created_at: str
+    updated_at: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ValueObservation:
+        return cls(
+            id=data["id"],
+            use_case_id=data["use_case_id"],
+            kind=data["kind"],
+            evidence_level=data["evidence_level"],
+            title=data["title"],
+            amount_usd=data.get("amount_usd"),
+            metric_name=data.get("metric_name"),
+            metric_value=data.get("metric_value"),
+            metric_unit=data.get("metric_unit"),
+            evidence=data.get("evidence", []),
+            source_run_id=data.get("source_run_id"),
+            observed_at=data["observed_at"],
+            confirmation_status=data["confirmation_status"],
+            confirmed_by_user_id=data.get("confirmed_by_user_id"),
+            confirmed_at=data.get("confirmed_at"),
+            created_at=data.get("created_at", ""),
+            updated_at=data.get("updated_at", ""),
+        )
+
+
+@dataclass
+class ValueUseCaseReport:
+    """Cost and evidenced value for one inferred use case in a report window."""
+
+    use_case: ValueUseCase
+    cost_usd: str
+    verified_value_usd: str
+    pending_value_usd: str
+    verified_value_by_kind: dict[str, str]
+    pending_value_by_kind: dict[str, str]
+    unquantified_observations: int
+    benefit_cost_multiple: str | None
+    roi: str | None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ValueUseCaseReport:
+        return cls(
+            use_case=ValueUseCase.from_dict(data["use_case"]),
+            cost_usd=data["cost_usd"],
+            verified_value_usd=data["verified_value_usd"],
+            pending_value_usd=data["pending_value_usd"],
+            verified_value_by_kind=data.get("verified_value_by_kind", {}),
+            pending_value_by_kind=data.get("pending_value_by_kind", {}),
+            unquantified_observations=data.get("unquantified_observations", 0),
+            benefit_cost_multiple=data.get("benefit_cost_multiple"),
+            roi=data.get("roi"),
+        )
+
+
+@dataclass
+class ValueReport:
+    """Executive value summary for a period."""
+
+    start_date: str
+    end_date: str
+    metered_cost_usd: str
+    attributed_cost_usd: str
+    shared_cost_usd: str
+    unattributed_cost_usd: str
+    verified_value_usd: str
+    pending_value_usd: str
+    verified_value_by_kind: dict[str, str]
+    pending_value_by_kind: dict[str, str]
+    benefit_cost_multiple: str | None
+    roi: str | None
+    use_cases: list[ValueUseCaseReport]
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ValueReport:
+        return cls(
+            start_date=data["start_date"],
+            end_date=data["end_date"],
+            metered_cost_usd=data["metered_cost_usd"],
+            attributed_cost_usd=data["attributed_cost_usd"],
+            shared_cost_usd=data["shared_cost_usd"],
+            unattributed_cost_usd=data["unattributed_cost_usd"],
+            verified_value_usd=data["verified_value_usd"],
+            pending_value_usd=data["pending_value_usd"],
+            verified_value_by_kind=data.get("verified_value_by_kind", {}),
+            pending_value_by_kind=data.get("pending_value_by_kind", {}),
+            benefit_cost_multiple=data.get("benefit_cost_multiple"),
+            roi=data.get("roi"),
+            use_cases=[ValueUseCaseReport.from_dict(row) for row in data.get("use_cases", [])],
+        )
+
+
 # Canonical naming: "agent" is the developer-facing term; Teammate is the same
 # class under its legacy name. Since the legacy v1 SDK was deleted (3.0.0), this
 # alias IS the package-level `m8tes.Agent`.

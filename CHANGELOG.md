@@ -19,6 +19,10 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 - **`client.runs.retry(..., use_credits=True)`** — pin the platform default
   model on retry so a broken OAuth/subscription run does not replay the same
   credential.
+- **Evidence-backed value intelligence.** `client.value` can maintain free-form customer
+  use cases, attribute runs, record sourced financial and operational outcomes, collect
+  human confirmation for inferred dollars, and report metered cost against verified value
+  with revenue, cash-saving, capacity, and operational value separated by kind.
 
 ## [4.13.0] - 2026-08-20
 

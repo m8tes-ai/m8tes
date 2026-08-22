@@ -49,6 +49,8 @@ from m8tes._types import (
     Teammate,
     TeammateWebhook,
     Trigger,
+    ValueObservation,
+    ValueUseCase,
     Webhook,
 )
 
@@ -1503,6 +1505,54 @@ class TestDocuments:
             v2_client.documents.update(missing_id, name="missing", user_id=user_id)
         with pytest.raises(NotFoundError):
             v2_client.documents.delete(missing_id, user_id=user_id)
+
+
+# ── Value intelligence ───────────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestValueIntelligence:
+    def test_dynamic_use_case_evidence_and_report(self, v2_client):
+        user_id = _uid()
+        try:
+            use_case = v2_client.value.create_use_case(
+                name="protect expansion revenue",
+                goal="Keep strong accounts renewing.",
+                measurement_model={"source": "CRM", "metric": "renewal revenue"},
+                user_id=user_id,
+            )
+            assert isinstance(use_case, ValueUseCase)
+            assert v2_client.value.get_use_case(use_case.id, user_id=user_id).id == use_case.id
+            assert [row.id for row in v2_client.value.list_use_cases(user_id=user_id).data] == [
+                use_case.id
+            ]
+
+            observation = v2_client.value.create_observation(
+                use_case.id,
+                kind="revenue_generated",
+                evidence_level="attributed",
+                title="Renewal closed after the follow-up",
+                amount_usd="4200.00",
+                observed_at=datetime.now(UTC),
+                evidence=[{"source": "CRM", "record_id": "deal_42"}],
+                user_id=user_id,
+            )
+            assert isinstance(observation, ValueObservation)
+            assert observation.confirmation_status == "pending"
+            assert (
+                v2_client.value.list_observations(use_case.id, user_id=user_id).data[0].id
+                == observation.id
+            )
+            confirmed = v2_client.value.confirm_observation(
+                observation.id, "confirmed", user_id=user_id
+            )
+            assert confirmed.confirmation_status == "confirmed"
+            report = v2_client.value.report(user_id=user_id)
+            assert report.verified_value_usd == "4200.00"
+            assert report.verified_value_by_kind["revenue_generated"] == "4200.00"
+        finally:
+            with contextlib.suppress(NotFoundError):
+                v2_client.users.delete(user_id)
 
 
 # ── Memories ─────────────────────────────────────────────────────────

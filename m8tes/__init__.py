@@ -30,6 +30,7 @@ from ._resources.auth import Auth
 from ._resources.billing import Billing
 from ._resources.channels import Channels
 from ._resources.github_app import GitHubApp
+from ._resources.value import Value
 from ._resources.webhooks import Webhooks
 from ._streaming import RunStream
 from ._types import (
@@ -105,6 +106,10 @@ from ._types import (
     UsageModelSlice,
     UsageTimeseries,
     UsageTotals,
+    ValueObservation,
+    ValueReport,
+    ValueUseCase,
+    ValueUseCaseReport,
     Webhook,
     WebhookDelivery,
 )
@@ -234,6 +239,11 @@ __all__ = [
     "UsageTimeseries",
     "UsageTotals",
     "ValidationError",
+    "Value",
+    "ValueObservation",
+    "ValueReport",
+    "ValueUseCase",
+    "ValueUseCaseReport",
     "Webhook",
     "WebhookDelivery",
     "Webhooks",

@@ -461,6 +461,7 @@ client.apps.release("twilio", user_id="cust_123")  # release it back
 | `client.webhooks` | `create` `list` `get` `update` `delete` `list_deliveries` `verify_signature` | Webhook endpoints and delivery tracking |
 | `client.settings` | `get` `update` | Account configuration |
 | `client.billing` | `usage` `plans` `set_overage` | Run usage, plan catalog, and opt-in overage controls |
+| `client.value` | `create_use_case` `list_use_cases` `get_use_case` `update_use_case` `link_runs` `create_observation` `list_observations` `confirm_observation` `report` | Evidence-backed customer outcomes and ROI by inferred use case |
 | `client.model_connections` | `list` `authorize` `authorization_status` `complete_authorization` `cancel_authorization` `disconnect` | Account-level Claude, Codex, Grok, and Gemini plans |
 | `client.auth` | `get_usage` `resend_verify` | Account usage and verification helpers |
 

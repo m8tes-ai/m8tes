@@ -20,6 +20,7 @@ from m8tes._resources.runs import Runs
 from m8tes._resources.tasks import Tasks, TaskTriggers
 from m8tes._resources.teammates import Teammates
 from m8tes._resources.triggers import Triggers
+from m8tes._resources.value import Value
 from m8tes._streaming import RunStream
 from m8tes._types import (
     App,
@@ -47,6 +48,173 @@ BASE = "https://api.test/v2"
 @pytest.fixture
 def http():
     return HTTPClient(api_key="m8_test", base_url=BASE, timeout=5)
+
+
+class TestValue:
+    @responses.activate
+    def test_value_lists_auto_paginate_with_limit_and_cursor(self, http):
+        base_case = {
+            "name": "protect expansion revenue",
+            "goal": "Keep strong accounts renewing.",
+            "status": "active",
+            "measurement_model": {"source": "HubSpot"},
+            "responsible_user_id": 1,
+            "source_run_id": None,
+            "user_id": None,
+            "created_at": "2026-08-20T12:00:00Z",
+            "updated_at": "2026-08-20T12:00:00Z",
+        }
+        responses.add(
+            responses.GET,
+            f"{BASE}/value/use-cases",
+            json={"data": [{**base_case, "id": 12}], "has_more": True},
+        )
+        responses.add(
+            responses.GET,
+            f"{BASE}/value/use-cases",
+            json={"data": [{**base_case, "id": 11}], "has_more": False},
+        )
+        rows = list(Value(http).list_use_cases(limit=1).auto_paging_iter())
+        assert [row.id for row in rows] == [12, 11]
+        assert responses.calls[0].request.params["limit"] == "1"
+        assert responses.calls[1].request.params["starting_after"] == "12"
+
+    @responses.activate
+    def test_dynamic_use_case_and_observation_flow(self, http):
+        use_case = {
+            "id": 12,
+            "name": "protect expansion revenue",
+            "goal": "Keep strong accounts renewing.",
+            "status": "active",
+            "measurement_model": {"source": "HubSpot"},
+            "responsible_user_id": 1,
+            "source_run_id": 42,
+            "user_id": "customer_123",
+            "created_at": "2026-08-20T12:00:00Z",
+            "updated_at": "2026-08-20T12:00:00Z",
+        }
+        observation = {
+            "id": 9,
+            "use_case_id": 12,
+            "kind": "revenue_generated",
+            "evidence_level": "attributed",
+            "title": "Renewal closed",
+            "amount_usd": "4200.00",
+            "metric_name": "closed-won revenue",
+            "metric_value": "4200",
+            "metric_unit": "USD",
+            "evidence": [{"source": "HubSpot", "record_id": "deal_42"}],
+            "source_run_id": 42,
+            "observed_at": "2026-08-20T12:00:00Z",
+            "confirmation_status": "pending",
+            "confirmed_by_user_id": None,
+            "confirmed_at": None,
+            "created_at": "2026-08-20T12:00:00Z",
+            "updated_at": "2026-08-20T12:00:00Z",
+        }
+        responses.add(responses.POST, f"{BASE}/value/use-cases", json=use_case, status=201)
+        responses.add(
+            responses.POST,
+            f"{BASE}/value/use-cases/12/runs",
+            json={"linked_run_ids": [42]},
+        )
+        responses.add(
+            responses.POST,
+            f"{BASE}/value/use-cases/12/observations",
+            json=observation,
+            status=201,
+        )
+        responses.add(
+            responses.POST,
+            f"{BASE}/value/observations/9/confirm",
+            json={**observation, "confirmation_status": "confirmed"},
+        )
+
+        value = Value(http)
+        created = value.create_use_case(
+            name=use_case["name"],
+            goal=use_case["goal"],
+            measurement_model=use_case["measurement_model"],
+            source_run_id=42,
+            user_id="customer_123",
+        )
+        assert created.measurement_model == {"source": "HubSpot"}
+        assert value.link_runs(12, [42], user_id="customer_123") == [42]
+        recorded = value.create_observation(
+            12,
+            kind="revenue_generated",
+            evidence_level="attributed",
+            title="Renewal closed",
+            amount_usd="4200.00",
+            observed_at="2026-08-20T12:00:00Z",
+            evidence=[{"source": "HubSpot", "record_id": "deal_42"}],
+            user_id="customer_123",
+        )
+        assert recorded.confirmation_status == "pending"
+        assert (
+            value.confirm_observation(9, "confirmed", user_id="customer_123").confirmation_status
+            == "confirmed"
+        )
+        assert responses.calls[0].request.body is not None
+        assert responses.calls[1].request.params.get("user_id") == "customer_123"
+
+    @responses.activate
+    def test_report_parsing(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/value/report",
+            json={
+                "start_date": "2026-08-01",
+                "end_date": "2026-08-31",
+                "metered_cost_usd": "100.00",
+                "attributed_cost_usd": "80.00",
+                "shared_cost_usd": "10.00",
+                "unattributed_cost_usd": "10.00",
+                "verified_value_usd": "4200.00",
+                "pending_value_usd": "0",
+                "verified_value_by_kind": {"revenue_generated": "4200.00"},
+                "pending_value_by_kind": {"revenue_generated": "0"},
+                "benefit_cost_multiple": "42",
+                "roi": "41",
+                "use_cases": [],
+            },
+        )
+        report = Value(http).report(start_date="2026-08-01", end_date="2026-08-31")
+        assert report.verified_value_usd == "4200.00"
+        assert report.verified_value_by_kind["revenue_generated"] == "4200.00"
+        assert report.roi == "41"
+
+    def test_rejects_money_on_unquantified_observation(self, http):
+        with pytest.raises(ValueError, match="amount_usd"):
+            Value(http).create_observation(
+                12,
+                kind="operational",
+                evidence_level="unquantified",
+                title="Every urgent ticket reviewed",
+                amount_usd="50",
+                observed_at="2026-08-20T12:00:00Z",
+            )
+
+    def test_rejects_money_without_source_evidence(self, http):
+        with pytest.raises(ValueError, match="evidence"):
+            Value(http).create_observation(
+                12,
+                kind="cash_saved",
+                evidence_level="measured",
+                title="Cash saved with no source",
+                amount_usd="50",
+                observed_at="2026-08-20T12:00:00Z",
+            )
+
+    def test_rejects_unquantified_outcome_without_source_evidence(self, http):
+        with pytest.raises(ValueError, match="evidence"):
+            Value(http).create_observation(
+                12,
+                kind="operational",
+                evidence_level="unquantified",
+                title="Every urgent ticket reviewed",
+                observed_at="2026-08-20T12:00:00Z",
+            )
 
 
 class TestModelConnections:

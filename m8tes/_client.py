@@ -31,6 +31,7 @@ from ._resources import (
     Tasks,
     Triggers,
     Users,
+    Value,
     Webhooks,
 )
 
@@ -90,6 +91,7 @@ class M8tes:
         self.permissions = Permissions(self._http)
         self.skills = Skills(self._http)
         self.users = Users(self._http)
+        self.value = Value(self._http)
         self.settings = Settings(self._http)
         self.keys = Keys(self._http)
         self.webhooks = Webhooks(self._http)
