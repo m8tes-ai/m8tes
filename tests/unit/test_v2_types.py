@@ -192,6 +192,10 @@ class TestRunAcknowledgementAndRetryFields:
         # two the same skips a confirmation for a run that may have sent an email.
         assert Run.from_dict({"id": 1, "status": "failed"}).repeats_actions is None
 
+    def test_recovery_repeats_actions_round_trips(self):
+        run = Run.from_dict({"id": 1, "status": "failed", "recovery_repeats_actions": False})
+        assert run.recovery_repeats_actions is False
+
 
 class TestTeammateParsesEveryFieldItDeclares:
     """A dataclass field the server sends but `from_dict` never reads is silently the

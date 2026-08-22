@@ -2,6 +2,22 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [Unreleased]
+
+## [4.15.0] - 2026-08-22
+
+### Added
+
+- `Run.recovery_repeats_actions` distinguishes whether the offered recovery would
+  repeat a side effect; chat recovery checks only the failed follow-up, while
+  `Run.repeats_actions` retains its whole-run meaning.
+
+### Changed
+
+- Retrying or replying after an own-subscription auth, quota, rate-limit, or
+  provider-availability failure follows the account's current connected/preferred
+  provider. Chat recovery resends only the failed follow-up on the same run.
+
 ## [4.13.1] - 2026-08-21
 
 ### Added

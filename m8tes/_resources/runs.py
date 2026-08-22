@@ -780,6 +780,12 @@ class Runs:
         the prior context, and does not create a new run or consume a new
         run-count slot. It only burns tokens.
 
+        Replies normally keep the run's concrete model. After an own-subscription
+        auth, quota, rate-limit, or provider-availability failure, a reply instead
+        follows the account's current connected/preferred provider. Switching the
+        provider and calling ``reply`` again resends only this follow-up; it does
+        not replay the whole run.
+
         Replies inherit the run's persisted settings: the permission mode keeps
         applying, and AskUserQuestion stays enabled on runs created with
         ``human_in_the_loop=True``. An unattended reply loop on such a run can
@@ -899,6 +905,9 @@ class Runs:
 
         Pass ``use_credits=True`` to pin the platform default model (m8tes credits)
         instead of replaying the original run's concrete / OAuth model.
+        Without it, provider auth, quota, rate-limit, and availability failures
+        follow the account's current connected/preferred provider; other failures
+        replay the original concrete model.
         """
         params: dict[str, str] = {}
         if confirm:

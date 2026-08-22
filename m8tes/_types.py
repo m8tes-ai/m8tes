@@ -550,11 +550,11 @@ class Run:
     # up?", and either alone answers it wrong — an emailed run that was never opened
     # in-app is read, not unread.
     notified_at: str | None = None
-    # Would retrying repeat an action this run already took? Only `get()` computes it
-    # (one query per run, so `list()` would be an N+1) and only for a retryable run —
-    # None means "not computed here", NOT "no actions taken". Treat None as unknown and
-    # confirm before retrying.
+    # Did this run already take an action? Only `get()` computes the whole-run verdict.
     repeats_actions: bool | None = None
+    # Would the offered recovery repeat an action? Chat covers only the latest user
+    # turn; task retry covers the full run. None means "not computed", not "safe".
+    recovery_repeats_actions: bool | None = None
     last_viewed_at: str | None = None
     # Which meter the run settles on: "api" (prepaid balance — end-user-scoped /
     # embedding work) or "platform" (subscription plan — first-party work, INCLUDING
@@ -625,6 +625,7 @@ class Run:
             retry_blocked_message=data.get("retry_blocked_message"),
             notified_at=data.get("notified_at"),
             repeats_actions=data.get("repeats_actions"),
+            recovery_repeats_actions=data.get("recovery_repeats_actions"),
             last_viewed_at=data.get("last_viewed_at"),
             closing_preview=data.get("closing_preview"),
             delivery=data.get("delivery"),
