@@ -249,6 +249,38 @@ class Runs:
         resp = self._http.request("POST", "/runs/", json=body, headers=headers)
         return Run.from_dict(resp.json())
 
+    def start_first_session(
+        self,
+        *,
+        teammate_id: int | None = None,
+        agent_id: int | None = None,
+        stream: bool = True,
+        human_in_the_loop: bool | None = None,
+        permission_mode: str | None = None,
+        raise_on_error: bool = False,
+        idempotency_key: str | None = None,
+    ) -> RunStream | Run:
+        """Start an agent-first onboarding conversation for an existing teammate.
+
+        This dedicated operation gives the server provenance for the synthetic
+        opening turn. Sending the reserved marker through ``runs.create`` remains
+        ordinary caller text and is never rewritten or hidden.
+        """
+        resolved_id = _resolve_agent_id(teammate_id, agent_id)
+        if resolved_id is None:
+            raise ValueError("teammate_id or agent_id is required")
+        body: dict[str, Any] = {"teammate_id": resolved_id, "stream": stream}
+        if human_in_the_loop is not None:
+            body["human_in_the_loop"] = human_in_the_loop
+        if permission_mode is not None:
+            body["permission_mode"] = permission_mode
+        headers = idempotency_headers(idempotency_key)
+        if stream:
+            resp = self._http.stream("POST", "/runs/first-session", json=body, headers=headers)
+            return self._stream_or_replay(resp, raise_on_error=raise_on_error)
+        resp = self._http.request("POST", "/runs/first-session", json=body, headers=headers)
+        return Run.from_dict(resp.json())
+
     def _stream_or_replay(self, resp: Any, *, raise_on_error: bool) -> RunStream:
         """Turn a streaming POST's response into a stream, following a replay.
 

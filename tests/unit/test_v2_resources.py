@@ -732,6 +732,30 @@ class TestRuns:
         assert result.id == 1
 
     @responses.activate
+    def test_start_first_session_uses_dedicated_provenance_endpoint(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/first-session",
+            json={"id": 73, "status": "running"},
+        )
+
+        result = Runs(http).start_first_session(
+            agent_id=7,
+            stream=False,
+            permission_mode="approval",
+            idempotency_key="welcome-7",
+        )
+
+        assert isinstance(result, Run)
+        assert result.id == 73
+        assert json.loads(responses.calls[0].request.body) == {
+            "teammate_id": 7,
+            "stream": False,
+            "permission_mode": "approval",
+        }
+        assert responses.calls[0].request.headers["Idempotency-Key"] == "welcome-7"
+
+    @responses.activate
     def test_create_with_all_fields(self, http):
         responses.add(responses.POST, f"{BASE}/runs/", json={"id": 1})
         Runs(http).create(
