@@ -79,6 +79,7 @@ def test_get_usage():
             "cost_limit": "5.00",
             "period_end": "2026-03-31T00:00:00Z",
             "subscription_status": None,
+            "free_path_available": True,
         },
         status=200,
     )
@@ -88,6 +89,7 @@ def test_get_usage():
     assert isinstance(usage, Usage)
     assert usage.plan == "free"
     assert usage.runs_used == 1
+    assert usage.free_path_available is True
     assert usage.unlimited_runs is False
 
 

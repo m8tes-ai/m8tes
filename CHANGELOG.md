@@ -2,6 +2,13 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [4.13.1] - 2026-08-21
+
+### Added
+
+- `Usage.free_path_available` — mirrors the authoritative eligibility flag from
+  `GET /api/v2/usage`, so API clients can distinguish “connect a model plan or
+  upgrade” from paid-only recovery without inferring account or platform state.
 ## [4.14.0] - 2026-08-21
 
 ### Added

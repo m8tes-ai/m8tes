@@ -1779,8 +1779,9 @@ class TokenResult:
 class Usage:
     """Billing usage and limits for the authenticated user.
 
-    Overage fields (opt-in usage overage) and trial_ends_at are optional with
-    safe defaults so older backends that omit them don't break parsing.
+    Overage fields (opt-in usage overage), trial_ends_at, and free-path
+    eligibility are optional with safe defaults so older backends that omit
+    them don't break parsing. Eligibility fails closed when absent.
     """
 
     plan: str
@@ -1790,6 +1791,8 @@ class Usage:
     cost_limit: str
     period_end: str
     subscription_status: str | None
+    # Whether this account may currently activate the BYO-model free plan.
+    free_path_available: bool = False
     # Opt-in usage overage — meter your own spend against the per-account cap.
     overage_enabled: bool = False
     overage_used_cents: int = 0
@@ -1809,6 +1812,7 @@ class Usage:
             cost_limit=data["cost_limit"],
             period_end=data["period_end"],
             subscription_status=data.get("subscription_status"),
+            free_path_available=bool(data.get("free_path_available", False)),
             overage_enabled=data.get("overage_enabled", False),
             overage_used_cents=data.get("overage_used_cents", 0),
             overage_cap_cents=data.get("overage_cap_cents", 0),
