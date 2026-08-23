@@ -4966,11 +4966,13 @@ class TestV2Billing:
         plans = v2_client.billing.plans()
         assert all(isinstance(p, Plan) for p in plans)
         slugs = {p.slug for p in plans}
-        assert {"pro", "max_5x", "max_20x"} <= slugs
+        assert {"individual", "pro", "max_5x", "max_20x"} <= slugs
+        assert "free" not in slugs
         pro = next(p for p in plans if p.slug == "pro")
-        assert pro.display_name == "Pro"
+        assert pro.display_name == "Teams"
         assert pro.included_runs == 100
         assert pro.annual_price_cents == pro.monthly_price_cents * 10
+        assert "free" in {p.slug for p in v2_client.billing.plans(include_free=True)}
 
     def test_enable_overage_without_subscription_is_rejected(self, v2_client):
         # Overage can only be enabled on an account that carries the metered Stripe

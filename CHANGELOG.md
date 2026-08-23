@@ -8,6 +8,16 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ### Added
 
+- `Usage.subscription_billing_period` — mirrors `GET /api/v2/usage` so clients
+  can keep the billing cadence picker aligned with the customer's current Stripe
+  period (`monthly` / `annual`).
+
+### Changed
+
+- `client.billing.plans(include_free=True)` can include the $0 Hobby plan with
+  its 150-run allowance alongside the $20 Individual own-inference subscription
+  and team plans. The no-argument call remains purchasable-only for compatibility;
+  the stable Hobby API slug remains `free`.
 - `Run.recovery_repeats_actions` distinguishes whether the offered recovery would
   repeat a side effect; chat recovery checks only the failed follow-up, while
   `Run.repeats_actions` retains its whole-run meaning.

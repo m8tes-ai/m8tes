@@ -88,16 +88,23 @@ class Billing:
             _fetch_next=_fetch_next,
         )
 
-    def plans(self) -> list[Plan]:
-        """List public (paid) plans from the canonical catalog."""
-        resp = self._http.request("GET", "/billing/plans")
+    def plans(self, *, include_free: bool = False) -> list[Plan]:
+        """List purchasable plans; opt in to Hobby for a complete pricing surface."""
+        resp = self._http.request(
+            "GET",
+            "/billing/plans",
+            params=_build_params(include_free="true" if include_free else None),
+        )
         return [Plan.from_dict(d) for d in resp.json()]
 
     def checkout(self, *, plan_id: str, billing_period: str = "monthly") -> SubscriptionCheckout:
-        """Start a paid subscription checkout or plan change.
+        """Start an Individual or team subscription checkout.
 
-        Active subscribers receive a customer-portal redirect with
-        `destination="portal"`; other accounts receive Stripe Checkout.
+        Active subscribers receive a generic customer-portal redirect with
+        `destination="portal"` for payment/cancellation management when the requested
+        tier and cadence are unchanged. Existing tier or cadence changes return
+        ``destination="sales"`` with a contact URL because team subscriptions contain
+        usage billing that Stripe's portal cannot update safely.
         """
         resp = self._http.request(
             "POST",
@@ -107,22 +114,23 @@ class Billing:
         return SubscriptionCheckout.from_dict(resp.json())
 
     def portal(self, *, flow: str | None = None) -> str:
-        """Create a Stripe customer-portal URL for subscription and payment management.
+        """Create a Stripe portal URL for payment and cancellation management.
 
-        Pass `flow="subscription_update"` to open the plan-change screen directly.
+        The legacy `flow="subscription_update"` value returns a sales-contact URL.
         """
         body = {"flow": flow} if flow is not None else {}
         resp = self._http.request("POST", "/billing/portal", json=body)
         return str(resp.json()["url"])
 
     def activate_free(self) -> Usage:
-        """Activate the free bring-your-own-model plan; idempotent if already active."""
+        """Activate Hobby with a connected model plan; idempotent if already active."""
         resp = self._http.request("POST", "/billing/activate-free")
         return Usage.from_dict(resp.json())
 
     def set_overage(self, *, enabled: bool, monthly_cap_cents: int) -> Usage:
         """Opt in/out of usage overage and set the monthly spend cap (cents).
 
+        Available only when the catalog plan has ``overage_available=True``.
         Off by default. Once enabled, runs beyond your plan's included allotment
         bill at the per-run overage rate until the cap is hit. Returns the refreshed
         usage so you can confirm the new state in one call.

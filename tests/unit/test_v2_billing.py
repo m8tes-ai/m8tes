@@ -28,6 +28,48 @@ def billing():
 
 class TestSubscriptionBilling:
     @responses.activate
+    def test_plans_include_typed_hobby_and_individual_plans(self, billing):
+        responses.add(
+            responses.GET,
+            f"{BASE}/billing/plans",
+            json=[
+                {
+                    "slug": "free",
+                    "display_name": "Hobby",
+                    "included_runs": 150,
+                    "monthly_price_cents": 0,
+                    "annual_price_cents": 0,
+                    "inference_mode": "own_subscription",
+                    "overage_available": False,
+                    "overage_rate_cents": 1000,
+                    "fair_use_cost_limit_cents": 0,
+                },
+                {
+                    "slug": "individual",
+                    "display_name": "Individual",
+                    "included_runs": 1000,
+                    "monthly_price_cents": 2000,
+                    "annual_price_cents": 20000,
+                    "inference_mode": "own_subscription",
+                    "overage_available": False,
+                    "overage_rate_cents": 1000,
+                    "fair_use_cost_limit_cents": 0,
+                },
+            ],
+        )
+
+        hobby, individual = billing.plans(include_free=True)
+        assert hobby.slug == "free"
+        assert hobby.display_name == "Hobby"
+        assert hobby.included_runs == 150
+        assert hobby.inference_mode == "own_subscription"
+        assert individual.slug == "individual"
+        assert individual.monthly_price_cents == 2000
+        assert individual.overage_available is False
+        assert individual.inference_mode == "own_subscription"
+        assert responses.calls[0].request.url.endswith("/billing/plans?include_free=true")
+
+    @responses.activate
     def test_checkout_returns_typed_redirect(self, billing):
         responses.add(
             responses.POST,
@@ -35,11 +77,13 @@ class TestSubscriptionBilling:
             json={"url": "https://checkout.stripe.test/sub", "destination": "checkout"},
         )
 
-        session = billing.checkout(plan_id="pro", billing_period="annual")
+        session = billing.checkout(plan_id="individual", billing_period="annual")
 
         assert session.url == "https://checkout.stripe.test/sub"
         assert session.destination == "checkout"
-        assert responses.calls[0].request.body == b'{"plan_id": "pro", "billing_period": "annual"}'
+        assert responses.calls[0].request.body == (
+            b'{"plan_id": "individual", "billing_period": "annual"}'
+        )
 
     @responses.activate
     def test_portal_returns_url(self, billing):
@@ -60,15 +104,18 @@ class TestSubscriptionBilling:
             json={
                 "plan": "free",
                 "runs_used": 0,
-                "runs_limit": 50,
+                "runs_limit": 150,
                 "cost_used": "0",
                 "cost_limit": "0",
                 "period_end": "2026-09-18T00:00:00Z",
                 "subscription_status": None,
+                "subscription_billing_period": "annual",
             },
         )
 
-        assert billing.activate_free().plan == "free"
+        usage = billing.activate_free()
+        assert usage.plan == "free"
+        assert usage.subscription_billing_period == "annual"
 
 
 class TestUsageTimeseries:

@@ -1792,7 +1792,9 @@ class Usage:
     cost_limit: str
     period_end: str
     subscription_status: str | None
-    # Whether this account may currently activate the BYO-model free plan.
+    # Current paid subscription cadence, when known.
+    subscription_billing_period: str | None = None
+    # Whether this account may currently activate the BYO-model Hobby plan.
     free_path_available: bool = False
     # Opt-in usage overage — meter your own spend against the per-account cap.
     overage_enabled: bool = False
@@ -1813,6 +1815,7 @@ class Usage:
             cost_limit=data["cost_limit"],
             period_end=data["period_end"],
             subscription_status=data.get("subscription_status"),
+            subscription_billing_period=data.get("subscription_billing_period"),
             free_path_available=bool(data.get("free_path_available", False)),
             overage_enabled=data.get("overage_enabled", False),
             overage_used_cents=data.get("overage_used_cents", 0),
@@ -1825,7 +1828,7 @@ class Usage:
 
 @dataclass
 class Plan:
-    """A public (paid) plan from the canonical catalog. Prices are in cents."""
+    """A public Hobby or paid plan from the canonical catalog. Prices are in cents."""
 
     slug: str
     display_name: str
@@ -1833,6 +1836,8 @@ class Plan:
     monthly_price_cents: int
     annual_price_cents: int
     overage_rate_cents: int
+    inference_mode: Literal["own_subscription", "platform"] = "platform"
+    overage_available: bool = False
     # Per-period model-spend fair-use cap; 0 when the server predates the field.
     fair_use_cost_limit_cents: int = 0
 
@@ -1845,6 +1850,8 @@ class Plan:
             monthly_price_cents=data["monthly_price_cents"],
             annual_price_cents=data["annual_price_cents"],
             overage_rate_cents=data["overage_rate_cents"],
+            inference_mode=data.get("inference_mode", "platform"),
+            overage_available=bool(data.get("overage_available", False)),
             fair_use_cost_limit_cents=data.get("fair_use_cost_limit_cents", 0),
         )
 
@@ -1854,7 +1861,7 @@ class SubscriptionCheckout:
     """Stripe redirect created for a subscription purchase or plan change."""
 
     url: str
-    destination: Literal["checkout", "portal"]
+    destination: Literal["checkout", "portal", "sales"]
 
     @classmethod
     def from_dict(cls, data: dict) -> SubscriptionCheckout:

@@ -49,15 +49,16 @@ Check current plan, run usage, and cost limits with `client.billing.usage()` (or
 usage = client.billing.usage()
 print(usage.plan, usage.runs_used, usage.runs_limit, usage.overage_used_cents)
 
-# Browse the plan catalog (pro / max_5x / max_20x)
-for plan in client.billing.plans():
+# Browse Hobby, Individual ($20 with your model subscription), and team plans
+for plan in client.billing.plans(include_free=True):
     print(plan.slug, plan.display_name, plan.included_runs, plan.monthly_price_cents)
 
-# Opt in to usage overage with a monthly spend cap so runs keep going past the plan limit
+# Platform-inference team plans expose plan.overage_available=true and can opt in
+# to usage overage with a monthly spend cap.
 client.billing.set_overage(enabled=True, monthly_cap_cents=5000)  # $50 cap
 ```
 
-New accounts start on a time-boxed `trial` (no free tier); upgrade to a paid plan to raise run limits.
+New accounts start unfunded. Connect a model subscription to activate the $0 Hobby plan immediately (150 runs every 30 days), choose Individual for $20/month and 1,000 runs using that subscription, or choose a team plan starting at $1,000/month with inference included.
 
 Need email-triggered runs? Opt in with `email_inbox=True` on `client.agents.create(...)` or call `client.agents.enable_email_inbox(agent_id)` later.
 
