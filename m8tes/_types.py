@@ -1417,6 +1417,9 @@ class PermissionRequest:
     mate_name: str | None = None
     task_name: str | None = None
     consequence: str = ""
+    ask_reason: str = ""
+    surface: str = "command"
+    surface_label: str | None = None
     # `[label, value]` pairs: redacted, humanised, opaque ids dropped. The call's own
     # arguments — agent data, shown because an approver needs to see what it does.
     fields: list[list[str]] | None = None
@@ -1452,6 +1455,9 @@ class PermissionRequest:
             mate_name=data.get("mate_name"),
             task_name=data.get("task_name"),
             consequence=data.get("consequence", ""),
+            ask_reason=data.get("ask_reason", ""),
+            surface=data.get("surface", "command"),
+            surface_label=data.get("surface_label"),
             fields=data.get("fields"),
             prose=data.get("prose"),
             can_remember=data.get("can_remember", True),

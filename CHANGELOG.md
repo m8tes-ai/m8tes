@@ -4,6 +4,13 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **`PermissionRequest` carries gate context.** `ask_reason`, `surface`, and
+  `surface_label` mirror the v2 permission payload so embed clients can show why
+  a gate was raised and whether the tool runs on the Mate computer or a connected
+  service.
+
 ## [4.15.1] - 2026-08-23
 
 ### Security
