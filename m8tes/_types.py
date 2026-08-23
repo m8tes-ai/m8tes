@@ -1528,6 +1528,7 @@ class Webhook:
     active: bool
     created_at: str
     updated_at: str | None = None
+    user_id: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> Webhook:
@@ -1539,6 +1540,7 @@ class Webhook:
             active=data.get("active", True),
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at"),
+            user_id=data.get("user_id"),
         )
 
 

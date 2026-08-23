@@ -1,4 +1,8 @@
-"""Webhooks resource — register, update, list, delete webhook endpoints and view deliveries."""
+"""Webhooks resource — register, update, list, delete webhook endpoints and view deliveries.
+
+``user_id`` scopes an endpoint to one end-user; omit it for account-level. The
+scopes never mix: an end-user run only delivers to that end-user's endpoints.
+"""
 
 from __future__ import annotations
 
@@ -61,17 +65,32 @@ class Webhooks:
         expected = "v1=" + _hmac.new(secret.encode(), msg.encode(), hashlib.sha256).hexdigest()
         return _hmac.compare_digest(expected, signature)
 
-    def create(self, *, url: str, events: list[str] | None = None) -> Webhook:
-        """Register a webhook endpoint. Secret returned only on creation."""
+    def create(
+        self,
+        *,
+        url: str,
+        events: list[str] | None = None,
+        user_id: str | None = None,
+    ) -> Webhook:
+        """Register a webhook endpoint. Secret returned only on creation.
+
+        ``user_id`` scopes the endpoint to one end-user; omit for account-level.
+        """
         body: dict = {"url": url}
         if events is not None:
             body["events"] = events
+        if user_id is not None:
+            body["user_id"] = user_id
         resp = self._http.request("POST", "/webhooks/", json=body)
         return Webhook.from_dict(resp.json())
 
-    def get(self, webhook_id: int) -> Webhook:
+    def get(self, webhook_id: int, *, user_id: str | None = None) -> Webhook:
         """Get a single webhook endpoint (secret masked)."""
-        resp = self._http.request("GET", f"/webhooks/{seg(webhook_id)}")
+        resp = self._http.request(
+            "GET",
+            f"/webhooks/{seg(webhook_id)}",
+            params=_build_params(user_id=user_id),
+        )
         return Webhook.from_dict(resp.json())
 
     def list(
@@ -79,14 +98,15 @@ class Webhooks:
         *,
         limit: int = 20,
         starting_after: int | None = None,
+        user_id: str | None = None,
     ) -> SyncPage[Webhook]:
         """List registered webhook endpoints (secrets masked)."""
-        params = _build_params(limit=limit, starting_after=starting_after)
+        params = _build_params(limit=limit, starting_after=starting_after, user_id=user_id)
         resp = self._http.request("GET", "/webhooks/", params=params)
         body = resp.json()
 
         def _fetch_next(**kw: object) -> SyncPage[Webhook]:
-            return self.list(limit=limit, **kw)  # type: ignore[arg-type]
+            return self.list(limit=limit, user_id=user_id, **kw)  # type: ignore[arg-type]
 
         return SyncPage(
             data=[Webhook.from_dict(d) for d in body["data"]],
@@ -103,6 +123,7 @@ class Webhooks:
         events: _list[str] | None = None,
         active: bool | None = None,
         rotate_secret: bool = False,
+        user_id: str | None = None,
     ) -> Webhook:
         """Update a webhook endpoint. Set rotate_secret=True to generate a new signing secret."""
         body: dict = {}
@@ -114,7 +135,12 @@ class Webhooks:
             body["active"] = active
         if rotate_secret:
             body["rotate_secret"] = True
-        resp = self._http.request("PATCH", f"/webhooks/{seg(webhook_id)}", json=body)
+        resp = self._http.request(
+            "PATCH",
+            f"/webhooks/{seg(webhook_id)}",
+            json=body,
+            params=_build_params(user_id=user_id),
+        )
         return Webhook.from_dict(resp.json())
 
     def list_deliveries(
@@ -123,14 +149,15 @@ class Webhooks:
         *,
         limit: int = 20,
         starting_after: int | None = None,
+        user_id: str | None = None,
     ) -> SyncPage[WebhookDelivery]:
         """List delivery attempts for a webhook endpoint."""
-        params = _build_params(limit=limit, starting_after=starting_after)
+        params = _build_params(limit=limit, starting_after=starting_after, user_id=user_id)
         resp = self._http.request("GET", f"/webhooks/{seg(webhook_id)}/deliveries", params=params)
         body = resp.json()
 
         def _fetch_next(**kw: object) -> SyncPage[WebhookDelivery]:
-            return self.list_deliveries(webhook_id, limit=limit, **kw)  # type: ignore[arg-type]
+            return self.list_deliveries(webhook_id, limit=limit, user_id=user_id, **kw)  # type: ignore[arg-type]
 
         return SyncPage(
             data=[WebhookDelivery.from_dict(d) for d in body["data"]],
@@ -139,6 +166,10 @@ class Webhooks:
             _fetch_next=_fetch_next,
         )
 
-    def delete(self, webhook_id: int) -> None:
+    def delete(self, webhook_id: int, *, user_id: str | None = None) -> None:
         """Delete a webhook endpoint."""
-        self._http.request("DELETE", f"/webhooks/{seg(webhook_id)}")
+        self._http.request(
+            "DELETE",
+            f"/webhooks/{seg(webhook_id)}",
+            params=_build_params(user_id=user_id),
+        )

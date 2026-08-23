@@ -21,6 +21,7 @@ from m8tes._resources.tasks import Tasks, TaskTriggers
 from m8tes._resources.teammates import Teammates
 from m8tes._resources.triggers import Triggers
 from m8tes._resources.value import Value
+from m8tes._resources.webhooks import Webhooks
 from m8tes._streaming import RunStream
 from m8tes._types import (
     App,
@@ -2766,3 +2767,64 @@ class TestSubresourceScopeForwarding:
         )
         Teammates(http).enable_webhook(1)
         assert "user_id" not in responses.calls[0].request.params
+
+
+class TestWebhooksEndUserScope:
+    """Outbound webhook CRUD must forward user_id so end-user isolation is reachable."""
+
+    @responses.activate
+    def test_create_sends_user_id_in_body(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/webhooks/",
+            json={
+                "id": 1,
+                "url": "https://example.com/h",
+                "events": ["run.completed"],
+                "secret": "s",
+                "active": True,
+                "user_id": "eu_alice",
+                "created_at": "2026-01-01T00:00:00Z",
+            },
+            status=201,
+        )
+        wh = Webhooks(http).create(
+            url="https://example.com/h", events=["run.completed"], user_id="eu_alice"
+        )
+        assert wh.user_id == "eu_alice"
+        body = json.loads(responses.calls[0].request.body)
+        assert body["user_id"] == "eu_alice"
+
+    @responses.activate
+    def test_get_update_delete_list_forward_user_id(self, http):
+        payload = {
+            "id": 2,
+            "url": "https://example.com/h",
+            "events": ["run.completed"],
+            "secret": "abcd...",
+            "active": True,
+            "user_id": "eu_alice",
+            "created_at": "2026-01-01T00:00:00Z",
+        }
+        responses.add(responses.GET, f"{BASE}/webhooks/2", json=payload)
+        responses.add(responses.PATCH, f"{BASE}/webhooks/2", json=payload)
+        responses.add(responses.DELETE, f"{BASE}/webhooks/2", status=204)
+        responses.add(
+            responses.GET,
+            f"{BASE}/webhooks/",
+            json={"data": [payload], "has_more": False},
+        )
+        responses.add(
+            responses.GET,
+            f"{BASE}/webhooks/2/deliveries",
+            json={"data": [], "has_more": False},
+        )
+
+        wh = Webhooks(http)
+        wh.get(2, user_id="eu_alice")
+        wh.update(2, active=False, user_id="eu_alice")
+        wh.delete(2, user_id="eu_alice")
+        wh.list(user_id="eu_alice")
+        wh.list_deliveries(2, user_id="eu_alice")
+        for call in responses.calls:
+            assert call.request.params.get("user_id") == "eu_alice", call.request.url

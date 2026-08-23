@@ -4,6 +4,12 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.15.1] - 2026-08-23
+
+### Security
+
+- **Outbound webhooks respect end-user scope.** `client.webhooks.create/list/get/update/delete/list_deliveries` accept `user_id` so an end-user-scoped endpoint only receives that end-user's run events — closing a cross-end-user output leak when account-level endpoints previously received every run on the account.
+
 ## [4.15.0] - 2026-08-22
 
 ### Added
