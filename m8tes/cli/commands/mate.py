@@ -188,6 +188,10 @@ class ListCommand(Command):
             action="store_true",
             help="Include disabled agents in the listing",
         )
+        parser.add_argument(
+            "--user-id",
+            help="Scope the list to one end-user (required for strict multi-tenant API accounts)",
+        )
 
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
         """Execute teammate listing."""
@@ -201,7 +205,10 @@ class ListCommand(Command):
         mate_cli = MateCLI(client)
         try:
             include_disabled = getattr(args, "include_disabled", False)
-            mate_cli.list_interactive(include_disabled=include_disabled)
+            mate_cli.list_interactive(
+                include_disabled=include_disabled,
+                user_id=getattr(args, "user_id", None),
+            )
             return 0
         except _AUTH_ERRORS as e:
             print(f"❌ Authentication failed: {e}")

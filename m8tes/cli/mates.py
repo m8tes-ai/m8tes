@@ -376,12 +376,15 @@ class MateCLI:
         # Remove duplicates while preserving order
         return list(dict.fromkeys(tools))
 
-    def list_interactive(self, include_disabled: bool = False) -> None:
+    def list_interactive(
+        self, include_disabled: bool = False, *, user_id: str | None = None
+    ) -> None:
         """
         Interactive teammate listing.
 
         Args:
             include_disabled: Include disabled (and archived) teammates in listing
+            user_id: End-user scope (required for strict multi-tenant API accounts)
         """
         print("👥 Your Agents")
         print()
@@ -389,7 +392,9 @@ class MateCLI:
         # v2 always lists disabled agents alongside enabled ones (only archived
         # agents are hidden), so the default view filters client-side and the
         # flag widens the fetch to archived too.
-        page = self.client.agents.list(limit=_LIST_LIMIT, include_archived=include_disabled)
+        page = self.client.agents.list(
+            limit=_LIST_LIMIT, include_archived=include_disabled, user_id=user_id
+        )
         agents = list(page.auto_paging_iter())
         if not include_disabled:
             agents = [a for a in agents if a.status == "enabled"]

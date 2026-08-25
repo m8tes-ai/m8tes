@@ -180,7 +180,7 @@ class TestListInteractive:
         out = capsys.readouterr().out
         assert "On" in out
         assert "Off" not in out
-        client.agents.list.assert_called_once_with(limit=100, include_archived=False)
+        client.agents.list.assert_called_once_with(limit=100, include_archived=False, user_id=None)
 
     def test_include_disabled_widens_to_archived_and_shows_disabled(self, client, capsys):
         client.agents.list.return_value = _page(
@@ -190,7 +190,18 @@ class TestListInteractive:
         out = capsys.readouterr().out
         assert "Off" in out
         assert "⏸️" in out
-        client.agents.list.assert_called_once_with(limit=100, include_archived=True)
+        client.agents.list.assert_called_once_with(limit=100, include_archived=True, user_id=None)
+
+    def test_user_id_forwarded_to_agents_list(self, client, capsys):
+        """Regression: ISSUE-001 — strict API accounts require user_id on list.
+
+        Found by /qa on 2026-08-20. Report:
+        .gstack/qa-reports/qa-report-api-prelaunch-2026-08-20.md
+        """
+        client.agents.list.return_value = _page([_teammate(id=1, name="Scoped")])
+        MateCLI(client).list_interactive(user_id="me")
+        client.agents.list.assert_called_once_with(limit=100, include_archived=False, user_id="me")
+        assert "Scoped" in capsys.readouterr().out
 
     def test_empty_listing_hints(self, client, capsys):
         client.agents.list.return_value = _page([])
