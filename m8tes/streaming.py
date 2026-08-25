@@ -55,6 +55,8 @@ _INTERNAL_EVENT_TYPES: frozenset[str] = frozenset(
         # Platform timeline annotation (Auto ·); delivered via HTTP callback + UI bus,
         # not a developer-facing stream match surface.
         "permission_auto_allowed",
+        # Backend-only: retracts a superseded setup error after provider auto-redrive.
+        "error_cleared",
         # These two are CLI system SUBTYPES, never a wire `type`: agent-runtime rewrites
         # them to `system_message` before they leave. They are silenced because the string
         # cannot arrive, NOT because the content is uninteresting — do not use them as

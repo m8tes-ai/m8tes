@@ -40,6 +40,9 @@ import pytest
 
 from m8tes.streaming import _INTERNAL_EVENT_TYPES, StreamEvent, StreamEventType
 
+# Platform/backend frames silenced in the SDK but never emitted by agent_runtime.
+_BACKEND_ONLY_INTERNAL_EVENT_TYPES = frozenset({"error_cleared"})
+
 # tests/unit/ -> tests/ -> the SDK package root. This anchor holds in BOTH layouts (the
 # monorepo's `sdk/py/` and the standalone m8tes-ai/m8tes root), which is what makes it
 # checkable — see test_path_arithmetic_is_correct below. Everything else is derived from
@@ -292,5 +295,7 @@ def test_internal_list_does_not_rot_against_the_runtime():
     so if the runtime later reuses it for something developer-facing, the SDK swallows
     it silently instead of surfacing the drift.
     """
-    stale = sorted(_INTERNAL_EVENT_TYPES - _runtime_event_values())
+    stale = sorted(
+        (_INTERNAL_EVENT_TYPES - _BACKEND_ONLY_INTERNAL_EVENT_TYPES) - _runtime_event_values()
+    )
     assert not stale, f"_INTERNAL_EVENT_TYPES names no longer emitted by the runtime: {stale}"

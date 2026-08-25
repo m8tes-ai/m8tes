@@ -4,6 +4,11 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **`ModelConnection.is_default`** on `client.model_connections.list()` — marks which
+  connected plan is the account default.
+
 ### Changed
 
 - **`PermissionRequest` carries gate context.** `ask_reason`, `surface`, and

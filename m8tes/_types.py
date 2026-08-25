@@ -126,6 +126,7 @@ class ModelConnection:
     provider: str
     display_name: str
     connected: bool
+    is_default: bool
     status: str | None = None
     account_label: str | None = None
     expires_at: str | None = None
@@ -136,6 +137,7 @@ class ModelConnection:
             provider=data["provider"],
             display_name=data["display_name"],
             connected=bool(data["connected"]),
+            is_default=bool(data.get("is_default", False)),
             status=data.get("status"),
             account_label=data.get("account_label"),
             expires_at=data.get("expires_at"),
