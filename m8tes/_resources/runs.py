@@ -400,7 +400,7 @@ class Runs:
         interval: float = 2.0,
         timeout: float = 300.0,
         raise_on_error: bool = False,
-        cancel_on_timeout: bool = True,
+        cancel_on_timeout: bool = False,
     ) -> Run:
         """Wait for a run to complete, handling human-in-the-loop pauses via callbacks.
 
@@ -413,9 +413,10 @@ class Runs:
 
         Without callbacks, raises RuntimeError if the run pauses for input.
 
-        On timeout, best-effort cancels the run (same as :meth:`poll`) so an
-        Agent/tool stall cannot outlive the caller's deadline while
-        ``GET .../permissions`` stays empty.
+        ``cancel_on_timeout`` defaults False: ``wait`` accepts any run ID, so an
+        observer must not stop work it did not start. Pass ``True`` from owned flows
+        (``create_and_wait``, ``reply_and_wait``) when this caller should bound
+        sandbox lifetime.
 
         Usage:
             run = client.runs.wait(
@@ -637,6 +638,7 @@ class Runs:
             interval=poll_interval,
             timeout=poll_timeout,
             raise_on_error=raise_on_error,
+            cancel_on_timeout=True,
         )
         if initial.email_address and not final.email_address:
             final.email_address = initial.email_address
@@ -681,6 +683,7 @@ class Runs:
             on_question=on_question,
             interval=poll_interval,
             timeout=poll_timeout,
+            cancel_on_timeout=True,
         )
 
     def stream_text(

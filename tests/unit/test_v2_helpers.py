@@ -185,6 +185,14 @@ class TestRunsWait:
             Runs(http).wait(1, interval=0.01)
 
     @responses.activate
+    def test_timeout_does_not_cancel_by_default(self, http):
+        """Observing via wait() must not cancel a run the caller did not create."""
+        responses.add(responses.GET, f"{BASE}/runs/1", json=RUN_RUNNING)
+        with pytest.raises(TimeoutError, match="did not complete"):
+            Runs(http).wait(1, interval=0.01, timeout=0.05)
+        assert not any(c.request.method == "POST" for c in responses.calls)
+
+    @responses.activate
     def test_timeout(self, http):
         responses.add(responses.GET, f"{BASE}/runs/1", json=RUN_RUNNING)
         responses.add(
@@ -193,7 +201,7 @@ class TestRunsWait:
             json={"id": 1, "status": "cancelled"},
         )
         with pytest.raises(TimeoutError):
-            Runs(http).wait(1, interval=0.01, timeout=0.05)
+            Runs(http).wait(1, interval=0.01, timeout=0.05, cancel_on_timeout=True)
         cancel_calls = [
             c
             for c in responses.calls
@@ -226,7 +234,7 @@ class TestRunsWait:
             status=500,
         )
         with pytest.raises(TimeoutError, match="did not complete"):
-            Runs(http).wait(1, interval=0.01, timeout=0.05)
+            Runs(http).wait(1, interval=0.01, timeout=0.05, cancel_on_timeout=True)
 
     @staticmethod
     def _gate_refusal(status, error_code, message):
