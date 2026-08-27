@@ -709,9 +709,7 @@ class Runs:
         # Queued replies wait on a run already executing — cancel would discard
         # the queued message and stop the in-flight turn.
         cancel_on_timeout = reply_run.delivery != "queued"
-        await_queued = (
-            reply_run.queued_message_id if reply_run.delivery == "queued" else None
-        )
+        await_queued = reply_run.queued_message_id if reply_run.delivery == "queued" else None
         return self.wait(
             reply_run.id,
             user_id=reply_run.user_id or user_id,
