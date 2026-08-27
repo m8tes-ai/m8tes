@@ -987,6 +987,42 @@ class TestRuns:
         assert len(result.data) == 2
 
     @responses.activate
+    def test_list_exclude_platform_runs(self, http):
+        responses.add(responses.GET, f"{BASE}/runs/", json={"data": [], "has_more": False})
+        Runs(http).list(exclude_platform_runs=True)
+        assert responses.calls[0].request.params.get("exclude_platform_runs") == "true"
+
+    @responses.activate
+    def test_list_exclude_platform_runs_false_is_explicit(self, http):
+        """Three-state like the TS SDK: an explicit False rides the wire as \"false\"."""
+        responses.add(responses.GET, f"{BASE}/runs/", json={"data": [], "has_more": False})
+        Runs(http).list(exclude_platform_runs=False)
+        assert responses.calls[0].request.params.get("exclude_platform_runs") == "false"
+
+    @responses.activate
+    def test_list_default_omits_exclude_platform_runs(self, http):
+        responses.add(responses.GET, f"{BASE}/runs/", json={"data": [], "has_more": False})
+        Runs(http).list()
+        assert "exclude_platform_runs" not in responses.calls[0].request.params
+
+    @responses.activate
+    def test_list_exclude_platform_runs_survives_pagination(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/",
+            json={"data": [{"id": 1}], "has_more": True, "next_starting_after": 1},
+        )
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/",
+            json={"data": [{"id": 2}], "has_more": False},
+        )
+        page = Runs(http).list(exclude_platform_runs=True, limit=1)
+        list(page.auto_paging_iter())
+        assert responses.calls[0].request.params.get("exclude_platform_runs") == "true"
+        assert responses.calls[1].request.params.get("exclude_platform_runs") == "true"
+
+    @responses.activate
     def test_get(self, http):
         responses.add(
             responses.GET,

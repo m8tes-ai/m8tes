@@ -2,9 +2,13 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
-## [Unreleased]
+## [4.16.0] - 2026-08-27
 
 ### Added
+
+- **`runs.list(exclude_platform_runs=True)`** — forwards the v2 query param that
+  hides Company Agent Day-1 / pulse / maintenance so callers can ask whether the
+  *user* has run anything themselves yet. Survives pagination.
 
 - **`ModelConnection.is_default`** on `client.model_connections.list()` — marks which
   connected plan is the account default.
@@ -15,6 +19,13 @@ All notable changes to the m8tes Python SDK will be documented in this file.
   `surface_label` mirror the v2 permission payload so embed clients can show why
   a gate was raised and whether the tool runs on the Mate computer or a connected
   service.
+
+### Fixed
+
+- **`m8tes agent list --user-id`** — strict multi-tenant API accounts (the
+  default after `signup`) require `user_id` on agent list. The CLI flag now
+  forwards it; without it the command failed with a ValidationError and there
+  was no way to pass the scope from the CLI.
 
 ## [4.15.1] - 2026-08-23
 
@@ -75,12 +86,6 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 - `Teammate.active_run_id` — when a Mate has exactly one live run, the roster
   returns that run id for `client.runs.reply` / discovery without an extra
   `list_runs` call. Null when idle or when multiple live runs exist.
-### Fixed
-
-- **`m8tes agent list --user-id`** — strict multi-tenant API accounts (the
-  default after `signup`) require `user_id` on agent list. The CLI flag now
-  forwards it; without it the command failed with a ValidationError and there
-  was no way to pass the scope from the CLI.
 
 ## [4.12.0] - 2026-08-19
 
