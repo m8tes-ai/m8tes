@@ -187,7 +187,26 @@ class TestRunsWait:
     @responses.activate
     def test_timeout(self, http):
         responses.add(responses.GET, f"{BASE}/runs/1", json=RUN_RUNNING)
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/1/cancel",
+            json={"id": 1, "status": "cancelled"},
+        )
         with pytest.raises(TimeoutError):
+            Runs(http).wait(1, interval=0.01, timeout=0.05)
+        assert any(c.request.method == "POST" and c.request.url.endswith("/cancel") for c in responses.calls)
+
+    @responses.activate
+    def test_timeout_still_raises_when_cancel_fails(self, http):
+        """A cancel that 500s must not hide the TimeoutError the caller is waiting on."""
+        responses.add(responses.GET, f"{BASE}/runs/1", json=RUN_RUNNING)
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/1/cancel",
+            json={"error": {"message": "boom"}},
+            status=500,
+        )
+        with pytest.raises(TimeoutError, match="did not complete"):
             Runs(http).wait(1, interval=0.01, timeout=0.05)
 
     @staticmethod

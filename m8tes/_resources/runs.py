@@ -348,6 +348,10 @@ class Runs:
         Pass ``user_id`` when the account has strict multi-tenant mode on —
         otherwise every poll GET 422s.
 
+        On timeout, best-effort cancels the run so a stalled sandbox does not keep
+        burning after the caller has given up (create_and_wait / HITL waits inherit
+        this via wait()).
+
         `raise_on_error=True` turns a `failed` run into RunFailedError instead of
         a returned Run, matching `runs.create(..., raise_on_error=True)` on the
         streaming path. Off by default so this stays non-breaking.
@@ -362,6 +366,7 @@ class Runs:
                 run = self.get(run_id, user_id=user_id)
             except APIError:
                 if _time.monotonic() >= deadline:
+                    self._cancel_on_wait_timeout(run_id, user_id=user_id)
                     raise TimeoutError(f"Run {run_id} did not complete within {timeout}s") from None
                 _time.sleep(interval)
                 continue
@@ -370,6 +375,7 @@ class Runs:
                     _raise_if_failed(run)
                 return run
             if _time.monotonic() >= deadline:
+                self._cancel_on_wait_timeout(run_id, user_id=user_id)
                 raise TimeoutError(f"Run {run_id} did not complete within {timeout}s")
             _time.sleep(interval)
 
@@ -394,6 +400,10 @@ class Runs:
         otherwise every poll GET 422s.
 
         Without callbacks, raises RuntimeError if the run pauses for input.
+
+        On timeout, best-effort cancels the run (same as :meth:`poll`) so an
+        Agent/tool stall cannot outlive the caller's deadline while
+        ``GET .../permissions`` stays empty.
 
         Usage:
             run = client.runs.wait(
@@ -423,6 +433,7 @@ class Runs:
                 run = self.get(run_id, user_id=user_id)
             except APIError:
                 if _time.monotonic() >= deadline:
+                    self._cancel_on_wait_timeout(run_id, user_id=user_id)
                     raise TimeoutError(f"Run {run_id} did not complete within {timeout}s") from None
                 _time.sleep(interval)
                 continue
@@ -482,8 +493,25 @@ class Runs:
                             )
 
             if _time.monotonic() >= deadline:
+                self._cancel_on_wait_timeout(run_id, user_id=user_id)
                 raise TimeoutError(f"Run {run_id} did not complete within {timeout}s")
             _time.sleep(interval)
+
+    def _cancel_on_wait_timeout(self, run_id: int, *, user_id: str | None) -> None:
+        """Best-effort cancel when poll/wait deadlines fire.
+
+        A TimeoutError without cancel leaves the sandbox burning until the
+        runtime's own inactivity watchdog (minutes later). Cancel failures must
+        never mask the TimeoutError the caller is waiting for.
+        """
+        try:
+            self.cancel(run_id, user_id=user_id)
+        except Exception as exc:
+            logger.warning(
+                "Run %s: cancel after wait/poll timeout failed (%s) — run may still be active",
+                run_id,
+                exc,
+            )
 
     def create_and_wait(
         self,

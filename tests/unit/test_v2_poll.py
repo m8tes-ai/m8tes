@@ -72,12 +72,17 @@ class TestPoll:
 
     @responses.activate
     def test_timeout(self, http):
-        """Poll raises TimeoutError when deadline exceeded."""
-        # Always return running
+        """Poll raises TimeoutError when deadline exceeded, and cancels the run."""
         responses.add(responses.GET, f"{BASE}/runs/1", json={"id": 1, "status": "running"})
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/1/cancel",
+            json={"id": 1, "status": "cancelled"},
+        )
 
         with pytest.raises(TimeoutError, match="did not complete"):
             Runs(http).poll(1, interval=0.01, timeout=0.05)
+        assert any(c.request.method == "POST" and c.request.url.endswith("/cancel") for c in responses.calls)
 
     @responses.activate
     def test_transient_error_retried(self, http):
@@ -100,6 +105,13 @@ class TestPoll:
         """Poll raises TimeoutError if server errors persist past deadline."""
         err = {"error": {"message": "oops"}}
         responses.add(responses.GET, f"{BASE}/runs/1", json=err, status=500)
+        # Cancel may 404 if GET never returned a run — still best-effort.
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/1/cancel",
+            json={"error": {"message": "not found"}},
+            status=404,
+        )
         with pytest.raises(TimeoutError, match="did not complete"):
             Runs(http).poll(1, interval=0.01, timeout=0.05)
 

@@ -16,6 +16,15 @@ All notable changes to the m8tes Python SDK will be documented in this file.
   a gate was raised and whether the tool runs on the Mate computer or a connected
   service.
 
+## [4.15.2] - 2026-08-27
+
+### Fixed
+
+- **`runs.wait` / `runs.poll` / `create_and_wait` cancel the run on timeout.** A
+  stalled Agent/tool that never reaches `awaiting_approval` used to leave the
+  sandbox burning after the SDK raised `TimeoutError`. Timeout now best-effort
+  cancels first; a cancel failure never masks the `TimeoutError`.
+
 ## [4.15.1] - 2026-08-23
 
 ### Security
