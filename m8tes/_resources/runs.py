@@ -545,26 +545,30 @@ class Runs:
             return run
 
         if cancel_on_timeout:
-            self._cancel_on_wait_timeout(run_id, user_id=user_id)
+            cancel_succeeded = self._cancel_on_wait_timeout(run_id, user_id=user_id)
             try:
                 run = self.get(run_id, user_id=user_id)
             except APIError:
                 pass
             else:
-                # Only treat a successful finish as beating the deadline — not
-                # cancelled/failed caused by the cancel we just sent.
-                if run.status in ("completed", "closed"):
+                if run.status in TERMINAL_STATUSES:
+                    # A successful cancel yields cancelled — that is still a
+                    # timeout from the caller's perspective, not a return value.
+                    if run.status == "cancelled" and cancel_succeeded:
+                        raise TimeoutError(f"Run {run_id} did not complete within {timeout}s")
                     if raise_on_error:
                         _raise_if_failed(run)
                     return run
         raise TimeoutError(f"Run {run_id} did not complete within {timeout}s")
 
-    def _cancel_on_wait_timeout(self, run_id: int, *, user_id: str | None) -> None:
+    def _cancel_on_wait_timeout(self, run_id: int, *, user_id: str | None) -> bool:
         """Best-effort cancel when poll/wait deadlines fire.
 
         A TimeoutError without cancel leaves the sandbox burning until the
         runtime's own inactivity watchdog (minutes later). Cancel failures must
         never mask the TimeoutError the caller is waiting for.
+
+        Returns True when the cancel POST succeeded.
         """
         try:
             self.cancel(run_id, user_id=user_id)
@@ -574,6 +578,8 @@ class Runs:
                 run_id,
                 exc,
             )
+            return False
+        return True
 
     def create_and_wait(
         self,
@@ -687,14 +693,18 @@ class Runs:
             feedback=feedback,
             human_in_the_loop=human_in_the_loop,
         )
+        reply_run = cast(Run, run)
+        # Queued replies wait on a run already executing — cancel would discard
+        # the queued message and stop the in-flight turn.
+        cancel_on_timeout = reply_run.delivery != "queued"
         return self.wait(
-            cast(Run, run).id,
-            user_id=cast(Run, run).user_id or user_id,
+            reply_run.id,
+            user_id=reply_run.user_id or user_id,
             on_approval=on_approval,
             on_question=on_question,
             interval=poll_interval,
             timeout=poll_timeout,
-            cancel_on_timeout=True,
+            cancel_on_timeout=cancel_on_timeout,
         )
 
     def stream_text(

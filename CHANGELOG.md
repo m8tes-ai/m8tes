@@ -12,7 +12,8 @@ All notable changes to the m8tes Python SDK will be documented in this file.
   stalled Agent/tool that never reaches `awaiting_approval` used to leave the
   sandbox burning after the SDK raised `TimeoutError`. Owned flows pass
   `cancel_on_timeout=True`; bare `wait`/`poll` do not stop work the caller did
-  not start. Deadline handling re-fetches status before cancel so a run that
+  not start. `reply_and_wait` skips cancel when the reply is `delivery="queued"`.
+  Deadline handling re-fetches status before cancel so a run that
   finishes on the last tick is returned, not cancelled.
 
 ## [4.17.0] - 2026-08-27
