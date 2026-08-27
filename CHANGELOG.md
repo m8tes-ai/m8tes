@@ -4,6 +4,17 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.17.1] - 2026-08-27
+
+### Fixed
+
+- **`create_and_wait` / `reply_and_wait` / `tasks.run_and_wait` cancel on timeout; `wait`/`poll` observe by default.** A
+  stalled Agent/tool that never reaches `awaiting_approval` used to leave the
+  sandbox burning after the SDK raised `TimeoutError`. Owned flows pass
+  `cancel_on_timeout=True`; bare `wait`/`poll` do not stop work the caller did
+  not start. Deadline handling re-fetches status before cancel so a run that
+  finishes on the last tick is returned, not cancelled.
+
 ## [4.17.0] - 2026-08-27
 
 ### Added
@@ -29,16 +40,6 @@ All notable changes to the m8tes Python SDK will be documented in this file.
   a gate was raised and whether the tool runs on the Mate computer or a connected
   service.
 
-## [4.15.2] - 2026-08-27
-
-### Fixed
-
-- **`create_and_wait` / `reply_and_wait` cancel on timeout; `wait`/`poll` observe by default.** A
-  stalled Agent/tool that never reaches `awaiting_approval` used to leave the
-  sandbox burning after the SDK raised `TimeoutError`. Owned flows pass
-  `cancel_on_timeout=True`; bare `wait`/`poll` do not stop work the caller did
-  not start. Deadline handling re-fetches status before cancel so a run that
-  finishes on the last tick is returned, not cancelled.
 ### Fixed
 
 - **`m8tes agent list --user-id`** — strict multi-tenant API accounts (the
