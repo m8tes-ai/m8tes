@@ -401,6 +401,7 @@ class Runs:
         timeout: float = 300.0,
         raise_on_error: bool = False,
         cancel_on_timeout: bool = False,
+        await_queued_message_id: int | None = None,
     ) -> Run:
         """Wait for a run to complete, handling human-in-the-loop pauses via callbacks.
 
@@ -417,6 +418,10 @@ class Runs:
         observer must not stop work it did not start. Pass ``True`` from owned flows
         (``create_and_wait``, ``reply_and_wait``) when this caller should bound
         sandbox lifetime.
+
+        ``await_queued_message_id`` keeps polling through a prior turn's terminal
+        status while the server still reports ``delivery=\"queued\"`` for that
+        inbound message (``reply_and_wait`` sets this automatically).
 
         Usage:
             run = client.runs.wait(
@@ -457,9 +462,16 @@ class Runs:
                 continue
 
             if run.status in TERMINAL_STATUSES:
-                if raise_on_error:
-                    _raise_if_failed(run)
-                return run
+                if (
+                    await_queued_message_id is not None
+                    and run.delivery == "queued"
+                    and run.queued_message_id == await_queued_message_id
+                ):
+                    pass
+                else:
+                    if raise_on_error:
+                        _raise_if_failed(run)
+                    return run
 
             if run.status == "awaiting_approval":
                 pending = [r for r in self.permissions(run_id) if r.status == "pending"]
@@ -697,6 +709,9 @@ class Runs:
         # Queued replies wait on a run already executing — cancel would discard
         # the queued message and stop the in-flight turn.
         cancel_on_timeout = reply_run.delivery != "queued"
+        await_queued = (
+            reply_run.queued_message_id if reply_run.delivery == "queued" else None
+        )
         return self.wait(
             reply_run.id,
             user_id=reply_run.user_id or user_id,
@@ -705,6 +720,7 @@ class Runs:
             interval=poll_interval,
             timeout=poll_timeout,
             cancel_on_timeout=cancel_on_timeout,
+            await_queued_message_id=await_queued,
         )
 
     def stream_text(

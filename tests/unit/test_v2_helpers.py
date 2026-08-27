@@ -723,6 +723,46 @@ class TestReplyAndWait:
         assert approved == ["gmail"]
 
     @responses.activate
+    def test_queued_reply_waits_past_prior_turn_terminal(self, http):
+        """Queued delivery must not return the prior turn's completed output."""
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/1/reply",
+            json={
+                "id": 1,
+                "status": "running",
+                "delivery": "queued",
+                "queued_message_id": 7,
+            },
+            status=200,
+        )
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/1",
+            json={
+                "id": 1,
+                "status": "completed",
+                "output": "OLD TURN",
+                "delivery": "queued",
+                "queued_message_id": 7,
+            },
+        )
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/1",
+            json={"id": 1, "status": "running", "delivery": "resumed"},
+        )
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/1",
+            json={"id": 1, "status": "completed", "output": "QUEUED REPLY"},
+        )
+
+        run = Runs(http).reply_and_wait(1, message="follow up", poll_interval=0.01)
+        assert run.status == "completed"
+        assert run.output == "QUEUED REPLY"
+
+    @responses.activate
     def test_queued_reply_does_not_cancel_on_timeout(self, http):
         """A reply queued behind an executing turn must not cancel that turn."""
         responses.add(
