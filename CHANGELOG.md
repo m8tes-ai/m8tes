@@ -4,7 +4,20 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.17.0] - 2026-08-27
+
 ### Added
+
+- **`sort` on `client.runs.list()`** — `sort="priority"` lists runs waiting on a
+  human first (`created`, the default, is newest first). Rides every auto-paged request.
+
+## [4.16.0] - 2026-08-27
+
+### Added
+
+- **`runs.list(exclude_platform_runs=True)`** — forwards the v2 query param that
+  hides Company Agent Day-1 / pulse / maintenance so callers can ask whether the
+  *user* has run anything themselves yet. Survives pagination.
 
 - **`ModelConnection.is_default`** on `client.model_connections.list()` — marks which
   connected plan is the account default.
@@ -26,6 +39,12 @@ All notable changes to the m8tes Python SDK will be documented in this file.
   `cancel_on_timeout=True`; bare `wait`/`poll` do not stop work the caller did
   not start. Deadline handling re-fetches status before cancel so a run that
   finishes on the last tick is returned, not cancelled.
+### Fixed
+
+- **`m8tes agent list --user-id`** — strict multi-tenant API accounts (the
+  default after `signup`) require `user_id` on agent list. The CLI flag now
+  forwards it; without it the command failed with a ValidationError and there
+  was no way to pass the scope from the CLI.
 
 ## [4.15.1] - 2026-08-23
 
@@ -86,12 +105,6 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 - `Teammate.active_run_id` — when a Mate has exactly one live run, the roster
   returns that run id for `client.runs.reply` / discovery without an extra
   `list_runs` call. Null when idle or when multiple live runs exist.
-### Fixed
-
-- **`m8tes agent list --user-id`** — strict multi-tenant API accounts (the
-  default after `signup`) require `user_id` on agent list. The CLI flag now
-  forwards it; without it the command failed with a ValidationError and there
-  was no way to pass the scope from the CLI.
 
 ## [4.12.0] - 2026-08-19
 

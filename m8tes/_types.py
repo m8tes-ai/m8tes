@@ -126,7 +126,7 @@ class ModelConnection:
     provider: str
     display_name: str
     connected: bool
-    is_default: bool
+    is_default: bool = False
     status: str | None = None
     account_label: str | None = None
     expires_at: str | None = None

@@ -236,6 +236,32 @@ class TestRunsWait:
         with pytest.raises(TimeoutError, match="did not complete"):
             Runs(http).wait(1, interval=0.01, timeout=0.05, cancel_on_timeout=True)
 
+    @responses.activate
+    def test_timeout_returns_completed_after_cancel_conflict(self, http):
+        """When cancel fails because the run already finished, return completion."""
+        responses.add(responses.GET, f"{BASE}/runs/1", json=RUN_RUNNING)
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/1/cancel",
+            json={
+                "error": {
+                    "message": "run not active",
+                    "code": 409,
+                    "details": {"error_code": "run_not_active"},
+                }
+            },
+            status=409,
+        )
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/1",
+            json={"id": 1, "status": "completed", "output": "Done"},
+        )
+
+        run = Runs(http).wait(1, interval=0.01, timeout=0.05, cancel_on_timeout=True)
+        assert run.status == "completed"
+        assert run.output == "Done"
+
     @staticmethod
     def _gate_refusal(status, error_code, message):
         details = {"error_code": error_code} if error_code else {}

@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Generator
 import json
 import logging
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 import uuid
 
 from .._http import IDEMPOTENCY_HEADER, REPLAY_HEADER, seg
@@ -546,6 +546,15 @@ class Runs:
 
         if cancel_on_timeout:
             self._cancel_on_wait_timeout(run_id, user_id=user_id)
+            try:
+                run = self.get(run_id, user_id=user_id)
+            except APIError:
+                pass
+            else:
+                if run.status in TERMINAL_STATUSES:
+                    if raise_on_error:
+                        _raise_if_failed(run)
+                    return run
         raise TimeoutError(f"Run {run_id} did not complete within {timeout}s")
 
     def _cancel_on_wait_timeout(self, run_id: int, *, user_id: str | None) -> None:
@@ -767,17 +776,31 @@ class Runs:
         task_id: int | None = None,
         user_id: str | None = None,
         status: str | None = None,
+        sort: Literal["created", "priority"] | None = None,
+        exclude_platform_runs: bool | None = None,
         limit: int = 20,
         starting_after: int | None = None,
     ) -> SyncPage[Run]:
         """List runs. task_id pulls one task's run history (e.g. a scheduled or
-        webhook-triggered task's results); user_id scopes to one end-user."""
+        webhook-triggered task's results); user_id scopes to one end-user.
+        sort: ``created`` (newest first, the default) or ``priority`` (runs waiting
+        on a human first).
+
+        ``exclude_platform_runs=True`` hides the platform's own work (Company Agent
+        Day-1 / pulse / context maintenance) so you can ask whether the *user*
+        has run anything themselves yet. Only Platform accounts have a Company
+        Agent, so on an API-only account the filter matches nothing.
+        """
         teammate_id = _resolve_agent_id(teammate_id, agent_id)
         params = _build_params(
             teammate_id=teammate_id,
             task_id=task_id,
             user_id=user_id,
             status=status,
+            sort=sort,
+            exclude_platform_runs=(
+                None if exclude_platform_runs is None else str(exclude_platform_runs).lower()
+            ),
             limit=limit,
             starting_after=starting_after,
         )
@@ -790,6 +813,8 @@ class Runs:
                 task_id=task_id,
                 user_id=user_id,
                 status=status,
+                sort=sort,
+                exclude_platform_runs=exclude_platform_runs,
                 limit=limit,
                 **kw,  # type: ignore[arg-type]
             )
