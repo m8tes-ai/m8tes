@@ -71,8 +71,16 @@ class TestPoll:
         assert len(responses.calls) == 3
 
     @responses.activate
+    def test_timeout_does_not_cancel_by_default(self, http):
+        """Observing a run via poll must not cancel it when the local deadline fires."""
+        responses.add(responses.GET, f"{BASE}/runs/1", json={"id": 1, "status": "running"})
+        with pytest.raises(TimeoutError, match="did not complete"):
+            Runs(http).poll(1, interval=0.01, timeout=0.05)
+        assert not any(c.request.method == "POST" for c in responses.calls)
+
+    @responses.activate
     def test_timeout(self, http):
-        """Poll raises TimeoutError when deadline exceeded, and cancels the run."""
+        """Poll raises TimeoutError when deadline exceeded, and cancels when asked."""
         responses.add(responses.GET, f"{BASE}/runs/1", json={"id": 1, "status": "running"})
         responses.add(
             responses.POST,
@@ -81,7 +89,7 @@ class TestPoll:
         )
 
         with pytest.raises(TimeoutError, match="did not complete"):
-            Runs(http).poll(1, interval=0.01, timeout=0.05)
+            Runs(http).poll(1, interval=0.01, timeout=0.05, cancel_on_timeout=True)
         assert any(c.request.method == "POST" and c.request.url.endswith("/cancel") for c in responses.calls)
 
     @responses.activate

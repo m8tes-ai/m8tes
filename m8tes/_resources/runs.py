@@ -339,6 +339,7 @@ class Runs:
         interval: float = 2.0,
         timeout: float = 300.0,
         raise_on_error: bool = False,
+        cancel_on_timeout: bool = False,
     ) -> Run:
         """Poll until the run reaches a terminal status. Returns the completed Run.
 
@@ -348,9 +349,9 @@ class Runs:
         Pass ``user_id`` when the account has strict multi-tenant mode on —
         otherwise every poll GET 422s.
 
-        On timeout, best-effort cancels the run so a stalled sandbox does not keep
-        burning after the caller has given up (create_and_wait / HITL waits inherit
-        this via wait()).
+        ``cancel_on_timeout`` defaults False: poll is often used to observe a run
+        the caller did not start. Pass True (or use wait/create_and_wait) when
+        this caller owns the run and a deadline should stop it.
 
         `raise_on_error=True` turns a `failed` run into RunFailedError instead of
         a returned Run, matching `runs.create(..., raise_on_error=True)` on the
@@ -366,7 +367,8 @@ class Runs:
                 run = self.get(run_id, user_id=user_id)
             except APIError:
                 if _time.monotonic() >= deadline:
-                    self._cancel_on_wait_timeout(run_id, user_id=user_id)
+                    if cancel_on_timeout:
+                        self._cancel_on_wait_timeout(run_id, user_id=user_id)
                     raise TimeoutError(f"Run {run_id} did not complete within {timeout}s") from None
                 _time.sleep(interval)
                 continue
@@ -375,7 +377,8 @@ class Runs:
                     _raise_if_failed(run)
                 return run
             if _time.monotonic() >= deadline:
-                self._cancel_on_wait_timeout(run_id, user_id=user_id)
+                if cancel_on_timeout:
+                    self._cancel_on_wait_timeout(run_id, user_id=user_id)
                 raise TimeoutError(f"Run {run_id} did not complete within {timeout}s")
             _time.sleep(interval)
 
@@ -389,6 +392,7 @@ class Runs:
         interval: float = 2.0,
         timeout: float = 300.0,
         raise_on_error: bool = False,
+        cancel_on_timeout: bool = True,
     ) -> Run:
         """Wait for a run to complete, handling human-in-the-loop pauses via callbacks.
 
@@ -433,7 +437,8 @@ class Runs:
                 run = self.get(run_id, user_id=user_id)
             except APIError:
                 if _time.monotonic() >= deadline:
-                    self._cancel_on_wait_timeout(run_id, user_id=user_id)
+                    if cancel_on_timeout:
+                        self._cancel_on_wait_timeout(run_id, user_id=user_id)
                     raise TimeoutError(f"Run {run_id} did not complete within {timeout}s") from None
                 _time.sleep(interval)
                 continue
@@ -493,7 +498,8 @@ class Runs:
                             )
 
             if _time.monotonic() >= deadline:
-                self._cancel_on_wait_timeout(run_id, user_id=user_id)
+                if cancel_on_timeout:
+                    self._cancel_on_wait_timeout(run_id, user_id=user_id)
                 raise TimeoutError(f"Run {run_id} did not complete within {timeout}s")
             _time.sleep(interval)
 

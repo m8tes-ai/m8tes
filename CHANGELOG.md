@@ -20,10 +20,11 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ### Fixed
 
-- **`runs.wait` / `runs.poll` / `create_and_wait` cancel the run on timeout.** A
+- **`runs.wait` / `create_and_wait` cancel the run on timeout by default.** A
   stalled Agent/tool that never reaches `awaiting_approval` used to leave the
-  sandbox burning after the SDK raised `TimeoutError`. Timeout now best-effort
-  cancels first; a cancel failure never masks the `TimeoutError`.
+  sandbox burning after the SDK raised `TimeoutError`. `poll` stays observe-only
+  (`cancel_on_timeout=False`); pass `True` when the caller owns the run. Cancel
+  failure never masks the `TimeoutError`.
 
 ## [4.15.1] - 2026-08-23
 
