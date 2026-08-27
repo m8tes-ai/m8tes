@@ -551,7 +551,9 @@ class Runs:
             except APIError:
                 pass
             else:
-                if run.status in TERMINAL_STATUSES:
+                # Only treat a successful finish as beating the deadline — not
+                # cancelled/failed caused by the cancel we just sent.
+                if run.status in ("completed", "closed"):
                     if raise_on_error:
                         _raise_if_failed(run)
                     return run

@@ -456,6 +456,7 @@ class Tasks:
             on_question=on_question,
             interval=poll_interval,
             timeout=poll_timeout,
+            cancel_on_timeout=True,
         )
 
     def delete(self, task_id: int, *, user_id: str | None = None) -> None:
