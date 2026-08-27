@@ -195,7 +195,8 @@ class TestRunsWait:
         with pytest.raises(TimeoutError):
             Runs(http).wait(1, interval=0.01, timeout=0.05)
         cancel_calls = [
-            c for c in responses.calls
+            c
+            for c in responses.calls
             if c.request.method == "POST" and c.request.url.endswith("/cancel")
         ]
         assert cancel_calls

@@ -91,7 +91,8 @@ class TestPoll:
         with pytest.raises(TimeoutError, match="did not complete"):
             Runs(http).poll(1, interval=0.01, timeout=0.05, cancel_on_timeout=True)
         cancel_calls = [
-            c for c in responses.calls
+            c
+            for c in responses.calls
             if c.request.method == "POST" and c.request.url.endswith("/cancel")
         ]
         assert cancel_calls
