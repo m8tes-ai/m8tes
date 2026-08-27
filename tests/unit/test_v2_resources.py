@@ -780,6 +780,28 @@ class TestAuditLogs:
 
 class TestRuns:
     @responses.activate
+    def test_list_sort_reaches_the_wire_and_survives_pagination(self, http):
+        """`sort=priority` must ride BOTH the first request and every auto-paged one:
+        a pager that drops it silently reverts page 2 to `created` order."""
+        run = {"id": 2, "status": "completed", "created_at": ""}
+        responses.add(responses.GET, f"{BASE}/runs/", json={"data": [run], "has_more": True})
+        responses.add(
+            responses.GET, f"{BASE}/runs/", json={"data": [{**run, "id": 1}], "has_more": False}
+        )
+        ids = [r.id for r in Runs(http).list(sort="priority").auto_paging_iter()]
+        assert ids == [2, 1]
+        assert responses.calls[0].request.params["sort"] == "priority"
+        assert responses.calls[1].request.params["sort"] == "priority"
+        assert responses.calls[1].request.params["starting_after"] == "2"
+
+    @responses.activate
+    def test_list_omits_sort_by_default(self, http):
+        """Default stays server-side `created` — the SDK must not pin a client default."""
+        responses.add(responses.GET, f"{BASE}/runs/", json={"data": [], "has_more": False})
+        Runs(http).list()
+        assert "sort" not in responses.calls[0].request.params
+
+    @responses.activate
     def test_check(self, http):
         responses.add(
             responses.GET,

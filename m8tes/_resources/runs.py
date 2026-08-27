@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Generator
 import json
 import logging
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 import uuid
 
 from .._http import IDEMPOTENCY_HEADER, REPLAY_HEADER, seg
@@ -686,12 +686,15 @@ class Runs:
         task_id: int | None = None,
         user_id: str | None = None,
         status: str | None = None,
+        sort: Literal["created", "priority"] | None = None,
         exclude_platform_runs: bool | None = None,
         limit: int = 20,
         starting_after: int | None = None,
     ) -> SyncPage[Run]:
         """List runs. task_id pulls one task's run history (e.g. a scheduled or
         webhook-triggered task's results); user_id scopes to one end-user.
+        sort: ``created`` (newest first, the default) or ``priority`` (runs waiting
+        on a human first).
 
         ``exclude_platform_runs=True`` hides the platform's own work (Company Agent
         Day-1 / pulse / context maintenance) so you can ask whether the *user*
@@ -704,6 +707,7 @@ class Runs:
             task_id=task_id,
             user_id=user_id,
             status=status,
+            sort=sort,
             exclude_platform_runs=(
                 None if exclude_platform_runs is None else str(exclude_platform_runs).lower()
             ),
@@ -719,6 +723,7 @@ class Runs:
                 task_id=task_id,
                 user_id=user_id,
                 status=status,
+                sort=sort,
                 exclude_platform_runs=exclude_platform_runs,
                 limit=limit,
                 **kw,  # type: ignore[arg-type]

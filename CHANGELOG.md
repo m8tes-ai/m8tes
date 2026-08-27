@@ -2,6 +2,15 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [Unreleased]
+
+## [4.17.0] - 2026-08-27
+
+### Added
+
+- **`sort` on `client.runs.list()`** — `sort="priority"` lists runs waiting on a
+  human first (`created`, the default, is newest first). Rides every auto-paged request.
+
 ## [4.16.0] - 2026-08-27
 
 ### Added
