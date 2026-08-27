@@ -194,7 +194,25 @@ class TestRunsWait:
         )
         with pytest.raises(TimeoutError):
             Runs(http).wait(1, interval=0.01, timeout=0.05)
-        assert any(c.request.method == "POST" and c.request.url.endswith("/cancel") for c in responses.calls)
+        cancel_calls = [
+            c for c in responses.calls
+            if c.request.method == "POST" and c.request.url.endswith("/cancel")
+        ]
+        assert cancel_calls
+
+    @responses.activate
+    def test_timeout_skips_cancel_when_run_already_terminal(self, http):
+        """Return a run that finished between the last poll and the deadline."""
+        responses.add(responses.GET, f"{BASE}/runs/1", json=RUN_RUNNING)
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/1",
+            json={"id": 1, "status": "completed", "output": "Done"},
+        )
+
+        run = Runs(http).wait(1, interval=0.01, timeout=0.05)
+        assert run.status == "completed"
+        assert not any(c.request.method == "POST" for c in responses.calls)
 
     @responses.activate
     def test_timeout_still_raises_when_cancel_fails(self, http):

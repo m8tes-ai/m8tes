@@ -90,7 +90,11 @@ class TestPoll:
 
         with pytest.raises(TimeoutError, match="did not complete"):
             Runs(http).poll(1, interval=0.01, timeout=0.05, cancel_on_timeout=True)
-        assert any(c.request.method == "POST" and c.request.url.endswith("/cancel") for c in responses.calls)
+        cancel_calls = [
+            c for c in responses.calls
+            if c.request.method == "POST" and c.request.url.endswith("/cancel")
+        ]
+        assert cancel_calls
 
     @responses.activate
     def test_transient_error_retried(self, http):

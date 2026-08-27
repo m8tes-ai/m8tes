@@ -367,9 +367,13 @@ class Runs:
                 run = self.get(run_id, user_id=user_id)
             except APIError:
                 if _time.monotonic() >= deadline:
-                    if cancel_on_timeout:
-                        self._cancel_on_wait_timeout(run_id, user_id=user_id)
-                    raise TimeoutError(f"Run {run_id} did not complete within {timeout}s") from None
+                    return self._resolve_deadline(
+                        run_id,
+                        user_id=user_id,
+                        cancel_on_timeout=cancel_on_timeout,
+                        raise_on_error=raise_on_error,
+                        timeout=timeout,
+                    )
                 _time.sleep(interval)
                 continue
             if run.status in TERMINAL_STATUSES:
@@ -377,9 +381,13 @@ class Runs:
                     _raise_if_failed(run)
                 return run
             if _time.monotonic() >= deadline:
-                if cancel_on_timeout:
-                    self._cancel_on_wait_timeout(run_id, user_id=user_id)
-                raise TimeoutError(f"Run {run_id} did not complete within {timeout}s")
+                return self._resolve_deadline(
+                    run_id,
+                    user_id=user_id,
+                    cancel_on_timeout=cancel_on_timeout,
+                    raise_on_error=raise_on_error,
+                    timeout=timeout,
+                )
             _time.sleep(interval)
 
     def wait(
@@ -437,9 +445,13 @@ class Runs:
                 run = self.get(run_id, user_id=user_id)
             except APIError:
                 if _time.monotonic() >= deadline:
-                    if cancel_on_timeout:
-                        self._cancel_on_wait_timeout(run_id, user_id=user_id)
-                    raise TimeoutError(f"Run {run_id} did not complete within {timeout}s") from None
+                    return self._resolve_deadline(
+                        run_id,
+                        user_id=user_id,
+                        cancel_on_timeout=cancel_on_timeout,
+                        raise_on_error=raise_on_error,
+                        timeout=timeout,
+                    )
                 _time.sleep(interval)
                 continue
 
@@ -498,10 +510,42 @@ class Runs:
                             )
 
             if _time.monotonic() >= deadline:
-                if cancel_on_timeout:
-                    self._cancel_on_wait_timeout(run_id, user_id=user_id)
-                raise TimeoutError(f"Run {run_id} did not complete within {timeout}s")
+                return self._resolve_deadline(
+                    run_id,
+                    user_id=user_id,
+                    cancel_on_timeout=cancel_on_timeout,
+                    raise_on_error=raise_on_error,
+                    timeout=timeout,
+                )
             _time.sleep(interval)
+
+    def _resolve_deadline(
+        self,
+        run_id: int,
+        *,
+        user_id: str | None,
+        cancel_on_timeout: bool,
+        raise_on_error: bool,
+        timeout: float,
+    ) -> Run:
+        """Last-chance status read when a poll/wait deadline fires."""
+        from .._exceptions import APIError
+
+        try:
+            run = self.get(run_id, user_id=user_id)
+        except APIError:
+            if cancel_on_timeout:
+                self._cancel_on_wait_timeout(run_id, user_id=user_id)
+            raise TimeoutError(f"Run {run_id} did not complete within {timeout}s") from None
+
+        if run.status in TERMINAL_STATUSES:
+            if raise_on_error:
+                _raise_if_failed(run)
+            return run
+
+        if cancel_on_timeout:
+            self._cancel_on_wait_timeout(run_id, user_id=user_id)
+        raise TimeoutError(f"Run {run_id} did not complete within {timeout}s")
 
     def _cancel_on_wait_timeout(self, run_id: int, *, user_id: str | None) -> None:
         """Best-effort cancel when poll/wait deadlines fire.
