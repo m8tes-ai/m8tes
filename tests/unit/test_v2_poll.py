@@ -187,3 +187,107 @@ class TestTerminalStatuses:
         assert expected == TERMINAL_STATUSES, (
             f"SDK terminal statuses {sorted(TERMINAL_STATUSES)} != server {sorted(expected)}"
         )
+
+
+# The run as the server reports it while a follow-up sits queued behind the turn that
+# is still finishing: terminal, carrying the queued message's id, holding the PREVIOUS
+# turn's output.
+PRIOR_TURN = {
+    "id": 1,
+    "status": "completed",
+    "output": "answer to the PREVIOUS message",
+    "delivery": "queued",
+    "queued_message_id": 77,
+}
+
+
+class TestQueuedReplyDeadline:
+    """A queued follow-up must never resolve to the previous turn's output.
+
+    A reply sent to a run that is still working goes in as ``delivery="queued"``, and
+    the server reports it against the run the caller is already watching. That run
+    therefore reaches a terminal status carrying the queued message's id BEFORE the new
+    turn starts. ``wait``'s polling loop knew to keep going; both of its deadline
+    branches did not, and returned that stale run as the reply's result (Greptile P1,
+    PR #1562).
+    """
+
+    @responses.activate
+    def test_deadline_refuses_the_prior_turn(self, http):
+        """No cancel: the first terminal-return site inside _resolve_deadline."""
+        responses.add(responses.GET, f"{BASE}/runs/1", json=PRIOR_TURN)
+
+        with pytest.raises(TimeoutError, match="did not complete"):
+            Runs(http).wait(1, interval=0.01, timeout=0.05, await_queued_message_id=77)
+
+    @responses.activate
+    def test_deadline_refuses_the_prior_turn_after_cancelling(self, http):
+        """cancel_on_timeout: the second terminal-return site, reachable from wait().
+
+        wait() is public and takes both arguments, so the post-cancel re-read needs the
+        same guard as the first read. Without it the stale run comes back here instead.
+        """
+        responses.add(responses.GET, f"{BASE}/runs/1", json=PRIOR_TURN)
+        responses.add(responses.POST, f"{BASE}/runs/1/cancel", json={"id": 1, "status": "running"})
+        responses.add(responses.GET, f"{BASE}/runs/1", json=PRIOR_TURN)
+
+        with pytest.raises(TimeoutError, match="did not complete"):
+            Runs(http).wait(
+                1,
+                interval=0.01,
+                timeout=0.05,
+                cancel_on_timeout=True,
+                await_queued_message_id=77,
+            )
+
+    @responses.activate
+    def test_deadline_still_returns_the_awaited_turn(self, http):
+        """The guard is identity-scoped, not a blanket refusal of queued runs.
+
+        Once the queued message is the one that ran, the server stops reporting it as
+        queued. That run is the caller's result and must come back, or this fix would
+        turn every queued reply into a timeout.
+        """
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/1",
+            json={"id": 1, "status": "completed", "output": "answer to MY message"},
+        )
+
+        run = Runs(http).wait(1, interval=0.01, timeout=0.05, await_queued_message_id=77)
+        assert run.output == "answer to MY message"
+
+    @responses.activate
+    def test_deadline_ignores_an_unrelated_queued_message(self, http):
+        """A different queued id is somebody else's follow-up, not ours to wait on."""
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/1",
+            json={**PRIOR_TURN, "queued_message_id": 99, "output": "not mine"},
+        )
+
+        run = Runs(http).wait(1, interval=0.01, timeout=0.05, await_queued_message_id=77)
+        assert run.output == "not mine"
+
+    @responses.activate
+    def test_poll_is_unaffected(self, http):
+        """poll() has no queued concept and must keep returning any terminal run."""
+        responses.add(responses.GET, f"{BASE}/runs/1", json=PRIOR_TURN)
+
+        run = Runs(http).poll(1, interval=0.01, timeout=0.05)
+        assert run.status == "completed"
+
+    @responses.activate
+    def test_reply_and_wait_times_out_instead_of_echoing(self, http):
+        """End to end: the bug as a caller meets it."""
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/1/reply",
+            json={"id": 1, "status": "running", "delivery": "queued", "queued_message_id": 77},
+        )
+        responses.add(responses.GET, f"{BASE}/runs/1", json=PRIOR_TURN)
+
+        with pytest.raises(TimeoutError, match="did not complete"):
+            Runs(http).reply_and_wait(
+                1, message="second question", poll_interval=0.01, poll_timeout=0.05
+            )

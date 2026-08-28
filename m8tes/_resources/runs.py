@@ -71,6 +71,26 @@ def idempotency_headers(key: str | None) -> dict[str, str]:
     return {IDEMPOTENCY_HEADER: key or str(uuid.uuid4())}
 
 
+def _is_stale_queued_turn(run: Run, await_queued_message_id: int | None) -> bool:
+    """True when this terminal run is the PRIOR turn, not the queued reply we await.
+
+    A follow-up sent to a run that is still finishing goes in as ``delivery="queued"``.
+    The server reports that against the run the caller is already watching, so the run
+    reaches a terminal status carrying the queued message's id BEFORE the new turn
+    starts. Returning it hands back the previous turn's output as the answer to the
+    message just sent.
+
+    One definition, used by every terminal-status branch. It lived inline in ``wait``'s
+    polling loop only, and the two deadline branches each returned the stale run
+    (Greptile P1, PR #1562).
+    """
+    return (
+        await_queued_message_id is not None
+        and run.delivery == "queued"
+        and run.queued_message_id == await_queued_message_id
+    )
+
+
 def _raise_if_failed(run: Run) -> None:
     """Raise RunFailedError for a run that finished `failed`.
 
@@ -457,21 +477,17 @@ class Runs:
                         cancel_on_timeout=cancel_on_timeout,
                         raise_on_error=raise_on_error,
                         timeout=timeout,
+                        await_queued_message_id=await_queued_message_id,
                     )
                 _time.sleep(interval)
                 continue
 
-            if run.status in TERMINAL_STATUSES:
-                if (
-                    await_queued_message_id is not None
-                    and run.delivery == "queued"
-                    and run.queued_message_id == await_queued_message_id
-                ):
-                    pass
-                else:
-                    if raise_on_error:
-                        _raise_if_failed(run)
-                    return run
+            if run.status in TERMINAL_STATUSES and not _is_stale_queued_turn(
+                run, await_queued_message_id
+            ):
+                if raise_on_error:
+                    _raise_if_failed(run)
+                return run
 
             if run.status == "awaiting_approval":
                 pending = [r for r in self.permissions(run_id) if r.status == "pending"]
@@ -529,6 +545,7 @@ class Runs:
                     cancel_on_timeout=cancel_on_timeout,
                     raise_on_error=raise_on_error,
                     timeout=timeout,
+                    await_queued_message_id=await_queued_message_id,
                 )
             _time.sleep(interval)
 
@@ -540,8 +557,15 @@ class Runs:
         cancel_on_timeout: bool,
         raise_on_error: bool,
         timeout: float,
+        await_queued_message_id: int | None = None,
     ) -> Run:
-        """Last-chance status read when a poll/wait deadline fires."""
+        """Last-chance status read when a poll/wait deadline fires.
+
+        ``await_queued_message_id`` carries ``wait``'s queued-reply identity in here.
+        Without it the deadline path accepts the prior turn's terminal run and returns
+        it as the queued reply's result. ``poll`` has no queued concept and leaves it
+        None.
+        """
         from .._exceptions import APIError
 
         try:
@@ -551,7 +575,9 @@ class Runs:
                 self._cancel_on_wait_timeout(run_id, user_id=user_id)
             raise TimeoutError(f"Run {run_id} did not complete within {timeout}s") from None
 
-        if run.status in TERMINAL_STATUSES:
+        if run.status in TERMINAL_STATUSES and not _is_stale_queued_turn(
+            run, await_queued_message_id
+        ):
             if raise_on_error:
                 _raise_if_failed(run)
             return run
@@ -563,7 +589,9 @@ class Runs:
             except APIError:
                 pass
             else:
-                if run.status in TERMINAL_STATUSES:
+                if run.status in TERMINAL_STATUSES and not _is_stale_queued_turn(
+                    run, await_queued_message_id
+                ):
                     # A successful cancel yields cancelled — that is still a
                     # timeout from the caller's perspective, not a return value.
                     if run.status == "cancelled" and cancel_succeeded:
