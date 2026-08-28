@@ -581,6 +581,8 @@ class Run:
     # Every undelivered inbound message id for this run (pending + dispatching).
     # Wait helpers match await_queued_message_id against this list.
     pending_queued_message_ids: list[int] | None = None
+    # Cancelled before delivery — wait must not return the prior turn as the result.
+    cancelled_queued_message_ids: list[int] | None = None
 
     @property
     def agent_id(self) -> int | None:
@@ -635,6 +637,7 @@ class Run:
             delivery=data.get("delivery"),
             queued_message_id=data.get("queued_message_id"),
             pending_queued_message_ids=data.get("pending_queued_message_ids") or [],
+            cancelled_queued_message_ids=data.get("cancelled_queued_message_ids") or [],
         )
 
 

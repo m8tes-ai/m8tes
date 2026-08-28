@@ -92,6 +92,24 @@ def _is_stale_queued_turn(run: Run, await_queued_message_id: int | None) -> bool
     return run.delivery == "queued" and run.queued_message_id == await_queued_message_id
 
 
+def _queued_reply_was_cancelled(run: Run, await_queued_message_id: int | None) -> bool:
+    """True when the awaited inbound message was cancelled before delivery."""
+    if await_queued_message_id is None:
+        return False
+    return await_queued_message_id in (run.cancelled_queued_message_ids or [])
+
+
+def _raise_if_queued_reply_cancelled(
+    run: Run, await_queued_message_id: int | None, *, timeout: float
+) -> None:
+    """Refuse prior-turn output when the awaited queued message was cancelled."""
+    if _queued_reply_was_cancelled(run, await_queued_message_id):
+        raise TimeoutError(
+            f"Run {run.id} queued message {await_queued_message_id} was cancelled "
+            f"before delivery (wait budget {timeout}s)"
+        )
+
+
 def _raise_if_failed(run: Run) -> None:
     """Raise RunFailedError for a run that finished `failed`.
 
@@ -486,6 +504,7 @@ class Runs:
             if run.status in TERMINAL_STATUSES and not _is_stale_queued_turn(
                 run, await_queued_message_id
             ):
+                _raise_if_queued_reply_cancelled(run, await_queued_message_id, timeout=timeout)
                 if raise_on_error:
                     _raise_if_failed(run)
                 return run
@@ -579,6 +598,7 @@ class Runs:
         if run.status in TERMINAL_STATUSES and not _is_stale_queued_turn(
             run, await_queued_message_id
         ):
+            _raise_if_queued_reply_cancelled(run, await_queued_message_id, timeout=timeout)
             if raise_on_error:
                 _raise_if_failed(run)
             return run
@@ -593,6 +613,7 @@ class Runs:
                 if run.status in TERMINAL_STATUSES and not _is_stale_queued_turn(
                     run, await_queued_message_id
                 ):
+                    _raise_if_queued_reply_cancelled(run, await_queued_message_id, timeout=timeout)
                     # A successful cancel yields cancelled — that is still a
                     # timeout from the caller's perspective, not a return value.
                     if run.status == "cancelled" and cancel_succeeded:

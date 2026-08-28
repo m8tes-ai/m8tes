@@ -316,6 +316,23 @@ class TestQueuedReplyDeadline:
             Runs(http).wait(1, interval=0.01, timeout=0.05, await_queued_message_id=77)
 
     @responses.activate
+    def test_cancelled_queued_message_does_not_return_prior_turn(self, http):
+        """A cancel drops the id from pending — must not echo the prior turn."""
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/1",
+            json={
+                "id": 1,
+                "status": "completed",
+                "output": "PREVIOUS TERMINAL TURN",
+                "cancelled_queued_message_ids": [77],
+            },
+        )
+
+        with pytest.raises(TimeoutError, match="was cancelled"):
+            Runs(http).wait(1, interval=0.01, timeout=0.05, await_queued_message_id=77)
+
+    @responses.activate
     def test_poll_is_unaffected(self, http):
         """poll() has no queued concept and must keep returning any terminal run."""
         responses.add(responses.GET, f"{BASE}/runs/1", json=PRIOR_TURN)
