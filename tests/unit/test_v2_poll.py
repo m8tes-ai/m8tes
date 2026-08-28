@@ -198,6 +198,7 @@ PRIOR_TURN = {
     "output": "answer to the PREVIOUS message",
     "delivery": "queued",
     "queued_message_id": 77,
+    "pending_queued_message_ids": [77],
 }
 
 
@@ -263,11 +264,56 @@ class TestQueuedReplyDeadline:
         responses.add(
             responses.GET,
             f"{BASE}/runs/1",
-            json={**PRIOR_TURN, "queued_message_id": 99, "output": "not mine"},
+            json={
+                **PRIOR_TURN,
+                "queued_message_id": 99,
+                "pending_queued_message_ids": [99],
+                "output": "not mine",
+            },
         )
 
         run = Runs(http).wait(1, interval=0.01, timeout=0.05, await_queued_message_id=77)
         assert run.output == "not mine"
+
+    @responses.activate
+    def test_pending_list_refuses_when_not_fifo_head(self, http):
+        """Our id may sit behind another pending message — still refuse the prior turn."""
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/1",
+            json={
+                "id": 1,
+                "status": "completed",
+                "output": "PREVIOUS TERMINAL TURN",
+                "delivery": "queued",
+                "queued_message_id": 76,
+                "pending_queued_message_ids": [76, 77],
+            },
+        )
+
+        with pytest.raises(TimeoutError, match="did not complete"):
+            Runs(http).wait(1, interval=0.01, timeout=0.05, await_queued_message_id=77)
+
+    @responses.activate
+    def test_get_shape_without_delivery_fields_still_refuses(self, http):
+        """Greptile: GET used to omit delivery/queued_message_id entirely.
+
+        The pending list alone must be enough — otherwise the guard is inert against
+        the real server serializer.
+        """
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/1",
+            json={
+                "id": 1,
+                "status": "completed",
+                "output": "PREVIOUS TERMINAL TURN",
+                "pending_queued_message_ids": [77],
+            },
+        )
+
+        with pytest.raises(TimeoutError, match="did not complete"):
+            Runs(http).wait(1, interval=0.01, timeout=0.05, await_queued_message_id=77)
 
     @responses.activate
     def test_poll_is_unaffected(self, http):
@@ -283,7 +329,13 @@ class TestQueuedReplyDeadline:
         responses.add(
             responses.POST,
             f"{BASE}/runs/1/reply",
-            json={"id": 1, "status": "running", "delivery": "queued", "queued_message_id": 77},
+            json={
+                "id": 1,
+                "status": "running",
+                "delivery": "queued",
+                "queued_message_id": 77,
+                "pending_queued_message_ids": [77],
+            },
         )
         responses.add(responses.GET, f"{BASE}/runs/1", json=PRIOR_TURN)
 

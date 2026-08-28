@@ -80,15 +80,16 @@ def _is_stale_queued_turn(run: Run, await_queued_message_id: int | None) -> bool
     starts. Returning it hands back the previous turn's output as the answer to the
     message just sent.
 
-    One definition, used by every terminal-status branch. It lived inline in ``wait``'s
-    polling loop only, and the two deadline branches each returned the stale run
-    (Greptile P1, PR #1562).
+    Match against ``pending_queued_message_ids`` (GET while undelivered) or the
+    single ``queued_message_id`` FIFO head / reply receipt. One definition, used by
+    every terminal-status branch.
     """
-    return (
-        await_queued_message_id is not None
-        and run.delivery == "queued"
-        and run.queued_message_id == await_queued_message_id
-    )
+    if await_queued_message_id is None:
+        return False
+    pending = run.pending_queued_message_ids or []
+    if await_queued_message_id in pending:
+        return True
+    return run.delivery == "queued" and run.queued_message_id == await_queued_message_id
 
 
 def _raise_if_failed(run: Run) -> None:

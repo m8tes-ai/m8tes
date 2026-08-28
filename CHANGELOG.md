@@ -18,6 +18,10 @@ All notable changes to the m8tes Python SDK will be documented in this file.
   finishes on the last tick is returned, not cancelled. Queued-reply deadlines
   forward `await_queued_message_id` into `_resolve_deadline` so a prior turn's
   terminal `delivery="queued"` status cannot return as the new reply's result.
+  GET `/runs/{id}` now returns `delivery` / `queued_message_id` /
+  `pending_queued_message_ids` while inbound messages are still pending or
+  dispatching — without those fields the client guard was inert against the
+  real serializer.
 
 ## [4.17.0] - 2026-08-27
 

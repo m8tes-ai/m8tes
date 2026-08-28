@@ -571,14 +571,16 @@ class Run:
     # else marker-stripped latest prose). Null when there is nothing scannable —
     # NO-REPLY opt-outs and mid-run narration without a stamped closing included.
     closing_preview: str | None = None
-    # Populated only on runs.reply() responses: "resumed" — the message became the
-    # run's next turn immediately; "queued" — the run was mid-turn, so the message
-    # was parked and is delivered as the next turn the moment the current one ends
-    # (a queued reply returns JSON even with stream=True). None everywhere else.
+    # Populated on runs.reply() and on GET while an inbound message is still
+    # pending/dispatching: "resumed" — the message became the run's next turn
+    # immediately; "queued" — parked for delivery as the next turn. None when
+    # nothing is queued.
     delivery: str | None = None
-    # The queued inbound message's id when delivery == "queued" (the
-    # run.message_received webhook event carries the same id).
+    # The FIFO-head inbound message id when delivery == "queued".
     queued_message_id: int | None = None
+    # Every undelivered inbound message id for this run (pending + dispatching).
+    # Wait helpers match await_queued_message_id against this list.
+    pending_queued_message_ids: list[int] | None = None
 
     @property
     def agent_id(self) -> int | None:
@@ -632,6 +634,7 @@ class Run:
             closing_preview=data.get("closing_preview"),
             delivery=data.get("delivery"),
             queued_message_id=data.get("queued_message_id"),
+            pending_queued_message_ids=data.get("pending_queued_message_ids") or [],
         )
 
 
