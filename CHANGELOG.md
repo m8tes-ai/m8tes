@@ -15,7 +15,9 @@ All notable changes to the m8tes Python SDK will be documented in this file.
   not start. `reply_and_wait` skips cancel when the reply is `delivery="queued"` and
   keeps waiting through the prior turn's terminal status until that inbound message
   runs. Deadline handling re-fetches status before cancel so a run that
-  finishes on the last tick is returned, not cancelled.
+  finishes on the last tick is returned, not cancelled. Queued-reply deadlines
+  forward `await_queued_message_id` into `_resolve_deadline` so a prior turn's
+  terminal `delivery="queued"` status cannot return as the new reply's result.
 
 ## [4.17.0] - 2026-08-27
 
