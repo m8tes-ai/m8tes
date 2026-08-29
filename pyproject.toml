@@ -1,6 +1,6 @@
 [project]
 name = "m8tes"
-version = "4.17.1"
+version = "4.18.0"
 description = "Python SDK for building autonomous AI agents with 150+ integrations, hosted execution, schedules, and human-in-the-loop"
 readme = "README.md"
 requires-python = ">=3.11.9"
@@ -146,5 +146,8 @@ log_cli_level = "INFO"
 filterwarnings = [
     "error",
     "ignore::DeprecationWarning:pkg_resources",
+    # uvicorn (test-only in-process server, test_v2_path_encoding) imports websockets.legacy;
+    # newer websockets deprecates it and "error" above would fail the fixture, not our code.
+    "ignore:websockets.*is deprecated:DeprecationWarning",
     "ignore::PendingDeprecationWarning"
 ]

@@ -29,6 +29,7 @@ from ._resources import (
     Settings,
     Skills,
     Tasks,
+    Teams,
     Triggers,
     Users,
     Value,
@@ -81,6 +82,7 @@ class M8tes:
         self.github_app = GitHubApp(self._http)
         self.runs = Runs(self._http)
         self.tasks = Tasks(self._http)
+        self.teams = Teams(self._http)
         self.triggers = Triggers(self._http)
         self.apps = Apps(self._http)
         self.built_in_tools = BuiltInTools(self._http)

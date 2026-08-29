@@ -2367,6 +2367,114 @@ class ValueReport:
         )
 
 
+@dataclass
+class TeamMember:
+    """One seat in an organization. `user_id` is the member's account id (an int),
+    not a v2 end-user scope."""
+
+    user_id: int
+    email: str
+    name: str
+    role: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> TeamMember:
+        return cls(
+            user_id=data["user_id"], email=data["email"], name=data["name"], role=data["role"]
+        )
+
+
+@dataclass
+class TeamInvite:
+    """A pending (or settled) email invite. The token itself travels only in the email."""
+
+    id: int
+    email: str
+    role: str
+    status: str
+    expires_at: str
+    created_at: str
+    # Kinds of likely-secret content in the org's shared docs/context that the invitee
+    # will be able to read once they accept; empty when clean.
+    sensitive_content_warnings: list[str] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> TeamInvite:
+        return cls(
+            id=data["id"],
+            email=data["email"],
+            role=data["role"],
+            status=data["status"],
+            expires_at=data.get("expires_at", ""),
+            created_at=data.get("created_at", ""),
+            sensitive_content_warnings=list(data.get("sensitive_content_warnings") or []),
+        )
+
+
+@dataclass
+class TeamOrg:
+    """An organization the account belongs to, with its seats. `invites` is populated
+    only for owner/admin seats."""
+
+    id: int
+    name: str
+    type: str
+    my_role: str
+    members: list[TeamMember] = field(default_factory=list)
+    invites: list[TeamInvite] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> TeamOrg:
+        return cls(
+            id=data["id"],
+            name=data["name"],
+            type=data["type"],
+            my_role=data["my_role"],
+            members=[TeamMember.from_dict(m) for m in data.get("members", [])],
+            invites=[TeamInvite.from_dict(i) for i in data.get("invites", [])],
+        )
+
+
+@dataclass
+class TeamInvitePreview:
+    """What an invite token grants. `valid` is false once it is expired/revoked/settled."""
+
+    organization_name: str
+    inviter_name: str
+    email: str
+    role: str
+    valid: bool
+    matches_current_user: bool
+
+    @classmethod
+    def from_dict(cls, data: dict) -> TeamInvitePreview:
+        return cls(
+            organization_name=data["organization_name"],
+            inviter_name=data["inviter_name"],
+            email=data["email"],
+            role=data["role"],
+            valid=data["valid"],
+            matches_current_user=data["matches_current_user"],
+        )
+
+
+@dataclass
+class TeamMembership:
+    """The seat granted by accepting an invite."""
+
+    organization_id: int
+    organization_name: str
+    role: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> TeamMembership:
+        return cls(
+            organization_id=data["organization_id"],
+            organization_name=data["organization_name"],
+            role=data["role"],
+        )
+
+
 # Canonical naming: "agent" is the developer-facing term; Teammate is the same
 # class under its legacy name. Since the legacy v1 SDK was deleted (3.0.0), this
 # alias IS the package-level `m8tes.Agent`.

@@ -48,6 +48,7 @@ from m8tes._types import (
     Task,
     Teammate,
     TeammateWebhook,
+    TeamOrg,
     Trigger,
     ValueObservation,
     ValueUseCase,
@@ -5770,3 +5771,20 @@ class TestAccountPassword:
             )["access_token"]
         finally:
             client.close()
+
+
+@pytest.mark.integration
+class TestTeams:
+    """client.teams against the live backend. Teams is a paused beta by default, so the
+    growth routes may 404; the list route is always live."""
+
+    def test_list_returns_page_of_orgs(self, v2_client):
+        page = v2_client.teams.list()
+        assert isinstance(page, SyncPage)
+        for org in page.data:
+            assert isinstance(org, TeamOrg)
+            assert org.my_role in {"owner", "admin", "member"}
+
+    def test_invite_preview_for_unknown_token_is_validation_error(self, v2_client):
+        with pytest.raises(ValidationError):
+            v2_client.teams.invite_preview(f"no-such-{uuid.uuid4().hex[:8]}")

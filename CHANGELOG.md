@@ -4,6 +4,19 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.18.0] - 2026-08-29
+
+### Added
+
+- **`client.teams`** — `list()`, `invite(org_id, email=, role=)`, `revoke_invite()`,
+  `invite_preview(token)`, `accept_invite(token)`, `remove_member(org_id, member_id)`.
+  The Platform's team section now uses this same surface; the V1 `/team/*` twin is gone.
+- **`client.runs.create(..., email_notifications=True)`** emails the account when a one-off
+  run finishes (also honoured by `files=`), matching what a saved task can do.
+- **Task workflow stages are writable on V2.** `client.tasks.create(...,
+  workflow_stage=...)` and `client.tasks.update(..., workflow_stage=...)` use the
+  same task contract as the Platform board.
+
 ## [4.17.1] - 2026-08-27
 
 ### Fixed

@@ -192,6 +192,7 @@ class Runs:
         model: str | None = None,
         effort: str | None = None,
         email_inbox: bool = False,
+        email_notifications: bool = False,
         output_schema: dict | None = None,
         files: _list | None = None,
         raise_on_error: bool = False,
@@ -263,6 +264,8 @@ class Runs:
             body["effort"] = effort
         if email_inbox:
             body["email_inbox"] = True
+        if email_notifications:
+            body["email_notifications"] = True
         if output_schema is not None:
             body["output_schema"] = output_schema
 
@@ -663,6 +666,7 @@ class Runs:
         model: str | None = None,
         effort: str | None = None,
         email_inbox: bool = False,
+        email_notifications: bool = False,
         output_schema: dict | None = None,
         on_approval: Callable[[PermissionRequest], str] | None = None,
         on_question: Callable[[PermissionRequest], dict[str, str]] | None = None,
@@ -703,6 +707,7 @@ class Runs:
                 model=model,
                 effort=effort,
                 email_inbox=email_inbox,
+                email_notifications=email_notifications,
                 output_schema=output_schema,
             ),
         )

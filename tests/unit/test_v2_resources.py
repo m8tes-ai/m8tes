@@ -19,6 +19,7 @@ from m8tes._resources.permissions import Permissions
 from m8tes._resources.runs import Runs
 from m8tes._resources.tasks import Tasks, TaskTriggers
 from m8tes._resources.teammates import Teammates
+from m8tes._resources.teams import Teams
 from m8tes._resources.triggers import Triggers
 from m8tes._resources.value import Value
 from m8tes._resources.webhooks import Webhooks
@@ -38,8 +39,12 @@ from m8tes._types import (
     RunShare,
     SyncPage,
     Task,
+    TeamInvite,
+    TeamInvitePreview,
     Teammate,
     TeammateWebhook,
+    TeamMembership,
+    TeamOrg,
     Trigger,
 )
 
@@ -923,6 +928,14 @@ class TestRuns:
         assert result.id == 1
 
     @responses.activate
+    def test_create_sends_email_notifications_only_when_asked(self, http):
+        responses.add(responses.POST, f"{BASE}/runs/", json={"id": 1, "status": "running"})
+        Runs(http).create(message="Do X", stream=False, email_notifications=True)
+        assert json.loads(responses.calls[0].request.body)["email_notifications"] is True
+        Runs(http).create(message="Do X", stream=False)
+        assert "email_notifications" not in json.loads(responses.calls[1].request.body)
+
+    @responses.activate
     def test_start_first_session_uses_dedicated_provenance_endpoint(self, http):
         responses.add(
             responses.POST,
@@ -1624,6 +1637,26 @@ class TestTasks:
         assert body["permission_mode"] == "approval"
 
     @responses.activate
+    def test_create_sends_workflow_stage(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/tasks/",
+            json={
+                "id": 1,
+                "teammate_id": 2,
+                "instructions": "Do",
+                "workflow_stage": "planning",
+            },
+            status=201,
+        )
+        Tasks(http).create(
+            teammate_id=2,
+            instructions="Do",
+            workflow_stage="planning",
+        )
+        assert json.loads(responses.calls[0].request.body)["workflow_stage"] == "planning"
+
+    @responses.activate
     def test_list(self, http):
         responses.add(
             responses.GET,
@@ -1672,6 +1705,21 @@ class TestTasks:
         Tasks(http).update(1, permission_mode="plan")
         body = json.loads(responses.calls[0].request.body)
         assert body == {"permission_mode": "plan"}
+
+    @responses.activate
+    def test_update_sends_workflow_stage(self, http):
+        responses.add(
+            responses.PATCH,
+            f"{BASE}/tasks/1",
+            json={
+                "id": 1,
+                "teammate_id": 2,
+                "instructions": "X",
+                "workflow_stage": "queue",
+            },
+        )
+        Tasks(http).update(1, workflow_stage="queue")
+        assert json.loads(responses.calls[0].request.body) == {"workflow_stage": "queue"}
 
     @responses.activate
     def test_run_non_streaming(self, http):
@@ -2886,3 +2934,99 @@ class TestWebhooksEndUserScope:
         wh.list_deliveries(2, user_id="eu_alice")
         for call in responses.calls:
             assert call.request.params.get("user_id") == "eu_alice", call.request.url
+
+
+class TestTeams:
+    """client.teams — verify paths, payloads, and parsing for the six team operations."""
+
+    _ORG: ClassVar[dict] = {
+        "id": 7,
+        "name": "Acme",
+        "type": "team",
+        "my_role": "owner",
+        "members": [{"user_id": 1, "email": "o@acme.com", "name": "Owner", "role": "owner"}],
+        "invites": [
+            {
+                "id": 3,
+                "email": "c@acme.com",
+                "role": "member",
+                "status": "pending",
+                "expires_at": "2026-09-01T00:00:00Z",
+                "created_at": "2026-08-27T00:00:00Z",
+                "sensitive_content_warnings": ["credential"],
+            }
+        ],
+    }
+
+    @responses.activate
+    def test_list(self, http):
+        responses.get(f"{BASE}/teams/", json={"data": [self._ORG], "has_more": False})
+        page = Teams(http).list()
+        assert isinstance(page, SyncPage) and page.has_more is False
+        org = page.data[0]
+        assert isinstance(org, TeamOrg) and org.my_role == "owner"
+        assert org.members[0].user_id == 1 and org.members[0].role == "owner"
+        assert org.invites[0].sensitive_content_warnings == ["credential"]
+
+    @responses.activate
+    def test_invite_posts_email_and_role(self, http):
+        responses.post(f"{BASE}/teams/7/invites", json=self._ORG["invites"][0], status=201)
+        invite = Teams(http).invite(7, email="c@acme.com", role="admin")
+        assert isinstance(invite, TeamInvite) and invite.id == 3
+        body = json.loads(responses.calls[0].request.body)
+        assert body == {"email": "c@acme.com", "role": "admin"}
+
+    @responses.activate
+    def test_invite_defaults_to_member(self, http):
+        responses.post(f"{BASE}/teams/7/invites", json=self._ORG["invites"][0], status=201)
+        Teams(http).invite(7, email="c@acme.com")
+        assert json.loads(responses.calls[0].request.body)["role"] == "member"
+
+    @responses.activate
+    def test_revoke_invite(self, http):
+        responses.delete(f"{BASE}/teams/invites/3", status=204)
+        assert Teams(http).revoke_invite(3) is None
+        assert responses.calls[0].request.url == f"{BASE}/teams/invites/3"
+
+    @responses.activate
+    def test_invite_preview(self, http):
+        responses.get(
+            f"{BASE}/teams/invites/inv_abc",
+            json={
+                "organization_name": "Acme",
+                "inviter_name": "Owner",
+                "email": "c@acme.com",
+                "role": "member",
+                "valid": True,
+                "matches_current_user": False,
+            },
+        )
+        preview = Teams(http).invite_preview("inv_abc")
+        assert isinstance(preview, TeamInvitePreview)
+        assert preview.valid is True and preview.matches_current_user is False
+
+    @responses.activate
+    def test_accept_invite(self, http):
+        responses.post(
+            f"{BASE}/teams/invites/accept",
+            json={"organization_id": 7, "organization_name": "Acme", "role": "member"},
+        )
+        membership = Teams(http).accept_invite("inv_abc")
+        assert isinstance(membership, TeamMembership) and membership.organization_id == 7
+        assert json.loads(responses.calls[0].request.body) == {"token": "inv_abc"}
+
+    @responses.activate
+    def test_remove_member(self, http):
+        responses.delete(f"{BASE}/teams/7/members/42", status=204)
+        Teams(http).remove_member(7, 42)
+        assert responses.calls[0].request.url == f"{BASE}/teams/7/members/42"
+
+    @responses.activate
+    def test_not_found_raises(self, http):
+        responses.get(
+            f"{BASE}/teams/invites/nope",
+            json={"error": {"message": "Not found", "type": "not_found", "code": 404}},
+            status=404,
+        )
+        with pytest.raises(NotFoundError):
+            Teams(http).invite_preview("nope")

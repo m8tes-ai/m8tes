@@ -22,6 +22,7 @@ from .skills import Skills
 from .tasks import Tasks
 from .teammate_templates import AgentTemplates, TeammateTemplates
 from .teammates import Agents, Teammates
+from .teams import Teams
 from .triggers import Triggers
 from .users import Users
 from .value import Value
@@ -52,6 +53,7 @@ __all__ = [
     "Tasks",
     "TeammateTemplates",
     "Teammates",
+    "Teams",
     "Triggers",
     "Users",
     "Value",

@@ -147,6 +147,7 @@ class Tasks:
         model: str | None = None,
         effort: str | None = None,
         permission_mode: str | None = None,
+        workflow_stage: str | None = None,
         enable_memory: bool | None = None,
         enable_history: bool | None = None,
         enable_task_setup_tools: bool | None = None,
@@ -214,6 +215,8 @@ class Tasks:
             body["effort"] = effort
         if permission_mode is not None:
             body["permission_mode"] = permission_mode
+        if workflow_stage is not None:
+            body["workflow_stage"] = workflow_stage
         if schedule is not None:
             body["schedule"] = schedule
             body["schedule_timezone"] = schedule_timezone
@@ -282,6 +285,7 @@ class Tasks:
         enable_feedback: bool | None = _UNSET,
         enable_lessons: bool | None = None,
         status: str | None = None,
+        workflow_stage: str | None = None,
     ) -> Task:
         """Update a task (PATCH — omitted fields unchanged).
 
@@ -333,6 +337,8 @@ class Tasks:
             body["permission_mode"] = permission_mode
         if status is not None:
             body["status"] = status
+        if workflow_stage is not None:
+            body["workflow_stage"] = workflow_stage
         resp = self._http.request(
             "PATCH", f"/tasks/{seg(task_id)}", json=body, params=_build_params(user_id=user_id)
         )

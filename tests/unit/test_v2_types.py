@@ -4,6 +4,13 @@ import m8tes
 from m8tes._types import App, AuditLog, PermissionMode, Run, Task, Teammate, Trigger
 
 
+def test_team_types_are_public_exports():
+    names = {"TeamOrg", "TeamMember", "TeamInvite", "TeamInvitePreview", "TeamMembership"}
+    assert names <= set(m8tes.__all__)
+    org = m8tes.TeamOrg.from_dict({"id": 1, "name": "Acme", "type": "team", "my_role": "owner"})
+    assert org.members == [] and org.invites == []
+
+
 def test_document_types_are_public_exports():
     assert m8tes.Document is not None
     assert m8tes.DocumentDetail is not None
