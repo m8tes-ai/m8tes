@@ -8,6 +8,7 @@ Runs in CI without a backend — pure import-time introspection.
 import dataclasses
 import importlib.util
 from pathlib import Path
+import re
 import sys
 
 import pytest
@@ -153,3 +154,134 @@ def test_v2_schemas_load_without_the_backend_dependency_stack():
     # The shared contract itself must import cleanly on the SDK's dependency set.
     contract = importlib.import_module("app.contracts.tool_name")
     assert contract.TOOL_NAME_MAX_LENGTH == 255
+
+
+# --- Round-trip parsing -------------------------------------------------------
+#
+# The name comparison above answers "does the field EXIST on both sides?". It does
+# not answer "does from_dict actually READ it off the wire?" — and those came apart:
+# `Run.billing_surface` was declared on the dataclass (so the pair above matched)
+# and never assigned in `Run.from_dict`, so every parsed run reported the default
+# "platform" no matter what the server sent. A caller filtering their own API
+# traffic on it saw one value forever, with nothing red anywhere.
+#
+# So: build a payload whose value for each field differs from that field's default,
+# parse it, and require the value to survive. A field added to a dataclass and
+# forgotten in from_dict fails here.
+
+_UNSUPPORTED = object()
+
+
+def _probe_value(field: dataclasses.Field):
+    """A wire value for `field` that differs from its default, or _UNSUPPORTED.
+
+    Keyed off the annotation TEXT because `from __future__ import annotations` keeps
+    these as strings. _UNSUPPORTED is returned only for a field whose type is a NESTED
+    dataclass (`usage: RunUsage | None`) — those are covered by the hand-written cases
+    elsewhere in the suite. Everything else is synthesized, including `Literal[...]`
+    and a bare `list`.
+
+    The value must differ from the field's own default, or a parser that drops the
+    field would still look correct — which is exactly how `billing_surface` shipped.
+    """
+    text = str(field.type).replace(" ", "")
+    default = field.default if field.default is not dataclasses.MISSING else None
+    if text.startswith("Literal["):
+        # The first option that is not already the default.
+        return next((o for o in re.findall(r"'([^']*)'", text) if o != default), _UNSUPPORTED)
+    base = text.split("|")[0]
+    if base == "list[int]":
+        return [1, 2]
+    if base == "list" or base.startswith("list["):
+        return ["probe"]
+    if base.startswith("dict"):
+        return {"probe": "value"}
+    if base == "bool":
+        return not bool(default)
+    if base in ("int", "float"):
+        return 4242
+    if base == "str":
+        return f"probe-{field.name}"
+    return _UNSUPPORTED
+
+
+def _probe_payload(sdk_type: type) -> dict:
+    payload = {}
+    for field in dataclasses.fields(sdk_type):
+        value = _probe_value(field)
+        if value is not _UNSUPPORTED:
+            payload[field.name] = value
+    return payload
+
+
+ROUND_TRIP_TYPES = [pair[1] for pair in SCHEMA_PAIRS]
+
+
+@pytest.mark.parametrize("sdk_type", ROUND_TRIP_TYPES, ids=[t.__name__ for t in ROUND_TRIP_TYPES])
+def test_from_dict_parses_every_declared_field(sdk_type):
+    """Every scalar field a response carries must survive `from_dict`, not just exist."""
+    payload = _probe_payload(sdk_type)
+    if not payload:
+        pytest.skip(f"{sdk_type.__name__} declares only nested-object fields")
+
+    parsed = sdk_type.from_dict(dict(payload))
+
+    dropped = [
+        f"  {name}: sent {sent!r}, got {getattr(parsed, name, '<attribute missing>')!r}"
+        for name, sent in payload.items()
+        if getattr(parsed, name, _UNSUPPORTED) != sent
+    ]
+    assert not dropped, (
+        f"{sdk_type.__name__}.from_dict did not read these fields off the wire:\n"
+        + "\n".join(dropped)
+        + f"\n  → Assign them in sdk/py/m8tes/_types.py:{sdk_type.__name__}.from_dict"
+    )
+
+
+# The only fields the probe cannot build, with the reason. A whole annotation
+# category that stops working lands its fields HERE, which is why coverage is
+# guarded by this exact set and not by a count: at 244 fields, a floor low enough
+# to tolerate normal churn is also high enough to survive losing every `int` and
+# every `bool`.
+_NESTED_OBJECT_FIELDS = {
+    ("Run", "usage"),  # RunUsage — covered by test_v2_billing.py
+    ("ChannelInstallLinks", "slack"),  # SlackInstallLink — covered by test_v2_resources.py
+    ("ChannelInstallLinks", "github"),  # GitHubInstallLink — same
+}
+
+
+def test_the_probe_builds_a_discriminating_value_for_every_flat_field():
+    """The round-trip test above is only as good as the payload it parses.
+
+    Two ways it can silently stop testing anything, both guarded here:
+
+    1. `_probe_value` returns _UNSUPPORTED for a field it used to build, so the
+       field quietly drops out of the payload. Anything not in the set above is a
+       regression, not a new nested type.
+    2. It builds a value EQUAL to the field's default. Then a parser that dropped
+       the field would still produce that value and the round-trip test would pass.
+       One inverted token (`not bool(default)` losing its `not`) does exactly this
+       to every bool field while the field count stays put.
+    """
+    unbuilt, indistinguishable = [], []
+    for sdk_type in ROUND_TRIP_TYPES:
+        payload = _probe_payload(sdk_type)
+        for field in dataclasses.fields(sdk_type):
+            key = (sdk_type.__name__, field.name)
+            if field.name not in payload:
+                if key not in _NESTED_OBJECT_FIELDS:
+                    unbuilt.append(f"  {key[0]}.{key[1]}: {field.type}")
+                continue
+            default = field.default if field.default is not dataclasses.MISSING else None
+            if payload[field.name] == default:
+                indistinguishable.append(f"  {key[0]}.{key[1]}: probe == default {default!r}")
+
+    assert not unbuilt, (
+        "_probe_value stopped building these fields, so nothing tests them:\n"
+        + "\n".join(unbuilt)
+        + "\n  \u2192 Fix _probe_value, or add the field to _NESTED_OBJECT_FIELDS with its reason"
+    )
+    assert not indistinguishable, (
+        "these probe values equal the field default, so a parser that dropped the "
+        "field would still pass:\n" + "\n".join(indistinguishable)
+    )

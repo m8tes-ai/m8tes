@@ -617,6 +617,7 @@ class Run:
             task_name=data.get("task_name"),
             trigger_source=data.get("trigger_source"),
             channel=data.get("channel"),
+            billing_surface=data.get("billing_surface") or "platform",
             run_mode=data.get("run_mode"),
             archived=bool(data.get("archived", False)),
             share_token=data.get("share_token"),

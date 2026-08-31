@@ -4,6 +4,16 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.18.1] - 2026-08-30
+
+### Fixed
+
+- **`Run.billing_surface` now carries what the server sent.** It was declared on the type
+  and never read off the wire, so every parsed run reported the default `"platform"` —
+  including the wallet-billed embedding runs the server stamps `"api"`. Filtering a
+  "show me my API traffic" view on it returned the same answer for every run, with
+  nothing to indicate the field was inert.
+
 ## [4.18.0] - 2026-08-29
 
 ### Added

@@ -110,6 +110,12 @@ def run_payload(**overrides: Any) -> dict[str, Any]:
         "metadata": None,
         "created_at": "2026-01-01T00:00:00Z",
         "updated_at": "2026-01-01T00:01:00Z",
+        # Both are stamped on every real run. Omitting them let a caller test the
+        # documented "show me my API traffic" filter against a double that answers
+        # "platform"/None for everything — the same wrong answer the parser gave
+        # while billing_surface went unread.
+        "billing_surface": "platform",
+        "channel": "api",
         "usage": {
             "input_tokens": 1200,
             "output_tokens": 300,

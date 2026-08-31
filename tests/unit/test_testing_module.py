@@ -160,6 +160,29 @@ class TestFactories:
         assert run.status == "completed"
         assert run.output
 
+    def test_every_scalar_the_run_double_declares_survives_parsing(self):
+        """A field the double carries must not be masked by a parser default.
+
+        `billing_surface` was absent from the double AND unread by `from_dict`, so a
+        developer testing the documented "show me my API traffic" filter offline got
+        `"platform"` for every run — the same wrong answer production gave. Adding it
+        to the double is only half the fix; this is the half that keeps it true as
+        both sides grow.
+        """
+        payload = run_payload()
+        run = Run.from_dict(payload)
+        dropped = [
+            f"{k}: double says {v!r}, parsed as {getattr(run, k, '<missing>')!r}"
+            for k, v in payload.items()
+            if not isinstance(v, (dict, list)) and getattr(run, k, object()) != v
+        ]
+        assert not dropped, "Run.from_dict did not read these off the double: " + "; ".join(dropped)
+
+    def test_the_run_double_carries_the_fields_stamped_on_every_run(self):
+        """Both are always present on a real response, so an offline test must see them."""
+        payload = run_payload()
+        assert payload["billing_surface"] and payload["channel"]
+
     def test_run_payload_failure_shape(self):
         run = Run.from_dict(run_payload(status="failed", error_code="TOKEN_BALANCE_DEPLETED"))
         assert run.status == "failed"
