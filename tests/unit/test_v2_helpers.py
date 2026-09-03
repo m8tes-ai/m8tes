@@ -166,7 +166,16 @@ class TestRunsWait:
         run = Runs(http).wait(1, on_question=on_question, interval=0.01)
         assert run.status == "completed"
         body = json.loads(responses.calls[2].request.body)
-        assert body == {"answers": {"Which segment?": "enterprise"}}
+        # The id of the gate handed to the callback rides along. Without it the server
+        # answers by POSITION -- the oldest ask not already ALLOWED -- and the
+        # comprehension in wait() admits only status "pending", so an older TIMEOUT ask
+        # is invisible to the loop and still wins on the server. The approve branch has
+        # always sent its request_id; this one did not.
+        assert body == {
+            "answers": {"Which segment?": "enterprise"},
+            "request_id": "req_2",
+        }
+        assert body["request_id"] == PERMISSION_QUESTION["request_id"]
 
     @responses.activate
     def test_raises_without_on_approval_callback(self, http):

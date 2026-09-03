@@ -4,6 +4,16 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`runs.wait()` / `reply_and_wait()` target the question they hand to `on_question`.** The loop
+  called `answer(run_id, answers=answers)` with no `request_id`, twenty lines above an approval
+  branch that passes one. Without the id the server picks by position — the oldest ask not already
+  allowed — and the loop only looks at gates in status `pending`, so an older timed-out ask is
+  invisible to it and still wins on the server. `runs.answer()` itself has accepted `request_id`
+  all along; only the wait loop dropped it. (The TypeScript polling loop had the same gap and is
+  fixed in step.)
+
 ## [4.18.1] - 2026-08-30
 
 ### Fixed

@@ -523,7 +523,14 @@ class Runs:
                                 "or use runs.answer() manually."
                             )
                         answers = on_question(req)
-                        self.answer(run_id, answers=answers)
+                        # Target the gate we just handed the caller, exactly as the
+                        # approve branch below does. Without the id the server answers
+                        # by position — the oldest ask not already ALLOWED — and the
+                        # comprehension above admits only status "pending", so an older
+                        # TIMEOUT ask is invisible here and still wins there. This
+                        # callback's answer would then land on a question the caller
+                        # never saw.
+                        self.answer(run_id, answers=answers, request_id=req.request_id)
                     else:
                         if on_approval is None:
                             raise RuntimeError(
