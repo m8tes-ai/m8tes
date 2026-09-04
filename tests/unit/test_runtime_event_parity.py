@@ -254,6 +254,10 @@ _ACKNOWLEDGED_SYSTEM_SUBTYPES = frozenset(
         "memory_saved",
         "bridge_state",
         "bridge_status",
+        # Claude Agent SDK 0.2.152+ — CLI cloud-session / tool-host telemetry. Inert for
+        # an API consumer (describes the host CLI's own session, not the caller's run).
+        "cloud_session_status",
+        "tool_host_result",
         # Informational only — a queued feedback draft, not a failure signal.
         "feedback_draft_queued",
     }
