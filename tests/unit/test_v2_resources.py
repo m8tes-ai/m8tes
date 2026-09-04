@@ -9,6 +9,7 @@ import responses
 from m8tes._exceptions import NotFoundError, RunFailedError
 from m8tes._http import HTTPClient
 from m8tes._resources.apps import Apps
+from m8tes._resources.artifacts import Artifacts
 from m8tes._resources.audit_logs import AuditLogs
 from m8tes._resources.bridges import Bridges
 from m8tes._resources.channels import Channels
@@ -2934,6 +2935,91 @@ class TestWebhooksEndUserScope:
         wh.list_deliveries(2, user_id="eu_alice")
         for call in responses.calls:
             assert call.request.params.get("user_id") == "eu_alice", call.request.url
+
+
+class TestArtifacts:
+    artifact: ClassVar[dict] = {
+        "id": 7,
+        "name": "latest-report.md",
+        "mime_type": "text/markdown",
+        "size_bytes": 12,
+        "version": 2,
+        "run_id": 42,
+        "task_id": 5,
+        "agent_id": 3,
+        "user_id": "cust_1",
+        "share_url": None,
+        "content_url": "https://api.m8tes.ai/api/v2/artifacts/7/content",
+        "created_at": "2026-08-27T09:00:00Z",
+    }
+
+    @responses.activate
+    def test_create_posts_run_and_filename(self, http):
+        responses.add(responses.POST, f"{BASE}/artifacts", json=self.artifact, status=201)
+        artifact = Artifacts(http).create(run_id=42, filename="latest-report.md")
+        assert artifact.version == 2
+        assert artifact.share_url is None
+        assert json.loads(responses.calls[0].request.body) == {
+            "run_id": 42,
+            "filename": "latest-report.md",
+        }
+
+    @responses.activate
+    def test_list_sends_filters_and_user_id(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/artifacts",
+            json={"data": [self.artifact], "has_more": False},
+            status=200,
+        )
+        page = Artifacts(http).list(run_id=42, agent_id=3, user_id="cust_1")
+        assert page.data[0].id == 7
+        url = responses.calls[0].request.url
+        assert "run_id=42" in url and "agent_id=3" in url and "user_id=cust_1" in url
+
+    @responses.activate
+    def test_get_and_download_carry_user_id(self, http):
+        responses.add(responses.GET, f"{BASE}/artifacts/7", json=self.artifact, status=200)
+        responses.add(responses.GET, f"{BASE}/artifacts/7/content", body=b"# hi", status=200)
+        assert Artifacts(http).get(7, user_id="cust_1").name == "latest-report.md"
+        assert Artifacts(http).download(7, user_id="cust_1") == b"# hi"
+        assert all("user_id=cust_1" in call.request.url for call in responses.calls)
+
+    @responses.activate
+    def test_share_and_unshare(self, http):
+        share = {"share_token": "tok", "share_url": "https://www.m8tes.ai/share/artifact/tok"}
+        responses.add(responses.POST, f"{BASE}/artifacts/7/share", json=share, status=200)
+        responses.add(responses.DELETE, f"{BASE}/artifacts/7/share", status=204)
+        assert Artifacts(http).share(7).share_url.endswith("/share/artifact/tok")
+        Artifacts(http).unshare(7)
+        assert responses.calls[1].request.method == "DELETE"
+
+    @responses.activate
+    def test_delete(self, http):
+        responses.add(responses.DELETE, f"{BASE}/artifacts/7", status=204)
+        Artifacts(http).delete(7, user_id="cust_1")
+        assert "user_id=cust_1" in responses.calls[0].request.url
+
+    @responses.activate
+    def test_filters_survive_pagination(self, http):
+        """Page 2+ must stay inside the same run and end-user partition as page 1."""
+        responses.add(
+            responses.GET,
+            f"{BASE}/artifacts",
+            json={"data": [self.artifact], "has_more": True, "next_starting_after": 7},
+            status=200,
+        )
+        responses.add(
+            responses.GET, f"{BASE}/artifacts", json={"data": [], "has_more": False}, status=200
+        )
+        list(
+            Artifacts(http)
+            .list(run_id=42, agent_id=3, user_id="cust_1", limit=1)
+            .auto_paging_iter()
+        )
+        second = responses.calls[1].request.url
+        assert "user_id=cust_1" in second and "run_id=42" in second and "agent_id=3" in second
+        assert "starting_after=7" in second and "limit=1" in second
 
 
 class TestTeams:

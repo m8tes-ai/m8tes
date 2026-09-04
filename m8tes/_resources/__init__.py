@@ -2,6 +2,7 @@
 
 from .account import Account
 from .apps import Apps
+from .artifacts import Artifacts
 from .audit_logs import AuditLogs
 from .auth import Auth
 from .billing import Billing
@@ -33,6 +34,7 @@ __all__ = [
     "AgentTemplates",
     "Agents",
     "Apps",
+    "Artifacts",
     "AuditLogs",
     "Auth",
     "Billing",

@@ -1508,6 +1508,28 @@ class TestDocuments:
             v2_client.documents.delete(missing_id, user_id=user_id)
 
 
+@pytest.mark.integration
+class TestArtifacts:
+    def test_list_empty_and_missing_artifact_errors(self, v2_client):
+        """Exercise every artifact method against the real V2 transport and router."""
+        user_id = _uid()
+        assert v2_client.artifacts.list(user_id=user_id).data == []
+
+        missing_id = 2_147_483_647
+        with pytest.raises(NotFoundError):
+            v2_client.artifacts.get(missing_id, user_id=user_id)
+        with pytest.raises(NotFoundError):
+            v2_client.artifacts.download(missing_id, user_id=user_id)
+        with pytest.raises(NotFoundError):
+            v2_client.artifacts.share(missing_id, user_id=user_id)
+        with pytest.raises(NotFoundError):
+            v2_client.artifacts.unshare(missing_id, user_id=user_id)
+        with pytest.raises(NotFoundError):
+            v2_client.artifacts.delete(missing_id, user_id=user_id)
+        with pytest.raises(NotFoundError):
+            v2_client.artifacts.create(run_id=missing_id, filename="latest-report.md")
+
+
 # ── Value intelligence ───────────────────────────────────────────────
 
 

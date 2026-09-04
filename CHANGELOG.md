@@ -67,6 +67,9 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ### Added
 
+- **`client.artifacts`** — durable, shareable copies of run outputs (`create(run_id=,
+  filename=)`, `list`, `get`, `download`, `delete`, `share`, `unshare`) with `Artifact` and
+  `ArtifactShare` types. `share()` mints a public link the way `runs.share()` does.
 - **`runs.list(exclude_platform_runs=True)`** — forwards the v2 query param that
   hides Company Agent Day-1 / pulse / maintenance so callers can ask whether the
   *user* has run anything themselves yet. Survives pagination.

@@ -11,6 +11,7 @@ from ._resources import (
     Agents,
     AgentTemplates,
     Apps,
+    Artifacts,
     AuditLogs,
     Auth,
     Billing,
@@ -78,6 +79,7 @@ class M8tes:
         self.teammate_templates = self.agent_templates  # permanent alias
         self.bridges = Bridges(self._http)
         self.channels = Channels(self._http)
+        self.artifacts = Artifacts(self._http)
         self.documents = Documents(self._http)
         self.github_app = GitHubApp(self._http)
         self.runs = Runs(self._http)

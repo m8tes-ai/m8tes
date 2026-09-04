@@ -1337,6 +1337,53 @@ class Memory:
 
 
 @dataclass
+class Artifact:
+    """A durable, shareable copy of a run output (metadata; bytes via ``download``)."""
+
+    id: int
+    name: str
+    mime_type: str
+    size_bytes: int
+    version: int
+    run_id: int
+    content_url: str
+    task_id: int | None = None
+    agent_id: int | None = None
+    user_id: str | None = None
+    share_url: str | None = None
+    created_at: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Artifact:
+        return cls(
+            id=data["id"],
+            name=data["name"],
+            mime_type=data["mime_type"],
+            size_bytes=data["size_bytes"],
+            version=data["version"],
+            run_id=data["run_id"],
+            content_url=data["content_url"],
+            task_id=data.get("task_id"),
+            agent_id=data.get("agent_id"),
+            user_id=data.get("user_id"),
+            share_url=data.get("share_url"),
+            created_at=data.get("created_at"),
+        )
+
+
+@dataclass
+class ArtifactShare:
+    """An artifact's public read-only share link (POST /artifacts/{id}/share)."""
+
+    share_token: str
+    share_url: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ArtifactShare:
+        return cls(share_token=data["share_token"], share_url=data["share_url"])
+
+
+@dataclass
 class Document:
     """A company- or agent-scoped persistent document."""
 
