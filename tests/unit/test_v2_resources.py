@@ -14,6 +14,7 @@ from m8tes._resources.audit_logs import AuditLogs
 from m8tes._resources.bridges import Bridges
 from m8tes._resources.channels import Channels
 from m8tes._resources.documents import Documents
+from m8tes._resources.groups import Groups
 from m8tes._resources.memories import Memories
 from m8tes._resources.model_connections import ModelConnections
 from m8tes._resources.permissions import Permissions
@@ -2261,6 +2262,63 @@ class TestDocuments:
         Documents(http).delete(7, user_id="cust_1")
 
         assert "user_id=cust_1" in responses.calls[0].request.url
+
+
+class TestGroups:
+    @responses.activate
+    def test_share_sends_visibility_and_user_id(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/groups/1/share",
+            json={
+                "visibility": "organization",
+                "updated": [42],
+                "skipped": [{"agent_id": 7, "reason": "unchanged"}],
+            },
+            status=200,
+        )
+
+        result = Groups(http).share(1, visibility="organization", user_id="cust_1")
+
+        assert result.visibility == "organization"
+        assert result.updated == [42]
+        assert result.skipped[0].agent_id == 7
+        assert result.skipped[0].reason == "unchanged"
+        assert "user_id=cust_1" in responses.calls[0].request.url
+        assert json.loads(responses.calls[0].request.body) == {"visibility": "organization"}
+
+    @responses.activate
+    def test_update_display_order_explicit_none_clears(self, http):
+        """display_order=None must send JSON null so the API can clear ordering."""
+        responses.add(
+            responses.PATCH,
+            f"{BASE}/groups/1",
+            json={"id": 1, "name": "Growth", "display_order": None},
+            status=200,
+        )
+        responses.add(
+            responses.PATCH,
+            f"{BASE}/groups/1",
+            json={"id": 1, "name": "Growth", "display_order": 3},
+            status=200,
+        )
+
+        Groups(http).update(1, display_order=None)
+        assert json.loads(responses.calls[0].request.body) == {"display_order": None}
+
+        Groups(http).update(1, name="Growth")
+        assert "display_order" not in json.loads(responses.calls[1].request.body)
+
+    @responses.activate
+    def test_update_display_order_zero_is_sent(self, http):
+        responses.add(
+            responses.PATCH,
+            f"{BASE}/groups/1",
+            json={"id": 1, "name": "Growth", "display_order": 0},
+            status=200,
+        )
+        Groups(http).update(1, display_order=0)
+        assert json.loads(responses.calls[0].request.body) == {"display_order": 0}
 
 
 class TestMemories:

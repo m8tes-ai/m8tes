@@ -4,6 +4,14 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.19.0] - 2026-09-05
+
+### Added
+
+- **`client.groups`** — flat Mate Group folders (`/api/v2/groups`) plus
+  **`groups.share(group_id, visibility=...)`** to bulk-set mate visibility for
+  members of a group (selection set; not a group ACL).
+
 ### Fixed
 
 - **`runs.wait()` / `reply_and_wait()` target the question they hand to `on_question`.** The loop

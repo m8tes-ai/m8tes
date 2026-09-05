@@ -11,6 +11,7 @@ from .built_in_tools import BuiltInTools
 from .channels import Channels
 from .documents import Documents
 from .github_app import GitHubApp
+from .groups import Groups
 from .keys import Keys
 from .mcp_servers import McpServers
 from .memories import Memories
@@ -43,6 +44,7 @@ __all__ = [
     "Channels",
     "Documents",
     "GitHubApp",
+    "Groups",
     "Keys",
     "McpServers",
     "Memories",

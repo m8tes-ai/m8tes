@@ -66,6 +66,7 @@ class Agents:
         model: str | None = None,
         effort: str | None = None,
         from_template: str | None = None,
+        group_id: int | None = None,
     ) -> Teammate:
         """Create a teammate.
 
@@ -138,6 +139,8 @@ class Agents:
             body["effort"] = effort
         if from_template is not None:
             body["from_template"] = from_template
+        if group_id is not None:
+            body["group_id"] = group_id
         resp = self._http.request("POST", "/agents/", json=body)
         return Teammate.from_dict(resp.json())
 
@@ -187,6 +190,7 @@ class Agents:
         goals: str | None = None,
         metadata: dict | None = None,
         display_order: int | None = _UNSET,
+        group_id: int | None = _UNSET,
         visibility: Literal["personal", "organization"] | None = None,
         allowed_senders: _list[str] | None = None,
         inbound_imessage_enabled: bool | None = None,
@@ -238,6 +242,8 @@ class Agents:
         # CLEARS the manual position back to creation order; omitting leaves it alone.
         if display_order is not _UNSET:
             body["display_order"] = display_order
+        if group_id is not _UNSET:
+            body["group_id"] = group_id
         if visibility is not None:
             body["visibility"] = visibility
         if allowed_senders is not None:

@@ -20,6 +20,7 @@ from ._resources import (
     Channels,
     Documents,
     GitHubApp,
+    Groups,
     Keys,
     McpServers,
     Memories,
@@ -81,6 +82,7 @@ class M8tes:
         self.channels = Channels(self._http)
         self.artifacts = Artifacts(self._http)
         self.documents = Documents(self._http)
+        self.groups = Groups(self._http)
         self.github_app = GitHubApp(self._http)
         self.runs = Runs(self._http)
         self.tasks = Tasks(self._http)

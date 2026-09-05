@@ -260,6 +260,9 @@ class Teammate:
     # Manual roster position (lower sorts first); None until the user places it.
     # Sort by COALESCE(display_order, id) ascending.
     display_order: int | None = None
+    # Mate Group membership (optional); see client.groups.
+    group_id: int | None = None
+    group_name: str | None = None
     # Activity/liveness (reads only): when this agent's most recent run (last 90
     # days) last did anything (None = idle longer), how many runs are executing
     # or awaiting approval right now, and active_run_id when exactly one is live.
@@ -309,12 +312,68 @@ class Teammate:
             prompt_profile=data.get("prompt_profile") or "platform",
             disabled_builtin_tools=data.get("disabled_builtin_tools") or [],
             display_order=data.get("display_order"),
+            group_id=data.get("group_id"),
+            group_name=data.get("group_name"),
             last_active_at=data.get("last_active_at"),
             active_run_count=data.get("active_run_count", 0),
             active_run_id=data.get("active_run_id"),
             status=data.get("status", "enabled"),
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at"),
+        )
+
+
+@dataclass
+class Group:
+    """A flat Mate Group folder for organizing agents (sidenav Groups)."""
+
+    id: int
+    name: str
+    visibility: str
+    created_at: str
+    display_order: int | None = None
+    user_id: str | None = None
+    updated_at: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Group:
+        return cls(
+            id=data["id"],
+            name=data["name"],
+            display_order=data.get("display_order"),
+            user_id=data.get("user_id"),
+            visibility=data.get("visibility", "personal"),
+            created_at=data.get("created_at", ""),
+            updated_at=data.get("updated_at"),
+        )
+
+
+@dataclass
+class GroupShareSkipped:
+    """One mate skipped during ``groups.share``."""
+
+    agent_id: int
+    reason: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> GroupShareSkipped:
+        return cls(agent_id=data["agent_id"], reason=data["reason"])
+
+
+@dataclass
+class GroupShareResult:
+    """Result of bulk-setting mate visibility for a group's current members."""
+
+    visibility: str
+    updated: list[int]
+    skipped: list[GroupShareSkipped]
+
+    @classmethod
+    def from_dict(cls, data: dict) -> GroupShareResult:
+        return cls(
+            visibility=data["visibility"],
+            updated=list(data.get("updated") or []),
+            skipped=[GroupShareSkipped.from_dict(row) for row in data.get("skipped") or []],
         )
 
 
