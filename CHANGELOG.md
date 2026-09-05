@@ -4,6 +4,12 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.19.1] - 2026-09-05
+
+### Fixed
+
+- Expose `PermissionRequest.remembered` as the persisted Always allow outcome on approval responses and history listings; legacy records remain unknown. Resolution SSE frames expose the same outcome through `event.raw["remembered"]`.
+
 ## [4.19.0] - 2026-09-05
 
 ### Added

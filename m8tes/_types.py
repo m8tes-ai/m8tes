@@ -1514,11 +1514,9 @@ class PermissionRequest:
     # nothing. `status == "allowed"` alone never means the mate picked the work
     # back up — check this before telling a human it did.
     resumed: bool | None = None
-    # Set only by runs.approve(): True when an allow+remember decision persisted a
-    # cross-run always-allow policy, False when it did not (remember was not
-    # requested, or the backend refused — force-gated tools skip allowlists, so the
-    # stored policy would be inert). None on listings and on older servers.
-    # `status == "allowed"` alone never means "always allowed from now on".
+    # Actual saved cross-run Always allow outcome, on approve responses AND listings.
+    # True only after the policy was persisted; False when it was not saved.
+    # None for unresolved/legacy records or older servers. Combine with status=allowed.
     remembered: bool | None = None
     # Set only when a SUBAGENT asked, so an approver can tell the Mate apart from
     # work it delegated. Display metadata: the decision keys on the ACTION.

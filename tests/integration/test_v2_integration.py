@@ -40,7 +40,6 @@ from m8tes._types import (
     FetchmailInbox,
     McpServer,
     Memory,
-    Model,
     PermissionPolicy,
     Run,
     Skill,

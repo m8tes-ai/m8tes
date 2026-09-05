@@ -1202,6 +1202,31 @@ class TestRuns:
         assert result[1].status == "resolved"
 
     @responses.activate
+    def test_permission_history_preserves_actual_grant_outcomes(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/1/permissions",
+            json=[
+                {
+                    "request_id": str(index),
+                    "tool_name": "Bash",
+                    "status": "allowed",
+                    "remembered": outcome,
+                }
+                for index, outcome in enumerate([True, False, None])
+            ]
+            + [
+                {"request_id": "legacy", "tool_name": "Bash", "status": "allowed", "remember": True}
+            ],
+        )
+        assert [request.remembered for request in Runs(http).permissions(1)] == [
+            True,
+            False,
+            None,
+            None,
+        ]
+
+    @responses.activate
     def test_approve_allow(self, http):
         responses.add(
             responses.POST,

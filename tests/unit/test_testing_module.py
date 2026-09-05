@@ -174,7 +174,7 @@ class TestFactories:
         dropped = [
             f"{k}: double says {v!r}, parsed as {getattr(run, k, '<missing>')!r}"
             for k, v in payload.items()
-            if not isinstance(v, (dict, list)) and getattr(run, k, object()) != v
+            if not isinstance(v, dict | list) and getattr(run, k, object()) != v
         ]
         assert not dropped, "Run.from_dict did not read these off the double: " + "; ".join(dropped)
 

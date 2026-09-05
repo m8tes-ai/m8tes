@@ -1178,8 +1178,8 @@ class Runs:
         ``remember`` to True (it never downgrades an existing grant). An
         allow+remember decision also stores a cross-run always-allow policy for the
         tool; the response's ``remembered`` reports whether that actually persisted
-        (False when the backend refused — e.g. a force-gated tool, whose policy the
-        runtime would never consult).
+        (False when the backend refused — e.g. a strict human-decision tool that
+        requires fresh approval every time).
 
         A refusal is never a hiccup — nothing ran, so never treat it as approved. Check
         ``exc.code`` to tell them apart:
