@@ -5480,24 +5480,16 @@ class TestModels:
         page = v2_client.models.list()
         assert isinstance(page, SyncPage)
         models = {m.id: m for m in page.data}
-        # Curated set only — name as FEW aliases as possible. `sonnet` was hardcoded here
-        # and broke when the picker was trimmed on 2026-08-08; this test runs only in the
-        # integration job (it needs a live backend), so a local `make check` cannot see it.
-        # `opus` is the ONE alias safe to name: `llm_model_default_claude` is claude-opus-5
-        # and test_the_platform_default_has_a_claude_fallback_for_own_subscription_runs
-        # requires the curated list to contain whatever that fallback resolves to. Nothing
-        # pins any other alias — a review mutation confirmed deleting `fable` from
-        # curated_platform_ids leaves that guard green — so everything below derives its
-        # subject from the response instead of naming one.
-        assert "opus" in models
-        assert isinstance(models["opus"], Model)
-        assert models["opus"].provider == "anthropic"
-        # Exactly one model carries the default flag, whichever it is. Asserting WHICH
-        # would re-create the coupling above: this job runs without a gateway, so the
-        # flagged model is the per-viewer Claude fallback, not `llm_model_default`.
+        # Empty-catalog integration envs serve the curated picker only
+        # (`list_models` when `catalog_size() == 0`). Do not name a Claude alias —
+        # hardcoded `opus` broke when the picker dropped Opus (2026-09-05). With no
+        # gateway the default flag marks the Claude fallback (`llm_model_default_claude`).
+        assert models, "expected at least one curated model"
         assert sum(1 for m in models.values() if m.default) == 1
+        default_model = next(m for m in models.values() if m.default)
+        assert default_model.provider == "anthropic"
         # Pricing is populated with real USD-per-MTok numbers (incl. both cache rates).
-        p = models["opus"].pricing
+        p = default_model.pricing
         assert p is not None
         assert p.input_per_mtok > 0 and p.output_per_mtok > 0
         assert p.cache_read_per_mtok > 0 and p.cache_write_per_mtok > 0
