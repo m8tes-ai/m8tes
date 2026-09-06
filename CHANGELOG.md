@@ -4,6 +4,16 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.20.1] - 2026-09-06
+
+### Fixed
+
+- Clarify that `client.runs.cancel(run_id)` also cancels pending automatic recovery:
+  a failed run with `next_retry_at` set becomes `cancelled` and leaves the recovery queue.
+- Document `Run.next_retry_at` as the due time for automatic recovery, including
+  interrupted scheduled tasks that continue the same saved session and run ID.
+  Other scheduled transient failures may still create a retry child.
+
 ## [4.20.0] - 2026-09-06
 
 ### Added

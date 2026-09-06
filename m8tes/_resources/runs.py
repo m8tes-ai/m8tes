@@ -1044,8 +1044,9 @@ class Runs:
         return Run.from_dict(resp.json())
 
     def cancel(self, run_id: int, *, user_id: str | None = None) -> Run:
-        """Cancel an active run.
+        """Cancel an active run or its pending automatic recovery.
 
+        A failed run with ``next_retry_at`` set becomes cancelled and leaves the queue.
         Pass ``user_id`` when the account has strict multi-tenant mode on.
         """
         resp = self._http.request(

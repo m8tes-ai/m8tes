@@ -680,8 +680,9 @@ class Run:
     auth_provider: str | None = None
     retry_of_run_id: int | None = None
     retry_count: int = 0
-    # Scheduled-run auto-retry: how many automatic retries this lineage has used,
-    # and when the next one fires (ISO timestamp, None when none is scheduled).
+    # Automatic recovery: attempts used and when recovery is due (ISO timestamp).
+    # Interrupted task sessions, including scheduled work, resume this same run;
+    # other scheduled transient failures may create a retry child. None = not queued.
     auto_retry_count: int = 0
     next_retry_at: str | None = None
     # Structured result matching the `output_schema` the run was created with. None when no schema

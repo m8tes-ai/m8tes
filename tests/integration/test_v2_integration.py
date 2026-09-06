@@ -56,6 +56,8 @@ from m8tes._types import (
     Webhook,
 )
 
+pytestmark = pytest.mark.integration
+
 
 def _uid() -> str:
     """Generate a unique user_id to avoid collision across test runs."""
