@@ -29,9 +29,20 @@ class GitHubApp:
         """Connection state for this account's GitHub App install."""
         return GitHubAppStatus.from_dict(self._http.request("GET", "/github-app/status").json())
 
-    def setup_url(self, *, org: str | None = None, name: str | None = None) -> str:
-        """URL to open in a browser to create your own GitHub App (manifest flow)."""
-        params = _build_params(org=org, name=name)
+    def setup_url(
+        self,
+        *,
+        cancel_epoch: int,
+        org: str | None = None,
+        name: str | None = None,
+    ) -> str:
+        """URL to open in a browser to create your own GitHub App (manifest flow).
+
+        ``cancel_epoch`` is required — pass ``status().manifest_epoch`` at click time
+        so a delayed request that races ``clear_identity`` (Use m8tes App) is refused
+        instead of recreating a pending identity.
+        """
+        params = _build_params(org=org, name=name, cancel_epoch=cancel_epoch)
         return str(
             self._http.request("GET", "/github-app/setup-url", params=params).json()["setup_url"]
         )

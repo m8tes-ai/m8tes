@@ -4,6 +4,12 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- **`client.github_app.setup_url(cancel_epoch=…, org=…)`** and **`GitHubAppStatus.manifest_epoch`** —
+  `cancel_epoch` is required (pass `status().manifest_epoch` at click time) so a delayed
+  setup that races `clear_identity` (Use m8tes App) is refused instead of recreating a
+  pending identity.
 ## [4.19.1] - 2026-09-05
 
 ### Fixed

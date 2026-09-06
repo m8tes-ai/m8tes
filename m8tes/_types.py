@@ -969,6 +969,8 @@ class GitHubAppStatus:
     branded: bool = False
     app_slug: str | None = None
     setup_pending: bool = False
+    # Pass back as setup_url(cancel_epoch=…) so Use m8tes App races refuse cleanly.
+    manifest_epoch: int = 0
 
     @classmethod
     def from_dict(cls, data: dict) -> GitHubAppStatus:
@@ -980,6 +982,7 @@ class GitHubAppStatus:
             branded=bool(data.get("branded", False)),
             app_slug=data.get("app_slug"),
             setup_pending=bool(data.get("setup_pending", False)),
+            manifest_epoch=int(data.get("manifest_epoch", 0) or 0),
         )
 
 

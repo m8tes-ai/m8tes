@@ -2869,6 +2869,7 @@ class TestGitHubApp:
                 "branded": True,
                 "app_slug": "acme-code",
                 "setup_pending": False,
+                "manifest_epoch": 3,
             },
         )
         responses.add(
@@ -2877,14 +2878,16 @@ class TestGitHubApp:
             json={"install_url": "https://github.com/apps/acme-code/installations/new"},
         )
         gh = GitHubApp(http)
-        assert "org=acme" in gh.setup_url(org="acme")
+        assert "org=acme" in gh.setup_url(org="acme", cancel_epoch=2)
         assert "org=acme" in responses.calls[0].request.url
+        assert "cancel_epoch=2" in responses.calls[0].request.url
         assert "acme-code" in gh.complete_setup(ticket="tix")
         gh.clear_identity()
         assert responses.calls[2].request.method == "DELETE"
         status = gh.status()
         assert status.branded is True
         assert status.app_slug == "acme-code"
+        assert status.manifest_epoch == 3
 
 
 class TestSubresourceScopeForwarding:

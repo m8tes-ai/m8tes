@@ -5707,7 +5707,7 @@ class TestGitHubAppCoding:
         if status.state in {"connected", "all_repos", "suspended"}:
             pytest.skip("session client already has a GitHub install")
         try:
-            url = v2_client.github_app.setup_url()
+            url = v2_client.github_app.setup_url(cancel_epoch=status.manifest_epoch)
             assert "github-app/register" in url
             assert "state=" in url
             pending = v2_client.github_app.status()
