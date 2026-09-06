@@ -5,9 +5,7 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-**Give every customer their own AI agent — through one API.**
-
-Hosted runtime, 190+ integrations, scheduling, memory, human-in-the-loop approvals, and per-user isolation via `user_id`. Ship autonomous agents to production in minutes.
+Run agents from Python with 190+ integrations, memory, streaming, and per-user isolation.
 
 ## Install
 
@@ -17,27 +15,34 @@ pip install -U "m8tes>=4.8"
 
 ## Quick start
 
+1. [Create an account and save your API key](https://m8tes.ai/docs/quickstart).
+2. Open [Account → Model connections](https://m8tes.ai/account), connect xAI, and finish provider sign-in. Wait for **Connected**.
+3. Set `M8TES_API_KEY`, then stream a reply:
+
 ```python
-from m8tes import M8tes, PermissionMode
+from m8tes import M8tes
 
-client = M8tes()  # uses M8TES_API_KEY env var
+client = M8tes()
+# Personal development only: this disables strict user_id checks account-wide.
+# This persists. For customer-facing apps, keep strict mode on and pass user_id.
+client.settings.update(require_end_user_id=False)
 
-result = client.runs.create_and_wait(
-    message="pull last week's Stripe MRR and post to #revenue on Slack",
-    tools=["stripe", "slack"],
-    instructions="you are a finance ops assistant",
-    permission_mode=PermissionMode.AUTONOMOUS,
-    email_inbox=True,
-)
-print(result.output)
-print(f"inbox: {result.email_address}")  # forward emails here to trigger future runs
+for text in client.runs.stream_text(
+    message="Draft a warm reply to a customer asking to cancel.",
+    model="grok-4.6",
+    raise_on_error=True,
+):
+    print(text, end="", flush=True)
 ```
 
-Set `task_setup_tools=False` on `client.runs.create(...)`, `client.runs.reply(...)`, or `client.tasks.run(...)` when you do not want the agent to receive the internal same-scope management tools for agents, tasks, runs, approvals, files, memories, inboxes, webhooks, and app connections during that execution. Set `feedback=False` on those same V2 calls to disable the internal issue-reporting feedback tool (`report_issue`) for that execution.
+For production, keep strict mode on and pass `user_id` for each customer. These runs use prepaid funds; new balances start at **$0**. [Top up before running](https://m8tes.ai/docs/billing-usage#prepaid-balance).
 
-When you pass `user_id`, the run is scoped to that end user. If you target an existing agent or task that is already scoped, the `user_id` you pass must match that resource's scope. If you omit `user_id`, runs and tasks inherit the scope from the targeted agent or task.
-
-→ Full docs and examples at [m8tes.ai/docs](https://m8tes.ai/docs)
+| Next step | Guide |
+|---|---|
+| Stream text and tool events | [Runs](https://m8tes.ai/docs/runs) |
+| Connect Stripe, Slack, or another app | [Tools](https://m8tes.ai/docs/tools) |
+| Scope agents, tasks, and memory | [Users](https://m8tes.ai/docs/users) |
+| Configure built-in management and feedback tools | [Built-in tools](https://m8tes.ai/docs/built-in-tools) |
 
 ## Auth & usage
 
@@ -60,7 +65,7 @@ client.billing.set_overage(enabled=True, monthly_cap_cents=5000)  # $50 cap
 
 New accounts start unfunded. Connect a model subscription to activate the $0 Hobby plan immediately (150 runs every 30 days), choose Individual for $20/month and 1,000 runs using that subscription, or choose a team plan starting at $1,000/month with inference included.
 
-Need email-triggered runs? Opt in with `email_inbox=True` on `client.agents.create(...)` or call `client.agents.enable_email_inbox(agent_id)` later.
+Enable an @notifications.m8tes.ai inbox per agent with `email_inbox=True` on `client.agents.create(...)` or call `client.agents.enable_email_inbox(agent_id)` later.
 
 Need iMessage-triggered runs? Configure BlueBubbles on your account, then set `inbound_imessage_enabled=True` and `imessage_chat_guid="..."` on `client.agents.create(...)` or `client.agents.update(...)`. Use a dedicated 1:1 chat unless you intentionally want everyone in that thread to trigger the agent and receive its replies.
 
@@ -71,33 +76,6 @@ page = client.audit_logs.list(method="POST", resource_type="run", limit=10)
 for log in page.data:
     print(log.created_at, log.method, log.path, log.status_code)
 ```
-
-## What you skip
-
-| Build it yourself | With m8tes |
-|---|---|
-| Sandboxed execution environment | ✅ Hosted runtime, zero infra |
-| OAuth for every app you connect | ✅ 190+ integrations with managed OAuth |
-| Scheduling, webhook, email, and iMessage triggers | ✅ Built in — set once, runs forever |
-| Human-in-the-loop approval flows | ✅ Three modes: autonomous, approval, plan |
-| Memory that persists across executions | ✅ Per-user memory out of the box |
-| Real-time streaming to your UI | ✅ SSE events, works today |
-| File output and delivery | ✅ Generated files downloadable via API |
-| Webhook infrastructure for agent events | ✅ Outbound webhooks built in |
-| Per-user data isolation | ✅ Set `user_id`, we handle the rest |
-| An email inbox for your agent | ✅ Enable an @notifications.m8tes.ai inbox per agent |
-
-## What's included
-
-- **Hosted agent runtime** — agents run in isolated sandboxes. You ship the workflow, not the infra.
-- **190+ managed integrations** — Gmail, Slack, Notion, HubSpot, Stripe, Linear, Google Ads. OAuth and token refresh handled.
-- **Human-in-the-loop** — require approval before sensitive actions. Keep the speed without giving up control.
-- **Scheduled runs, webhooks, email, and iMessage triggers** — set the cadence once. Daily, weekly, or hourly runs happen automatically.
-- **Persistent memory** — agents remember past conversations and build on them. Per-user scoping for multi-tenant apps.
-- **Permission modes** — autonomous, approval-required, or plan-then-execute. Start locked down, loosen as you gain confidence.
-- **Per-user isolation** — set `user_id` on any run. Memory, history, and tools are strictly scoped.
-- **Real-time streaming** — SSE events for text output, tool calls, files, and completion.
-- **File handling** — agents generate reports and spreadsheets, downloadable through the API.
 
 ## Use cases
 
@@ -118,7 +96,7 @@ eve, LangChain, CrewAI, and the OpenAI Agents SDK are agent frameworks. They hel
 | An agent is | Code you write and deploy | An API resource created at runtime |
 | Agent execution | Local or your cloud — you host it | Hosted sandbox |
 | Multi-tenancy | Build isolation yourself | One `user_id` parameter |
-| Tool integrations | Build and maintain | 190+ with managed OAuth |
+| Tool integrations | Build and maintain | 190+ managed integrations with OAuth |
 | Scheduling & triggers | Write your own | Built in |
 | Memory | DIY persistence layer | Per-user memory out of the box |
 | Human-in-the-loop | Build approval flows | Three modes built in |
