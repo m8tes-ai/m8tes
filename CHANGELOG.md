@@ -4,7 +4,18 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.20.0] - 2026-09-06
+
 ### Added
+
+- **Recursive shared Teams through `client.groups`.** Create and move nested groups with
+  `parent_id`; inspect the visible ancestor `path` and management capabilities; invite, list,
+  update, and remove direct or inherited member roles; and preview, accept, or revoke verified-email
+  invites. New invitations default to editor, while migrated grants remain viewer. Viewer, runner,
+  and editor capabilities inherit across a Team subtree and stay independent of legacy
+  `groups.share(...)` Mate visibility or organization membership.
+- Agent responses expose `can_manage`, `can_execute`, and owner-only `can_share` so clients can
+  present the effective capabilities of a scoped Team member.
 
 - **`client.github_app.setup_url(cancel_epoch=…, org=…)`** and **`GitHubAppStatus.manifest_epoch`** —
   `cancel_epoch` is required (pass `status().manifest_epoch` at click time) so a delayed

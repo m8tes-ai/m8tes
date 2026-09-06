@@ -38,6 +38,8 @@ from m8tes._types import (
     EmailInbox,
     EndUser,
     FetchmailInbox,
+    Group,
+    GroupInvite,
     McpServer,
     Memory,
     PermissionPolicy,
@@ -5784,6 +5786,58 @@ class TestAccountPassword:
             )["access_token"]
         finally:
             client.close()
+
+
+@pytest.mark.integration
+class TestGroups:
+    """Recursive Team CRUD and manager-visible membership against the live backend."""
+
+    def test_nested_group_and_invite_lifecycle(self, v2_client):
+        parent = v2_client.groups.create(name=f"Marketing-{_uid()}")
+        agent = None
+        invite = None
+        try:
+            child = v2_client.groups.create(name="Paid Ads", parent_id=parent.id)
+            assert isinstance(child, Group)
+            assert child.parent_id == parent.id
+            assert [part.id for part in child.path] == [parent.id]
+            assert child.can_manage is True
+
+            agent = v2_client.agents.create(name="Groups integration", group_id=child.id)
+            assert agent.group_id == child.id
+
+            moved = v2_client.groups.update(child.id, parent_id=None)
+            assert moved.parent_id is None
+            restored = v2_client.groups.update(child.id, parent_id=parent.id)
+            assert restored.parent_id == parent.id
+
+            members = v2_client.groups.members(child.id)
+            # Ownership is implicit; this endpoint lists accepted Team grants only.
+            assert members.data == []
+
+            invite = v2_client.groups.invite(
+                child.id, email=f"invite-{_uid()}@test.m8tes.ai", role="runner"
+            )
+            assert isinstance(invite, GroupInvite)
+            assert invite.role == "runner"
+            assert any(row.id == invite.id for row in v2_client.groups.invites(child.id).data)
+            assert v2_client.groups.members(child.id).data == []
+            v2_client.groups.cancel_invite(invite.id)
+            invite = None
+
+            v2_client.groups.delete(parent.id)
+            with pytest.raises(NotFoundError):
+                v2_client.groups.get(child.id)
+            assert v2_client.agents.get(agent.id).group_id is None
+        finally:
+            if invite is not None:
+                with contextlib.suppress(NotFoundError):
+                    v2_client.groups.cancel_invite(invite.id)
+            with contextlib.suppress(NotFoundError):
+                v2_client.groups.delete(parent.id)
+            if agent is not None:
+                with contextlib.suppress(NotFoundError):
+                    v2_client.agents.delete(agent.id)
 
 
 @pytest.mark.integration

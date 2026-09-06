@@ -20,6 +20,10 @@ from m8tes._types import (
     AuditLog,
     Channel,
     ChannelInstallLinks,
+    Group,
+    GroupInvite,
+    GroupInvitePreview,
+    GroupMember,
     Memory,
     PermissionPolicy,
     PermissionRequest,
@@ -75,6 +79,10 @@ AppToolSchemaResponse = _schemas.AppToolResponse
 AuditLogResponse = _schemas.AuditLogResponse
 ChannelResponse = _schemas.ChannelResponse
 ChannelInstallLinksResponse = _schemas.ChannelInstallLinksResponse
+GroupResponse = _schemas.GroupResponse
+GroupMemberResponse = _schemas.GroupMemberResponse
+GroupInviteResponse = _schemas.GroupInviteResponse
+GroupInvitePreviewResponse = _schemas.GroupInvitePreview
 
 
 def _pydantic_fields(model: type) -> set[str]:
@@ -105,6 +113,10 @@ SCHEMA_PAIRS = [
     (AuditLogResponse, AuditLog, set()),
     (ChannelResponse, Channel, set()),
     (ChannelInstallLinksResponse, ChannelInstallLinks, set()),
+    (GroupResponse, Group, set()),
+    (GroupMemberResponse, GroupMember, set()),
+    (GroupInviteResponse, GroupInvite, set()),
+    (GroupInvitePreviewResponse, GroupInvitePreview, set()),
 ]
 
 
@@ -192,6 +204,8 @@ def _probe_value(field: dataclasses.Field):
     base = text.split("|")[0]
     if base == "list[int]":
         return [1, 2]
+    if base == "list[GroupPathItem]":
+        return _UNSUPPORTED
     if base == "list" or base.startswith("list["):
         return ["probe"]
     if base.startswith("dict"):
@@ -247,6 +261,7 @@ _NESTED_OBJECT_FIELDS = {
     ("Run", "usage"),  # RunUsage — covered by test_v2_billing.py
     ("ChannelInstallLinks", "slack"),  # SlackInstallLink — covered by test_v2_resources.py
     ("ChannelInstallLinks", "github"),  # GitHubInstallLink — same
+    ("Group", "path"),  # GroupPathItem — covered by test_v2_resources.py
 }
 
 

@@ -335,6 +335,9 @@ class TestTeammates:
                 "default_permission_mode": "autonomous",
                 "status": "enabled",
                 "tools": [],
+                "can_manage": True,
+                "can_execute": False,
+                "can_share": True,
                 "created_at": "",
                 "updated_at": "",
             },
@@ -343,6 +346,9 @@ class TestTeammates:
         t = Teammates(http).create(name="Bot")
         assert isinstance(t, Teammate)
         assert t.id == 1
+        assert t.can_manage is True
+        assert t.can_execute is False
+        assert t.can_share is True
         body = json.loads(responses.calls[0].request.body)
         assert body == {"name": "Bot"}
 
@@ -2290,6 +2296,171 @@ class TestDocuments:
 
 
 class TestGroups:
+    group: ClassVar[dict] = {
+        "id": 3,
+        "name": "Google",
+        "parent_id": 2,
+        "path": [{"id": 1, "name": "Marketing"}, {"id": 2, "name": "Paid Ads"}],
+        "display_order": 0,
+        "user_id": None,
+        "visibility": "personal",
+        "can_manage": True,
+        "can_leave": False,
+        "created_at": "2026-09-06T10:00:00Z",
+        "updated_at": None,
+    }
+
+    @responses.activate
+    def test_create_sends_parent_and_parses_recursive_access_fields(self, http):
+        responses.add(responses.POST, f"{BASE}/groups", json=self.group, status=201)
+
+        group = Groups(http).create(name="Google", parent_id=2)
+
+        assert json.loads(responses.calls[0].request.body) == {"name": "Google", "parent_id": 2}
+        assert group.parent_id == 2
+        assert [part.name for part in group.path] == ["Marketing", "Paid Ads"]
+        assert group.can_manage is True
+        assert group.can_leave is False
+
+    @responses.activate
+    def test_update_parent_explicit_none_moves_to_root_and_omit_leaves_unchanged(self, http):
+        responses.add(responses.PATCH, f"{BASE}/groups/3", json={**self.group, "parent_id": None})
+        responses.add(responses.PATCH, f"{BASE}/groups/3", json=self.group)
+
+        Groups(http).update(3, parent_id=None)
+        Groups(http).update(3, name="Google")
+
+        assert json.loads(responses.calls[0].request.body) == {"parent_id": None}
+        assert json.loads(responses.calls[1].request.body) == {"name": "Google"}
+
+    @responses.activate
+    def test_membership_calls_are_account_scoped_and_parse_inheritance(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/groups/3/members",
+            json={
+                "data": [
+                    {
+                        "member_id": 9,
+                        "name": "Ada",
+                        "email": "ada@example.com",
+                        "role": "runner",
+                        "inherited": True,
+                        "inherited_from_group_id": 1,
+                        "inherited_from_group_name": "Marketing",
+                        "can_remove": False,
+                    }
+                ],
+                "has_more": False,
+            },
+        )
+        responses.add(
+            responses.PATCH,
+            f"{BASE}/groups/3/members/9",
+            json={
+                "member_id": 9,
+                "name": "Ada",
+                "email": "ada@example.com",
+                "role": "editor",
+                "inherited": False,
+                "inherited_from_group_id": None,
+                "inherited_from_group_name": None,
+                "can_remove": True,
+            },
+        )
+        responses.add(responses.DELETE, f"{BASE}/groups/3/members/9", status=204)
+
+        page = Groups(http).members(3)
+        updated = Groups(http).update_member(3, 9, role="editor")
+        Groups(http).remove_member(3, 9)
+
+        assert page.data[0].member_id == 9
+        assert page.data[0].role == "runner"
+        assert page.data[0].inherited is True
+        assert page.data[0].inherited_from_group_name == "Marketing"
+        assert updated.role == "editor"
+        assert [call.request.url for call in responses.calls] == [
+            f"{BASE}/groups/3/members",
+            f"{BASE}/groups/3/members/9",
+            f"{BASE}/groups/3/members/9",
+        ]
+        assert responses.calls[1].request.body == b'{"role": "editor"}'
+
+    @responses.activate
+    def test_invitation_lifecycle_uses_account_scope_routes(self, http):
+        invite = {
+            "id": 11,
+            "email": "sam@example.com",
+            "role": "editor",
+            "status": "pending",
+            "created_at": "2026-09-06T10:00:00Z",
+            "expires_at": "2026-09-13T10:00:00Z",
+            "email_sent": None,
+        }
+        responses.add(
+            responses.GET,
+            f"{BASE}/groups/3/invites",
+            json={"data": [invite], "has_more": False},
+        )
+        responses.add(responses.POST, f"{BASE}/groups/3/invites", json=invite, status=201)
+        responses.add(responses.DELETE, f"{BASE}/groups/invites/11", status=204)
+        responses.add(
+            responses.GET,
+            f"{BASE}/groups/invites/token%20value",
+            json={
+                "group_name": "Google",
+                "inviter_name": "Lin",
+                "email": "sam@example.com",
+                "valid": True,
+                "matches_current_user": True,
+                "requires_verification": False,
+                "role": "runner",
+            },
+        )
+        responses.add(responses.POST, f"{BASE}/groups/invites/accept", json=self.group)
+
+        assert Groups(http).invites(3).data[0].email_sent is None
+        created = Groups(http).invite(3, email="sam@example.com")
+        assert created.id == 11
+        assert created.role == "editor"
+        Groups(http).cancel_invite(11)
+        preview = Groups(http).preview_invite("token value")
+        assert preview.group_name == "Google"
+        assert preview.role == "runner"
+        assert Groups(http).accept_invite("token value").id == 3
+
+        assert [call.request.url for call in responses.calls] == [
+            f"{BASE}/groups/3/invites",
+            f"{BASE}/groups/3/invites",
+            f"{BASE}/groups/invites/11",
+            f"{BASE}/groups/invites/token%20value",
+            f"{BASE}/groups/invites/accept",
+        ]
+        assert responses.calls[1].request.body == b'{"email": "sam@example.com", "role": "editor"}'
+        assert responses.calls[4].request.body == b'{"token": "token value"}'
+
+    @responses.activate
+    def test_invite_preserves_an_explicit_role(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/groups/3/invites",
+            json={
+                "id": 12,
+                "email": "sam@example.com",
+                "role": "runner",
+                "status": "pending",
+                "created_at": "2026-09-06T10:00:00Z",
+                "expires_at": "2026-09-13T10:00:00Z",
+                "email_sent": True,
+            },
+            status=201,
+        )
+
+        invite = Groups(http).invite(3, email="sam@example.com", role="runner")
+
+        assert invite.role == "runner"
+        assert responses.calls[0].request.body == b'{"email": "sam@example.com", "role": "runner"}'
+
     @responses.activate
     def test_share_sends_visibility_and_user_id(self, http):
         responses.add(

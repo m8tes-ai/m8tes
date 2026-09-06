@@ -8,6 +8,7 @@ from enum import StrEnum
 from typing import Any, Generic, Literal, TypeVar
 
 T = TypeVar("T")
+GroupMemberRole = Literal["viewer", "runner", "editor"]
 
 
 class PermissionMode(StrEnum):
@@ -225,6 +226,9 @@ class Teammate:
     # Added 2026-08-02 — template provenance + org visibility.
     template_slug: str | None = None
     visibility: str | None = None
+    can_manage: bool = False
+    can_execute: bool = False
+    can_share: bool = False
     inbound_email_enabled: bool = False
     email_address: str | None = None
     inbound_imessage_enabled: bool = False
@@ -288,6 +292,9 @@ class Teammate:
             inbound_email_enabled=data.get("inbound_email_enabled", False),
             template_slug=data.get("template_slug"),
             visibility=data.get("visibility"),
+            can_manage=bool(data.get("can_manage", False)),
+            can_execute=bool(data.get("can_execute", False)),
+            can_share=bool(data.get("can_share", False)),
             email_address=data.get("email_address"),
             inbound_imessage_enabled=data.get("inbound_imessage_enabled", False),
             imessage_chat_guid=data.get("imessage_chat_guid"),
@@ -324,8 +331,20 @@ class Teammate:
 
 
 @dataclass
+class GroupPathItem:
+    """One visible ancestor in a Mate Group's root-to-parent path."""
+
+    id: int
+    name: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> GroupPathItem:
+        return cls(id=data["id"], name=data["name"])
+
+
+@dataclass
 class Group:
-    """A flat Mate Group folder for organizing agents (sidenav Groups)."""
+    """A recursive Team folder for organizing and sharing Mates."""
 
     id: int
     name: str
@@ -334,6 +353,10 @@ class Group:
     display_order: int | None = None
     user_id: str | None = None
     updated_at: str | None = None
+    parent_id: int | None = None
+    path: list[GroupPathItem] = field(default_factory=list)
+    can_manage: bool = False
+    can_leave: bool = False
 
     @classmethod
     def from_dict(cls, data: dict) -> Group:
@@ -345,6 +368,89 @@ class Group:
             visibility=data.get("visibility", "personal"),
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at"),
+            parent_id=data.get("parent_id"),
+            path=[GroupPathItem.from_dict(part) for part in data.get("path") or []],
+            can_manage=bool(data.get("can_manage", False)),
+            can_leave=bool(data.get("can_leave", False)),
+        )
+
+
+@dataclass
+class GroupMember:
+    """A person's direct or inherited role across a Team subtree."""
+
+    member_id: int
+    name: str
+    email: str
+    role: Literal["viewer", "runner", "editor"]
+    inherited: bool
+    inherited_from_group_id: int | None
+    inherited_from_group_name: str | None
+    can_remove: bool
+
+    @classmethod
+    def from_dict(cls, data: dict) -> GroupMember:
+        return cls(
+            member_id=data["member_id"],
+            name=data["name"],
+            email=data["email"],
+            # A pre-role server can only have viewer-equivalent grants.
+            role=data.get("role", "viewer"),
+            inherited=bool(data["inherited"]),
+            inherited_from_group_id=data.get("inherited_from_group_id"),
+            inherited_from_group_name=data.get("inherited_from_group_name"),
+            can_remove=bool(data["can_remove"]),
+        )
+
+
+@dataclass
+class GroupInvite:
+    """An invitation granting a role across a Team subtree."""
+
+    id: int
+    email: str
+    role: Literal["viewer", "runner", "editor"]
+    status: str
+    created_at: str
+    expires_at: str
+    email_sent: bool | None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> GroupInvite:
+        return cls(
+            id=data["id"],
+            email=data["email"],
+            # Invitations from before role support granted viewer access.
+            role=data.get("role", "viewer"),
+            status=data["status"],
+            created_at=data["created_at"],
+            expires_at=data["expires_at"],
+            email_sent=data.get("email_sent"),
+        )
+
+
+@dataclass
+class GroupInvitePreview:
+    """Authenticated preview of the role granted by a Team invite token."""
+
+    group_name: str
+    inviter_name: str
+    email: str
+    valid: bool
+    matches_current_user: bool
+    requires_verification: bool
+    role: Literal["viewer", "runner", "editor"]
+
+    @classmethod
+    def from_dict(cls, data: dict) -> GroupInvitePreview:
+        return cls(
+            group_name=data["group_name"],
+            inviter_name=data["inviter_name"],
+            email=data["email"],
+            valid=bool(data["valid"]),
+            matches_current_user=bool(data["matches_current_user"]),
+            requires_verification=bool(data["requires_verification"]),
+            role=data.get("role", "viewer"),
         )
 
 

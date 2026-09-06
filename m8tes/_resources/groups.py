@@ -1,11 +1,19 @@
-"""Groups resource — flat Mate Group folders for organizing agents."""
+"""Groups resource — recursive Teams for organizing and sharing agents."""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
 
 from .._http import seg
-from .._types import Group, GroupShareResult, SyncPage
+from .._types import (
+    Group,
+    GroupInvite,
+    GroupInvitePreview,
+    GroupMember,
+    GroupMemberRole,
+    GroupShareResult,
+    SyncPage,
+)
 from ._utils import _build_params
 
 if TYPE_CHECKING:
@@ -16,12 +24,13 @@ _UNSET: Any = object()
 
 
 class Groups:
-    """client.groups — create, list, update, delete, share Mate Groups.
+    """client.groups — recursive Team folders and role-based members.
 
     ``user_id`` scopes a group to one end-user; omit it for account-level
     groups. Assign agents via ``client.agents.update(..., group_id=...)``.
-    ``share`` bulk-sets mate visibility for members (selection set — not a
-    group ACL).
+    Invitation membership is account-scoped. Viewer, runner, and editor roles
+    apply through a group's subtree. ``share`` remains the independent legacy
+    bulk visibility operation for Mates currently in a group.
     """
 
     def __init__(self, http: HTTPClient):
@@ -33,6 +42,7 @@ class Groups:
         name: str,
         user_id: str | None = None,
         display_order: int | None = None,
+        parent_id: int | None = None,
     ) -> Group:
         """Create a Mate Group (creator is added as a member automatically)."""
         body: dict = {"name": name}
@@ -40,6 +50,8 @@ class Groups:
             body["user_id"] = user_id
         if display_order is not None:
             body["display_order"] = display_order
+        if parent_id is not None:
+            body["parent_id"] = parent_id
         resp = self._http.request("POST", "/groups", json=body)
         return Group.from_dict(resp.json())
 
@@ -67,6 +79,7 @@ class Groups:
         *,
         name: str | None = None,
         display_order: int | None = _UNSET,
+        parent_id: int | None = _UNSET,
         user_id: str | None = None,
     ) -> Group:
         """Rename or reorder a Mate Group.
@@ -79,8 +92,10 @@ class Groups:
             body["name"] = name
         if display_order is not _UNSET:
             body["display_order"] = display_order
+        if parent_id is not _UNSET:
+            body["parent_id"] = parent_id
         if not body:
-            raise ValueError("Pass name, display_order, or both.")
+            raise ValueError("Pass name, display_order, parent_id, or a combination of them.")
         resp = self._http.request(
             "PATCH",
             f"/groups/{seg(group_id)}",
@@ -90,7 +105,7 @@ class Groups:
         return Group.from_dict(resp.json())
 
     def delete(self, group_id: int, *, user_id: str | None = None) -> None:
-        """Delete a Mate Group. Agents in it become ungrouped."""
+        """Delete a Team subtree. Mates in it become ungrouped."""
         self._http.request(
             "DELETE",
             f"/groups/{seg(group_id)}",
@@ -117,3 +132,64 @@ class Groups:
             json={"visibility": visibility},
         )
         return GroupShareResult.from_dict(resp.json())
+
+    def members(self, group_id: int) -> SyncPage[GroupMember]:
+        """List direct and inherited member roles. Managers only; account scope."""
+        resp = self._http.request("GET", f"/groups/{seg(group_id)}/members")
+        body = resp.json()
+        return SyncPage(
+            data=[GroupMember.from_dict(row) for row in body["data"]],
+            has_more=body["has_more"],
+        )
+
+    list_members = members
+
+    def update_member(self, group_id: int, member_id: int, *, role: GroupMemberRole) -> GroupMember:
+        """Change a direct grant's role. Managers only; account scope."""
+        resp = self._http.request(
+            "PATCH",
+            f"/groups/{seg(group_id)}/members/{seg(member_id)}",
+            json={"role": role},
+        )
+        return GroupMember.from_dict(resp.json())
+
+    def remove_member(self, group_id: int, member_id: int) -> None:
+        """Remove a direct role grant. Managers or the member themself may call it."""
+        self._http.request(
+            "DELETE",
+            f"/groups/{seg(group_id)}/members/{seg(member_id)}",
+        )
+
+    def invites(self, group_id: int) -> SyncPage[GroupInvite]:
+        """List invitations for a Team. Managers only; account scope."""
+        resp = self._http.request("GET", f"/groups/{seg(group_id)}/invites")
+        body = resp.json()
+        return SyncPage(
+            data=[GroupInvite.from_dict(row) for row in body["data"]],
+            has_more=body["has_more"],
+        )
+
+    list_invites = invites
+
+    def invite(self, group_id: int, *, email: str, role: GroupMemberRole = "editor") -> GroupInvite:
+        """Invite one email address with a role across a Team subtree."""
+        resp = self._http.request(
+            "POST",
+            f"/groups/{seg(group_id)}/invites",
+            json={"email": email, "role": role},
+        )
+        return GroupInvite.from_dict(resp.json())
+
+    def cancel_invite(self, invite_id: int) -> None:
+        """Revoke a pending Team invitation."""
+        self._http.request("DELETE", f"/groups/invites/{seg(invite_id)}")
+
+    def preview_invite(self, token: str) -> GroupInvitePreview:
+        """Preview an invitation for the authenticated user."""
+        resp = self._http.request("GET", f"/groups/invites/{seg(token)}")
+        return GroupInvitePreview.from_dict(resp.json())
+
+    def accept_invite(self, token: str) -> Group:
+        """Accept an invitation after verified-email matching."""
+        resp = self._http.request("POST", "/groups/invites/accept", json={"token": token})
+        return Group.from_dict(resp.json())

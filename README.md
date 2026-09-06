@@ -422,6 +422,31 @@ print(result.phone_number)  # "+15551234567"
 client.apps.release("twilio", user_id="cust_123")  # release it back
 ```
 
+## Recursive Teams
+
+Organize Mates into a hierarchy and grant a role across one subtree:
+
+```python
+marketing = client.groups.create(name="Marketing")
+paid_ads = client.groups.create(name="Paid Ads", parent_id=marketing.id)
+google = client.groups.create(name="Google", parent_id=paid_ads.id)
+client.agents.update(agent.id, group_id=google.id)
+
+invite = client.groups.invite(marketing.id, email="ada@example.com", role="runner")
+members = client.groups.members(google.id)  # includes inherited roles
+client.groups.update_member(marketing.id, members.data[0].member_id, role="editor")
+```
+
+New invitations default to `editor`; choose `viewer` for read access or `runner` for read plus
+run/chat/reply/cancel/approve. Editors can also edit Mates, tasks, documents, and work inside the
+subtree. Existing grants remain `viewer`. Roles inherit through child Teams. Editors cannot manage
+members or roles, self-escalate, reorganize Teams, or move a Mate out of the shared scope.
+
+Team sharing does not make someone an organization member. Runs use the shared Mate owner's bound
+tools and billing while auditing the human requester separately; credentials stay opaque. Group
+CRUD accepts `user_id` for end-user isolation, while membership and invitation methods do not.
+`groups.share()` remains the separate legacy bulk operation for direct Mates' visibility.
+
 ## Resources
 
 | Resource | Key methods | Description |
@@ -434,6 +459,7 @@ client.apps.release("twilio", user_id="cust_123")  # release it back
 | `client.tasks.triggers` | `create` `list` `delete` | Schedule, webhook, and email triggers |
 | `client.apps` | `list` `is_connected` `connect` `connect_oauth` `connect_api_key` `connect_complete` `provision` `release` `list_triggers` `disconnect` | Tool catalog and end-user app connections |
 | `client.bridges` | `create` `list` `get` `update` `rotate_secret` `delete` | Per-account BlueBubbles (iMessage) bridges |
+| `client.groups` | `create` `list` `get` `update` `delete` `members` `update_member` `remove_member` `invites` `invite` `cancel_invite` `preview_invite` `accept_invite` `share` | Recursive Teams and inherited viewer, runner, or editor access |
 | `client.memories` | `create` `list` `delete` | Per-user persistent memory |
 | `client.permissions` | `create` `list` `delete` | Pre-approve tools for end-users |
 | `client.users` | `create` `list` `get` `update` `delete` | End-user profile management |
