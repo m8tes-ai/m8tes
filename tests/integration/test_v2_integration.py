@@ -155,6 +155,15 @@ def _new_v2_client(backend_url: str, *, email_prefix: str) -> M8tes:
 
 @pytest.mark.integration
 class TestModelConnections:
+    def test_default_model_requires_connection(self, v2_client):
+        connections = {item.provider: item for item in v2_client.model_connections.list().data}
+        assert connections["claude"].default_model is None
+        assert connections["claude"].resolved_default_model
+        with pytest.raises(ValidationError):
+            v2_client.model_connections.set_default_model("claude", model="sonnet")
+        refreshed = {item.provider: item for item in v2_client.model_connections.list().data}
+        assert refreshed["claude"].default_model is None
+
     def test_codex_native_authorization_lifecycle(self, v2_client):
         authorization = v2_client.model_connections.authorize("openai")
         try:

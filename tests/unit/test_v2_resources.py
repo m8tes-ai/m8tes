@@ -32,6 +32,7 @@ from m8tes._types import (
     AppConnectionInitiation,
     AppConnectionResult,
     AuditLog,
+    Model,
     PermissionMode,
     PermissionRequest,
     Run,
@@ -51,6 +52,21 @@ from m8tes._types import (
 )
 
 BASE = "https://api.test/v2"
+
+
+def test_model_preserves_authoritative_alias_resolution():
+    model = Model.from_dict(
+        {
+            "id": "sonnet",
+            "concrete_id": "claude-sonnet-5",
+            "name": "Claude Sonnet 5",
+            "description": "",
+            "provider": "anthropic",
+            "default": False,
+        }
+    )
+    assert model.id == "sonnet"
+    assert model.concrete_id == "claude-sonnet-5"
 
 
 @pytest.fixture
@@ -293,6 +309,29 @@ class TestModelConnections:
         assert disconnected.connected is False
         assert responses.calls[1].request.body in (None, b"", "")
         assert b"pasted-google-code" in (responses.calls[3].request.body or b"")
+
+    @responses.activate
+    @pytest.mark.parametrize("model", ["sonnet", None])
+    def test_set_provider_default_model(self, http, model):
+        responses.add(
+            responses.PATCH,
+            f"{BASE}/model-connections/claude/default-model",
+            json={
+                "provider": "claude",
+                "display_name": "Claude",
+                "connected": True,
+                "is_default": False,
+                "default_model": "claude-sonnet-4-6" if model else None,
+                "resolved_default_model": "claude-sonnet-4-6" if model else "claude-fable-5-1",
+            },
+        )
+        result = ModelConnections(http).set_default_model("claude", model=model)
+        assert json.loads(responses.calls[0].request.body) == {"model": model}
+        assert result.default_model == ("claude-sonnet-4-6" if model else None)
+        assert result.resolved_default_model == (
+            "claude-sonnet-4-6" if model else "claude-fable-5-1"
+        )
+        assert not result.is_default
 
     @responses.activate
     def test_apply_default(self, http):

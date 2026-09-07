@@ -37,6 +37,19 @@ class ModelConnections:
         ).json()
         return ApplyPreferredModelResult.from_dict(body)
 
+    def set_default_model(
+        self, provider: ModelConnectionProvider, *, model: str | None
+    ) -> ModelConnection:
+        """Choose this provider's model without switching the account's preferred provider.
+
+        Pass ``None`` to follow the provider's platform default again. Explicit
+        agent/run model selections keep precedence over this account preference.
+        """
+        body = self._http.request(
+            "PATCH", f"/model-connections/{seg(provider)}/default-model", json={"model": model}
+        ).json()
+        return ModelConnection.from_dict(body)
+
     def clear_default(self) -> bool:
         """Clear the account model-plan default so platform mates use m8tes credits again."""
         body = self._http.request("DELETE", "/model-connections/preferred-default").json()

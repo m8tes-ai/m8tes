@@ -4,6 +4,16 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.22.0] - 2026-09-08
+
+### Added
+
+- `client.model_connections.set_default_model(provider, model=...)` saves a separate
+  model default for a connected provider. Pass `None` to reset it. Connection
+  responses expose the saved `default_model` and `resolved_default_model`; explicit
+  agent/run model choices retain precedence.
+- Model discovery exposes `concrete_id`, the authoritative model ID behind a short alias.
+
 ## [4.21.0] - 2026-09-07
 
 ### Added

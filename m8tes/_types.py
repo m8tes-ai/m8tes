@@ -105,6 +105,7 @@ class Model:
     # higher requested effort is clamped, never rejected.
     max_effort: str = "max"
     pricing: ModelPricing | None = None
+    concrete_id: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> Model:
@@ -117,6 +118,7 @@ class Model:
             default=data["default"],
             max_effort=data.get("max_effort", "max"),
             pricing=ModelPricing.from_dict(pricing) if pricing else None,
+            concrete_id=data.get("concrete_id"),
         )
 
 
@@ -131,6 +133,8 @@ class ModelConnection:
     status: str | None = None
     account_label: str | None = None
     expires_at: str | None = None
+    default_model: str | None = None
+    resolved_default_model: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> ModelConnection:
@@ -142,6 +146,8 @@ class ModelConnection:
             status=data.get("status"),
             account_label=data.get("account_label"),
             expires_at=data.get("expires_at"),
+            default_model=data.get("default_model"),
+            resolved_default_model=data.get("resolved_default_model"),
         )
 
 
