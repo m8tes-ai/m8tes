@@ -1167,6 +1167,50 @@ class RunShare:
 
 
 @dataclass
+class RunActivity:
+    """Minimal run status; cancelled_at takes priority over a lagging active status."""
+
+    id: int
+    status: str
+    created_at: str
+    task_id: int | None = None
+    last_activity_at: str | None = None
+    error_code: str | None = None
+    next_retry_at: str | None = None
+    auto_retry_count: int = 0
+    cancelled_at: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> RunActivity:
+        return cls(**{name: data[name] for name in cls.__dataclass_fields__ if name in data})
+
+
+@dataclass
+class AgentRunActivity:
+    """Every active run plus the latest settled run for one visible agent."""
+
+    agent_id: int
+    runs: list[RunActivity]
+
+    @classmethod
+    def from_dict(cls, data: dict) -> AgentRunActivity:
+        return cls(
+            agent_id=data["agent_id"], runs=[RunActivity.from_dict(run) for run in data["runs"]]
+        )
+
+
+@dataclass
+class RunActivitySnapshot:
+    """Complete unpaginated activity snapshot, not a completion event feed."""
+
+    data: list[AgentRunActivity]
+
+    @classmethod
+    def from_dict(cls, data: dict) -> RunActivitySnapshot:
+        return cls(data=[AgentRunActivity.from_dict(group) for group in data["data"]])
+
+
+@dataclass
 class RunCheck:
     """Aggregate run counters for cheap change detection (GET /runs/check).
 

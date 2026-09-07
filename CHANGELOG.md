@@ -4,6 +4,16 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.21.0] - 2026-09-07
+
+### Added
+
+- `client.runs.activity(user_id=...)` returns a typed activity snapshot with every
+  active run and the latest settled run per visible agent. Includes waiting,
+  paused, automatic-retry, and accepted-cancellation metadata without loading
+  transcripts or a fixed history window. Omit `user_id` for account-level runs;
+  provide it for strict end-user isolation. Missing rows do not imply completion.
+
 ## [4.20.1] - 2026-09-06
 
 ### Fixed

@@ -64,6 +64,33 @@ def _uid() -> str:
     return f"user-{uuid.uuid4().hex[:8]}"
 
 
+class TestRunActivity:
+    """Read-only coverage: activity inspection never creates or executes a run."""
+
+    def test_scoped_activity_snapshot(self, v2_client):
+        from m8tes import RunActivitySnapshot
+
+        snapshot = v2_client.runs.activity(user_id=_uid())
+        assert isinstance(snapshot, RunActivitySnapshot)
+        assert snapshot.data == []
+
+    def test_account_activity_snapshot(self, v2_client):
+        from m8tes import AgentRunActivity, RunActivity, RunActivitySnapshot
+
+        snapshot = v2_client.runs.activity()
+        assert isinstance(snapshot, RunActivitySnapshot)
+        for group in snapshot.data:
+            assert isinstance(group, AgentRunActivity)
+            assert all(isinstance(run, RunActivity) for run in group.runs)
+
+    def test_activity_rejects_invalid_credentials(self, backend_url):
+        with (
+            M8tes(api_key="m8_invalid_activity_key", base_url=f"{backend_url}/api/v2") as client,
+            pytest.raises(AuthenticationError),
+        ):
+            client.runs.activity(user_id=_uid())
+
+
 def _chat_guid() -> str:
     """Generate a unique iMessage chat GUID for integration tests."""
     return f"iMessage;-;+1555{uuid.uuid4().hex[:10]}"

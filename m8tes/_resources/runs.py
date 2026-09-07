@@ -15,6 +15,7 @@ from .._types import (
     PermissionModeResponse,
     PermissionRequest,
     Run,
+    RunActivitySnapshot,
     RunCheck,
     RunFile,
     RunMessage,
@@ -932,6 +933,18 @@ class Runs:
         """
         resp = self._http.request("GET", "/runs/check", params=_build_params(user_id=user_id))
         return RunCheck.from_dict(resp.json())
+
+    def activity(self, *, user_id: str | None = None) -> RunActivitySnapshot:
+        """Read complete activity per visible agent, without a history window.
+
+        Includes all active/paused/waiting runs, pending automatic retries, and
+        the latest settled run per agent. ``cancelled_at`` takes priority over
+        a lagging status. No transcripts, pagination, or execution side effects.
+        Omitting ``user_id`` reads account-level runs only; providing it scopes
+        to that end-user. An absent row is not evidence of completion.
+        """
+        resp = self._http.request("GET", "/runs/activity", params=_build_params(user_id=user_id))
+        return RunActivitySnapshot.from_dict(resp.json())
 
     def outcome(self, run_id: int) -> RunOutcome:
         """Condensed run result: closing summary, structured output, and metered cost."""
