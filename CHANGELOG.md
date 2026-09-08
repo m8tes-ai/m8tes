@@ -4,6 +4,14 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.22.1] - 2026-09-08
+
+### Fixed
+
+- Clarified `model_connections.clear_default()`: Teams Auto runs use m8tes inference;
+  Hobby and Individual automatically choose a connected external provider. Explicit
+  models and API/Embed billing keep their existing behavior.
+
 ## [4.22.0] - 2026-09-08
 
 ### Added
