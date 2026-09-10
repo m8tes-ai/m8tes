@@ -1221,15 +1221,27 @@ class RunCheck:
     """Aggregate run counters for cheap change detection (GET /runs/check).
 
     Deliberately tiny — counts only, never rows — so it can be polled on a short
-    interval without the cost of re-listing. Compare all four fields: any change
+    interval without the cost of re-listing. Compare all the fields: any change
     means something happened (a run created, archived, finished, or started
-    waiting on a human).
+    waiting on a human; a Mate or Team created, renamed, or archived).
+
+    The roster and Teams fields are tracked apart from the run counters because
+    they move independently — an agent renaming a Mate touches neither
+    `total_count` nor `latest_change_at`. Without them a client that renders runs
+    grouped by Mate has to re-list the whole roster on every poll to stay correct.
+
+    Every field is scoped exactly like the list it probes, so it never reports on
+    rows the caller could not read directly.
     """
 
     total_count: int
     latest_run_id: int | None
     awaiting_count: int
     latest_change_at: str | None
+    roster_count: int = 0
+    roster_change_at: str | None = None
+    teams_count: int = 0
+    teams_change_at: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> RunCheck:
@@ -1238,6 +1250,10 @@ class RunCheck:
             latest_run_id=data.get("latest_run_id"),
             awaiting_count=data.get("awaiting_count", 0),
             latest_change_at=data.get("latest_change_at"),
+            roster_count=data.get("roster_count", 0),
+            roster_change_at=data.get("roster_change_at"),
+            teams_count=data.get("teams_count", 0),
+            teams_change_at=data.get("teams_change_at"),
         )
 
 

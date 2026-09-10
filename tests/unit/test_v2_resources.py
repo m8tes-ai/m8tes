@@ -863,12 +863,22 @@ class TestRuns:
                 "latest_run_id": 42,
                 "awaiting_count": 1,
                 "latest_change_at": "2026-08-08T12:00:00Z",
+                "roster_count": 3,
+                "roster_change_at": "2026-08-08T11:00:00Z",
+                "teams_count": 2,
+                "teams_change_at": "2026-08-08T10:00:00Z",
             },
         )
         result = Runs(http).check(user_id="alice")
         assert isinstance(result, RunCheck)
         assert result.total_count == 7
         assert result.latest_run_id == 42
+        # The roster/Teams fields are what let a client skip re-listing the roster on
+        # every poll; without these asserts, dropping them from `from_dict` is invisible.
+        assert result.roster_count == 3
+        assert result.roster_change_at == "2026-08-08T11:00:00Z"
+        assert result.teams_count == 2
+        assert result.teams_change_at == "2026-08-08T10:00:00Z"
         assert result.awaiting_count == 1
         assert responses.calls[0].request.params.get("user_id") == "alice"
 
@@ -877,6 +887,10 @@ class TestRuns:
         responses.add(responses.GET, f"{BASE}/runs/check", json={"total_count": 0})
         result = Runs(http).check()
         assert result.latest_run_id is None
+        # An older server omits the newer fields entirely; the client must not explode.
+        assert result.roster_count == 0
+        assert result.roster_change_at is None
+        assert result.teams_count == 0
         assert result.awaiting_count == 0
         assert result.latest_change_at is None
 

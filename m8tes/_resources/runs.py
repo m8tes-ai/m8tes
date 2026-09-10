@@ -924,12 +924,19 @@ class Runs:
         return Run.from_dict(resp.json())
 
     def check(self, *, user_id: str | None = None) -> RunCheck:
-        """Cheap "has anything changed?" probe — aggregate counts only, ~50 bytes.
+        """Cheap "has anything changed?" probe — aggregate counts and timestamps.
 
-        Poll this instead of re-listing runs when you only need to know whether
-        something appeared (a schedule fired, a webhook came in). Scoped exactly
-        like list(): ``user_id`` probes that end-user, omitting it probes the
-        account-level scope.
+        Poll this instead of re-listing when you only need to know whether
+        something appeared (a schedule fired, a webhook came in, a Mate was
+        renamed). The response also fingerprints the Mate roster and Teams, so a
+        client rendering runs grouped by Mate does not have to re-list the roster
+        on every poll to stay correct.
+
+        Each group of fields is scoped like the LIST it probes, and those lists do
+        not all answer ``user_id`` the same way — omitting it gives account-level
+        runs (``end_user_id IS NULL``) and account-level Teams, but every Mate you
+        can see, because ``GET /agents`` itself does not filter by end-user when
+        unscoped. Passing ``user_id`` narrows all three to that end-user.
         """
         resp = self._http.request("GET", "/runs/check", params=_build_params(user_id=user_id))
         return RunCheck.from_dict(resp.json())
