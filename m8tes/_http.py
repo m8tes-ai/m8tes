@@ -140,6 +140,7 @@ REPLAY_HEADER = "Idempotent-Replay"
 # point of the check, so it must not be approximate.
 _IDEMPOTENT_POST_PATHS = (
     re.compile(r"^/runs/?$"),
+    re.compile(r"^/runs/first-session/?$"),
     re.compile(r"^/runs/with-files/?$"),
     re.compile(r"^/runs/\d+/reply/?$"),
     re.compile(r"^/runs/\d+/reply/with-files/?$"),

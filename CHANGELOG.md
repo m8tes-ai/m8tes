@@ -4,6 +4,15 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.22.2] - 2026-09-10
+
+### Fixed
+
+- `runs.start_first_session` now retries on 429, 5xx and timeouts when an idempotency
+  key is set. The route has always been idempotent server-side, but it was missing from
+  the transport's retry allow-list, so it was the only run-creating call that failed
+  hard on a transient blip.
+
 ## [4.22.1] - 2026-09-08
 
 ### Fixed

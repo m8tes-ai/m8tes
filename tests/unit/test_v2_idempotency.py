@@ -58,6 +58,12 @@ class TestKeyIsAlwaysSent:
         assert responses.calls[0].request.headers[IDEMPOTENCY_HEADER]
 
     @responses.activate
+    def test_start_first_session_sends_a_key(self, http):
+        responses.add(responses.POST, f"{BASE}/runs/first-session", json=_run_json(), status=200)
+        Runs(http).start_first_session(agent_id=1, stream=False)
+        assert responses.calls[0].request.headers[IDEMPOTENCY_HEADER]
+
+    @responses.activate
     def test_caller_key_is_used_verbatim(self, http):
         """A caller's own key is what survives a process restart — a job runner
         passing its job id must get THAT key on the wire, not a fresh uuid."""
@@ -134,6 +140,8 @@ class TestPostRetry:
         for path in (
             "/runs/",
             "/runs",
+            "/runs/first-session",
+            "/runs/first-session/",
             "/runs/with-files",
             "/runs/42/reply",
             "/runs/42/reply/with-files",
@@ -153,6 +161,10 @@ class TestPostRetry:
             "/foo/reply/with-files",
             "/reruns",
             "/runs/abc/reply",
+            # The new entry must not widen into its neighbours either.
+            "/runs/first-session/extra",
+            "/foo/first-session",
+            "/runs/first-sessions",
         ):
             assert not _is_idempotent_route(path), path
 
