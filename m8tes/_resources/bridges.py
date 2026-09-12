@@ -85,7 +85,7 @@ class Bridges:
         """Register a bridge. The returned ``bridge.webhook_secret`` is shown once —
         configure it as the BlueBubbles webhook secret immediately.
 
-        Pass ``owner_handle`` (your own iMessage phone/email) to text the Company Agent
+        Pass ``owner_handle`` (your own iMessage phone/email) to text the Lead Mate
         (your inbound-default agent) right away, without editing its allowlist."""
         body: dict = {"name": name, "server_url": server_url, "password": password}
         if owner_handle is not None:

@@ -877,7 +877,7 @@ class Runs:
         sort: ``created`` (newest first, the default) or ``priority`` (runs waiting
         on a human first).
 
-        ``exclude_platform_runs=True`` hides the platform's own work (Company Agent
+        ``exclude_platform_runs=True`` hides the platform's own work (Lead Mate
         Day-1 / pulse / context maintenance) so you can ask whether the *user*
         has run anything themselves yet. Only Platform accounts have a Company
         Agent, so on an API-only account the filter matches nothing.
