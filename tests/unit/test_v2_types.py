@@ -53,6 +53,17 @@ class TestTeammate:
 
 
 class TestRun:
+    def test_continue_capability(self):
+        assert Run.from_dict({"id": 1, "can_continue": True}).can_continue is True
+        assert Run.from_dict({"id": 1, "can_continue": False}).can_continue is False
+        assert Run.from_dict({"id": 1}).can_continue is False
+
+    def test_recovery_episode_attempts(self):
+        run = Run.from_dict({"id": 1, "auto_retry_count": 5, "auto_recovery_attempt_count": 2})
+        assert run.auto_retry_count == 5
+        assert run.auto_recovery_attempt_count == 2
+        assert Run.from_dict({"id": 1}).auto_recovery_attempt_count is None
+
     def test_from_dict(self):
         r = Run.from_dict({"id": 42, "teammate_id": 1, "status": "completed", "output": "Done"})
         assert r.id == 42

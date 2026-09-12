@@ -748,6 +748,7 @@ class Runs:
         task_setup_tools: bool | None = None,
         feedback: bool | None = None,
         human_in_the_loop: bool | None = None,
+        reset_auto_recovery: bool = False,
         on_approval: Callable[[PermissionRequest], str] | None = None,
         on_question: Callable[[PermissionRequest], dict[str, str]] | None = None,
         poll_interval: float = 2.0,
@@ -767,6 +768,7 @@ class Runs:
             task_setup_tools=task_setup_tools,
             feedback=feedback,
             human_in_the_loop=human_in_the_loop,
+            reset_auto_recovery=reset_auto_recovery,
         )
         reply_run = cast(Run, run)
         # Queued replies wait on a run already executing — cancel would discard
@@ -986,6 +988,7 @@ class Runs:
         task_setup_tools: bool | None = None,
         feedback: bool | None = None,
         human_in_the_loop: bool | None = None,
+        reset_auto_recovery: bool = False,
         idempotency_key: str | None = None,
     ) -> RunStream | Run:
         """Follow-up message on an existing run.
@@ -993,6 +996,10 @@ class Runs:
         Continues the SAME run — it re-opens the run (reusing ``run_id``), keeps
         the prior context, and does not create a new run or consume a new
         run-count slot. It only burns tokens.
+
+        Set ``reset_auto_recovery=True`` for an explicit continuation to grant a
+        fresh automatic recovery budget. Cumulative retry history is preserved.
+        Automated recovery loops should leave this False.
 
         Replies normally keep the run's concrete model. After an own-subscription
         auth, quota, rate-limit, or provider-availability failure, a reply instead
@@ -1034,6 +1041,8 @@ class Runs:
             body["feedback"] = feedback
         if human_in_the_loop is not None:
             body["human_in_the_loop"] = human_in_the_loop
+        if reset_auto_recovery:
+            body["reset_auto_recovery"] = True
         headers = idempotency_headers(idempotency_key)
         if files:
             file_parts = [("files", _to_file_part(f)) for f in files]

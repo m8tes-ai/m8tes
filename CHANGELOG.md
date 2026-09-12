@@ -2,6 +2,14 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [4.24.0] - 2026-09-12
+
+### Added
+
+- `runs.reply(..., reset_auto_recovery=True)` grants an explicit continuation a fresh automatic
+  recovery budget without erasing retry history. `Run` exposes `can_continue`,
+  `auto_retry_count`, and `auto_recovery_attempt_count`.
+
 ## [4.23.0] - 2026-09-11
 
 ### Changed

@@ -1171,6 +1171,18 @@ class TestRuns:
         assert body["feedback"] is False
 
     @responses.activate
+    def test_reply_explicitly_renews_recovery_budget(self, http):
+        responses.add(responses.POST, f"{BASE}/runs/1/reply", json={"id": 1})
+        Runs(http).reply(1, message="Continue", stream=False, reset_auto_recovery=True)
+        assert json.loads(responses.calls[0].request.body)["reset_auto_recovery"] is True
+
+    @responses.activate
+    def test_reply_does_not_reset_recovery_budget_by_default(self, http):
+        responses.add(responses.POST, f"{BASE}/runs/1/reply", json={"id": 1})
+        Runs(http).reply(1, message="Continue", stream=False)
+        assert not json.loads(responses.calls[0].request.body).get("reset_auto_recovery", False)
+
+    @responses.activate
     def test_retry_returns_new_run(self, http):
         responses.add(
             responses.POST,
