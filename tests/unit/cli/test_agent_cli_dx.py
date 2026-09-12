@@ -57,8 +57,15 @@ class TestSuggestCommands:
         assert "get" in enhanced
 
     def test_enhance_leaves_other_errors(self) -> None:
-        msg = "the following arguments are required: command_args"
+        msg = "unrecognized arguments: --wat"
         assert enhance_argparse_error(msg) == msg
+
+    def test_enhance_missing_args_adds_examples(self) -> None:
+        msg = "the following arguments are required: run_id"
+        enhanced = enhance_argparse_error(msg)
+        assert "Example: m8tes auth login" in enhanced
+        assert 'm8tes agent task "say hello"' in enhanced
+        assert "m8tes run get" in enhanced
 
 
 class TestSuggestingParser:

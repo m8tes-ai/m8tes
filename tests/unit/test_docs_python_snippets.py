@@ -55,6 +55,12 @@ def _python_snippets() -> dict[str, str]:
     assert quickstart, "PYTHON_QUICKSTART_SNIPPET not found — did the export get renamed?"
     out["quickstart"] = quickstart.group(1)
 
+    starter = re.search(
+        r"export const PYTHON_STARTER_QUICKSTART_SNIPPET = `(.*?)`;", text, re.DOTALL
+    )
+    assert starter, "PYTHON_STARTER_QUICKSTART_SNIPPET not found"
+    out["starter"] = starter.group(1)
+
     console = re.search(
         r"function pythonFirstRun\([^)]*\)[^{]*\{\s*.*?return `(.*?)`;", text, re.DOTALL
     )
@@ -80,13 +86,15 @@ def test_the_guard_can_actually_see_the_snippets():
     """Anti-vacuity: a regex that silently matched nothing would pass everything below."""
     assert _SNIPPETS_TS.is_file(), f"{_SNIPPETS_TS} is missing"
     snippets = _python_snippets()
-    assert set(snippets) == {"quickstart", "console_with_user_id", "console_no_user_id"}
+    assert set(snippets) == {"quickstart", "starter", "console_with_user_id", "console_no_user_id"}
     for name, src in snippets.items():
         assert "stream_text" in src, f"{name} does not look like a first-run snippet"
 
 
 @requires_frontend
-@pytest.mark.parametrize("name", ["quickstart", "console_with_user_id", "console_no_user_id"])
+@pytest.mark.parametrize(
+    "name", ["quickstart", "starter", "console_with_user_id", "console_no_user_id"]
+)
 def test_every_documented_kwarg_exists_on_the_real_method(name):
     """The docs may not call `stream_text` with an argument the SDK does not accept.
 
@@ -206,7 +214,9 @@ def test_the_documented_install_floor_is_not_ahead_of_this_repo():
 
 
 @requires_frontend
-@pytest.mark.parametrize("name", ["quickstart", "console_with_user_id", "console_no_user_id"])
+@pytest.mark.parametrize(
+    "name", ["quickstart", "starter", "console_with_user_id", "console_no_user_id"]
+)
 def test_snippet_is_valid_python(name):
     src = _python_snippets()[name]
     try:
@@ -216,7 +226,9 @@ def test_snippet_is_valid_python(name):
 
 
 @requires_frontend
-@pytest.mark.parametrize("name", ["quickstart", "console_with_user_id", "console_no_user_id"])
+@pytest.mark.parametrize(
+    "name", ["quickstart", "starter", "console_with_user_id", "console_no_user_id"]
+)
 def test_raise_on_error_is_a_real_kwarg_on_the_stream_text_call(name):
     """Structural, so moving the text into a comment or outside the call fails.
 
@@ -241,4 +253,22 @@ def test_raise_on_error_is_a_real_kwarg_on_the_stream_text_call(name):
     value = kwargs["raise_on_error"]
     assert isinstance(value, ast.Constant) and value.value is True, (
         f"{name}: raise_on_error must be literally True, got {ast.dump(value)}"
+    )
+
+
+@requires_frontend
+def test_starter_run_passes_user_id_with_api_signup_strict_mode_unchanged():
+    """Fresh API accounts require user_id; only the separate own-sub example opts out."""
+    tree = ast.parse(_python_snippets()["starter"])
+    calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)]
+    streams = [
+        call
+        for call in calls
+        if isinstance(call.func, ast.Attribute) and call.func.attr == "stream_text"
+    ]
+    assert len(streams) == 1
+    kwargs = {kw.arg: ast.literal_eval(kw.value) for kw in streams[0].keywords}
+    assert kwargs.get("user_id") == "hello_world", "Starter run would fail strict user_id admission"
+    assert not any(kw.arg == "require_end_user_id" for call in calls for kw in call.keywords), (
+        "Starter example must work with the API signup's default isolation settings"
     )

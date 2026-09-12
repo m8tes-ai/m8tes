@@ -82,18 +82,28 @@ def suggest_commands(
 
 
 def enhance_argparse_error(message: str) -> str:
-    """Append a 'Did you mean?' line when argparse reports an invalid choice."""
+    """Append a 'Did you mean?' line when argparse reports an invalid choice.
+
+    For missing required args, append a short example under the usage dump so the
+    developer sees what a successful invocation looks like (DX Slice B1).
+    """
     match = _INVALID_CHOICE_RE.search(message)
-    if not match:
+    if match:
+        bad = match.group(1)
+        raw = match.group(2)
+        choices = [c.strip().strip("'\"") for c in raw.split(",") if c.strip().strip("'\"")]
+        suggestions = suggest_commands(bad, choices)
+        if suggestions:
+            return f"{message}\n💡 Did you mean: {', '.join(suggestions)}?"
         return message
-    bad = match.group(1)
-    # Choices are quoted tokens separated by commas
-    raw = match.group(2)
-    choices = [c.strip().strip("'\"") for c in raw.split(",") if c.strip().strip("'\"")]
-    suggestions = suggest_commands(bad, choices)
-    if not suggestions:
-        return message
-    return f"{message}\n💡 Did you mean: {', '.join(suggestions)}?"
+    if "the following arguments are required:" in message.lower():
+        return (
+            f"{message}\n"
+            "💡 Example: m8tes auth login\n"
+            '💡 Example: m8tes agent task "say hello"\n'
+            "💡 Example: m8tes run get 12345"
+        )
+    return message
 
 
 class SuggestingArgumentParser(argparse.ArgumentParser):

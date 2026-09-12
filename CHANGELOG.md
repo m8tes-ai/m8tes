@@ -2,7 +2,13 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
-## [Unreleased]
+## [4.23.0] - 2026-09-11
+
+### Changed
+
+- CLI `--help` includes usage examples; missing required args print example invocations.
+- `m8tes.signup` docstring documents the $1 API starter lane (`deepseek-v4-1-flash`).
+- `Balance.starter_credit_cents` reflects the ledger grant (not the web settings default).
 
 ## [4.22.2] - 2026-09-10
 

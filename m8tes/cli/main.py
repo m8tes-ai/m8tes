@@ -75,6 +75,14 @@ def build_parser() -> argparse.ArgumentParser:
         prog="m8tes",
         description="m8tes SDK - Ship agents. Skip the infrastructure.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "examples:\n"
+            "  m8tes auth login\n"
+            '  m8tes agent task "say hello"\n'
+            "  m8tes run get 12345\n"
+            "\n"
+            "Run `m8tes <command> --help` for command-specific options."
+        ),
     )
 
     # Global arguments
