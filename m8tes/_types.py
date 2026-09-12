@@ -747,6 +747,8 @@ class Run:
     # else marker-stripped latest prose). Null when there is nothing scannable —
     # NO-REPLY opt-outs and mid-run narration without a stamped closing included.
     closing_preview: str | None = None
+    latest_message_preview: str | None = None
+    needs_reply: bool = False
     # Populated on runs.reply() and on GET while an inbound message is still
     # pending/dispatching: "resumed" — the message became the run's next turn
     # immediately; "queued" — parked for delivery as the next turn. None when
@@ -813,6 +815,8 @@ class Run:
             recovery_repeats_actions=data.get("recovery_repeats_actions"),
             last_viewed_at=data.get("last_viewed_at"),
             closing_preview=data.get("closing_preview"),
+            latest_message_preview=data.get("latest_message_preview"),
+            needs_reply=data.get("needs_reply", False),
             delivery=data.get("delivery"),
             queued_message_id=data.get("queued_message_id"),
             pending_queued_message_ids=data.get("pending_queued_message_ids") or [],
@@ -1180,7 +1184,7 @@ class RunShare:
 
 @dataclass
 class RunActivity:
-    """Minimal run status; cancelled_at takes priority over a lagging active status."""
+    """Minimal run status; includes completed turns still waiting on a reply."""
 
     id: int
     status: str
@@ -1192,6 +1196,7 @@ class RunActivity:
     auto_retry_count: int = 0
     auto_recovery_attempt_count: int | None = None
     cancelled_at: str | None = None
+    needs_reply: bool = False
 
     @classmethod
     def from_dict(cls, data: dict) -> RunActivity:
@@ -1200,7 +1205,7 @@ class RunActivity:
 
 @dataclass
 class AgentRunActivity:
-    """Every active run plus the latest settled run for one visible agent."""
+    """Every active or human-blocked run plus the latest settled run for one visible agent."""
 
     agent_id: int
     runs: list[RunActivity]

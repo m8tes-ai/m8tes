@@ -8,6 +8,10 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ### Added
 
+- `Run.needs_reply` — a completed turn that asks for a reply or decision; viewing the run
+  does not clear it, only a reply does. Also on `RunActivity`.
+- `Run.latest_message_preview` — the latest assistant message body, alongside the short
+  `closing_preview` headline.
 - Stable `app.key` (`provider:kind`) references work in app paths and agent tools.
   Catalog responses include safe connection guidance and region choices.
 - `apps.connections.list()` lists all connections in the exact account or end-user

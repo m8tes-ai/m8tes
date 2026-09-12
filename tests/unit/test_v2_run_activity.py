@@ -28,6 +28,7 @@ def test_activity_returns_typed_groups_and_recovery_metadata():
                             "next_retry_at": "2026-09-07T10:02:00Z",
                             "auto_retry_count": 1,
                             "cancelled_at": None,
+                            "needs_reply": True,
                         }
                     ],
                 }
@@ -47,6 +48,7 @@ def test_activity_returns_typed_groups_and_recovery_metadata():
     assert run.error_code == "deploy_interrupted"
     assert run.next_retry_at == "2026-09-07T10:02:00Z"
     assert run.cancelled_at is None
+    assert run.needs_reply is True
     assert responses.calls[0].request.params == {"user_id": "alice"}
     assert len(responses.calls) == 1
 
