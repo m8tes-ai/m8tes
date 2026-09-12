@@ -1404,6 +1404,16 @@ class App:
     auth_type: str = ""  # "composio" | "api_key" | "api_key_proxy" | "platform_provisioned"
     logo_url: str | None = None
 
+    key: str = ""
+    kind: str = ""
+    api_key_documentation_url: str | None = None
+    api_key_guidance: str | None = None
+    api_key_label: str | None = None
+    oauth_available: bool = False
+    region_options: list[str] | None = None
+    use_case_category: str = "general"
+    is_popular: bool = False
+
     @property
     def needs_oauth(self) -> bool:
         """True for OAuth-based integrations (Gmail, Slack, etc.).
@@ -1428,6 +1438,15 @@ class App:
             connected=data.get("connected", False),
             auth_type=data.get("auth_type", ""),
             logo_url=data.get("logo_url"),
+            key=data.get("key", ""),
+            kind=data.get("kind", ""),
+            api_key_documentation_url=data.get("api_key_documentation_url"),
+            api_key_guidance=data.get("api_key_guidance"),
+            api_key_label=data.get("api_key_label"),
+            oauth_available=data.get("oauth_available", False),
+            region_options=data.get("region_options"),
+            use_case_category=data.get("use_case_category", "general"),
+            is_popular=data.get("is_popular", False),
         )
 
 
@@ -1473,6 +1492,12 @@ class AppConnectionDetails:
     scopes: list[str]
     updated_at: str
 
+    app_key: str = ""
+    provider: str = ""
+    kind: str = ""
+    account_id: str | None = None
+    accessible_customers: list[str] = field(default_factory=list)
+
     @classmethod
     def from_dict(cls, data: dict) -> AppConnectionDetails:
         return cls(
@@ -1481,6 +1506,11 @@ class AppConnectionDetails:
             account_label=data.get("account_label"),
             scopes=data.get("scopes", []),
             updated_at=data["updated_at"],
+            app_key=data.get("app_key", ""),
+            provider=data.get("provider", ""),
+            kind=data.get("kind", ""),
+            account_id=data.get("account_id"),
+            accessible_customers=data.get("accessible_customers", []),
         )
 
 
@@ -1512,6 +1542,133 @@ class AppConnectionResult:
             status=data["status"],
             app=data["app"],
         )
+
+
+@dataclass
+class GoogleAdsCustomer:
+    id: str
+    descriptive_name: str
+    manager: bool = False
+    status: str = "ENABLED"
+
+    @classmethod
+    def from_dict(cls, data: dict) -> GoogleAdsCustomer:
+        return cls(**data)
+
+
+@dataclass
+class GoogleAdsCustomers:
+    data: list[GoogleAdsCustomer]
+    refreshed: bool
+
+    @classmethod
+    def from_dict(cls, data: dict) -> GoogleAdsCustomers:
+        return cls(
+            data=[GoogleAdsCustomer.from_dict(item) for item in data.get("data", [])],
+            refreshed=data["refreshed"],
+        )
+
+
+@dataclass
+class GoogleSearchConsoleSite:
+    site_url: str
+    permission_level: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> GoogleSearchConsoleSite:
+        return cls(
+            site_url=data.get("site_url", data.get("siteUrl", "")),
+            permission_level=data.get("permission_level", data.get("permissionLevel", "")),
+        )
+
+
+@dataclass
+class GoogleSearchConsoleSites:
+    data: list[GoogleSearchConsoleSite]
+    refreshed: bool
+
+    @classmethod
+    def from_dict(cls, data: dict) -> GoogleSearchConsoleSites:
+        return cls(
+            data=[GoogleSearchConsoleSite.from_dict(item) for item in data.get("data", [])],
+            refreshed=data["refreshed"],
+        )
+
+
+@dataclass
+class AppAccountSelection:
+    account_id: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> AppAccountSelection:
+        return cls(account_id=data["account_id"])
+
+
+@dataclass
+class SlackWorkspace:
+    team_id: str
+    team_name: str | None = None
+    connected_at: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> SlackWorkspace:
+        return cls(**data)
+
+
+@dataclass
+class SlackWorkspaces:
+    available: bool
+    data: list[SlackWorkspace]
+
+    @classmethod
+    def from_dict(cls, data: dict) -> SlackWorkspaces:
+        return cls(
+            available=data["available"],
+            data=[SlackWorkspace.from_dict(item) for item in data.get("data", [])],
+        )
+
+
+@dataclass
+class SlackMember:
+    id: str
+    name: str
+    avatar_url: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> SlackMember:
+        return cls(**data)
+
+
+@dataclass
+class SlackChannel:
+    id: str
+    name: str
+    team_id: str
+    is_private: bool
+    is_member: bool
+
+    @classmethod
+    def from_dict(cls, data: dict) -> SlackChannel:
+        return cls(**data)
+
+
+@dataclass
+class SlackInstallInitiation:
+    authorization_url: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> SlackInstallInitiation:
+        return cls(authorization_url=data["authorization_url"])
+
+
+@dataclass
+class SlackClaimResult:
+    status: str
+    team_id: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> SlackClaimResult:
+        return cls(status=data["status"], team_id=data.get("team_id"))
 
 
 @dataclass
@@ -2766,3 +2923,18 @@ class TeamMembership:
 # alias IS the package-level `m8tes.Agent`.
 Agent = Teammate
 AgentTemplate = TeammateTemplate
+
+
+@dataclass
+class AppExternalOAuthInitiation:
+    authorization_url: str
+    state: str
+    expires_in: int = 1800
+
+    @classmethod
+    def from_dict(cls, data: dict) -> AppExternalOAuthInitiation:
+        return cls(
+            authorization_url=data["authorization_url"],
+            state=data["state"],
+            expires_in=data.get("expires_in", 1800),
+        )

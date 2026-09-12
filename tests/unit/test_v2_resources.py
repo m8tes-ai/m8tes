@@ -2049,6 +2049,156 @@ class TestTriggers:
 
 class TestApps:
     @responses.activate
+    def test_provider_setup_methods_are_typed_and_scope_exact(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/apps/google%3Aads/customers",
+            json={"data": [{"id": "123", "descriptive_name": "Acme"}], "refreshed": True},
+        )
+        responses.add(
+            responses.PUT,
+            f"{BASE}/apps/google%3Aads/customer",
+            json={"account_id": "123"},
+        )
+        customers = Apps(http).list_customers("google:ads", refresh=True, user_id="tenant")
+        selection = Apps(http).select_customer("google:ads", "123", user_id="tenant")
+        assert customers.data[0].descriptive_name == "Acme"
+        assert customers.refreshed is True
+        assert selection.account_id == "123"
+        assert responses.calls[0].request.params == {"refresh": "True", "user_id": "tenant"}
+        assert json.loads(responses.calls[1].request.body) == {
+            "account_id": "123",
+            "user_id": "tenant",
+        }
+
+    @responses.activate
+    def test_native_google_completion_and_search_console_methods(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/apps/google%3Asearch_console/connect/complete",
+            json={"status": "connected", "app": "google:search_console"},
+        )
+        Apps(http).connect_complete(
+            "google:search_console",
+            "state",
+            code="code",
+            redirect_uri="https://app.test/callback",
+            user_id="tenant",
+        )
+        assert json.loads(responses.calls[0].request.body) == {
+            "connection_id": "state",
+            "code": "code",
+            "redirect_uri": "https://app.test/callback",
+            "user_id": "tenant",
+        }
+        responses.add(
+            responses.GET,
+            f"{BASE}/apps/google%3Asearch_console/sites",
+            json={
+                "data": [{"site_url": "sc-domain:example.com", "permission_level": "owner"}],
+                "refreshed": False,
+            },
+        )
+        sites = Apps(http).list_sites("google:search_console")
+        assert sites.data[0].site_url == "sc-domain:example.com"
+
+    @responses.activate
+    def test_slack_setup_methods(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/apps/slack%3Amessaging/workspaces",
+            json={"available": True, "data": [{"team_id": "T1", "team_name": "Acme"}]},
+        )
+        responses.add(
+            responses.GET,
+            f"{BASE}/apps/slack%3Amessaging/members",
+            json={"data": [{"id": "U1", "name": "Ada"}]},
+        )
+        responses.add(
+            responses.GET,
+            f"{BASE}/apps/slack%3Amessaging/channels",
+            json={
+                "data": [
+                    {
+                        "id": "C1",
+                        "name": "general",
+                        "team_id": "T1",
+                        "is_private": False,
+                        "is_member": True,
+                    }
+                ]
+            },
+        )
+        responses.add(
+            responses.POST,
+            f"{BASE}/apps/slack%3Amessaging/install",
+            json={"authorization_url": "https://slack.test/oauth"},
+        )
+        responses.add(
+            responses.POST,
+            f"{BASE}/apps/slack%3Amessaging/claim",
+            json={"status": "connected", "team_id": "T1"},
+        )
+        responses.add(responses.DELETE, f"{BASE}/apps/slack%3Amessaging/workspaces/T1", status=204)
+        apps = Apps(http)
+        assert apps.list_workspaces("slack:messaging").data[0].team_name == "Acme"
+        assert apps.list_members("slack:messaging")[0].name == "Ada"
+        assert apps.list_channels("slack:messaging")[0].name == "general"
+        assert apps.install("slack:messaging", return_to="/apps").authorization_url.startswith(
+            "https"
+        )
+        assert apps.claim("slack:messaging", ticket="ticket").team_id == "T1"
+        apps.disconnect_workspace("slack:messaging", "T1")
+        assert json.loads(responses.calls[3].request.body) == {"return_to": "/apps"}
+        assert json.loads(responses.calls[4].request.body) == {"ticket": "ticket"}
+
+    @responses.activate
+    def test_aggregate_connections_and_key_options(self, http):
+        responses.add(
+            responses.GET, f"{BASE}/apps/connections", json={"data": [], "has_more": False}
+        )
+        assert Apps(http).connections.list(user_id="customer").data == []
+        assert responses.calls[0].request.params["user_id"] == "customer"
+        responses.add(
+            responses.POST,
+            f"{BASE}/apps/regional%3Asearch/connect/api-key",
+            json={"status": "connected", "app": "regional:search"},
+        )
+        Apps(http).connect_api_key("regional:search", "key", options={"region": "eu"}, agent_id=12)
+        assert json.loads(responses.calls[1].request.body) == {
+            "api_key": "key",
+            "options": {"region": "eu"},
+            "agent_id": 12,
+        }
+
+    @responses.activate
+    def test_external_oauth_methods(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/apps/asana/connect/external-oauth",
+            json={
+                "authorization_url": "https://provider.test",
+                "state": "state",
+                "expires_in": 1800,
+            },
+        )
+        result = Apps(http).connect_external_oauth("asana", "https://app.test/callback")
+        assert result.state == "state"
+        responses.add(
+            responses.POST,
+            f"{BASE}/apps/asana/connect/external-oauth/complete",
+            json={"status": "connected", "app": "asana"},
+        )
+        Apps(http).complete_external_oauth(
+            "asana",
+            code="code",
+            state=result.state,
+            redirect_uri="https://app.test/callback",
+            agent_id=12,
+        )
+        assert json.loads(responses.calls[1].request.body)["agent_id"] == 12
+
+    @responses.activate
     def test_list(self, http):
         responses.add(
             responses.GET,

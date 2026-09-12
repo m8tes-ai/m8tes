@@ -41,20 +41,18 @@ class GoogleAuth:
             ValidationError: If redirect_uri is invalid
             NetworkError: If request fails
         """
-        data = {"redirect_uri": redirect_uri, "access_type": access_type}
-
-        if state:
-            data["state"] = state
-
+        # State and access type are server-owned in V2. Keep the arguments for
+        # source compatibility with the legacy CLI helper.
+        _ = (state, access_type)
         response = self.http.post(
-            "/api/v1/integrations/google-ads/auth/init",
-            json_data=data,
+            "/api/v2/apps/google:ads/connect",
+            json_data={"redirect_uri": redirect_uri},
         )
 
         return {
             "authorization_url": response["authorization_url"],
-            "state": response["state"],
-            "expires_in": response.get("expires_in", 600),
+            "state": response["connection_id"],
+            "expires_in": response.get("expires_in", 1800),
         }
 
     def finish_connect(
@@ -86,34 +84,37 @@ class GoogleAuth:
         """
         data = {"code": code, "state": state, "redirect_uri": redirect_uri}
 
-        if user_id:
-            data["user_id"] = user_id  # type: ignore[assignment]
-
-        return self.http.post(
-            "/api/v1/integrations/google-ads/auth/callback",
+        # The legacy argument is the owning account's numeric database id, not
+        # a developer end-user id, so it must never become a V2 tenant scope.
+        _ = user_id
+        response = self.http.post(
+            "/api/v2/apps/google:ads/connect/complete",
             json_data=data,
         )
+        return {"success": True, "provider": "google", "kind": "ads", **response}
 
     def list_accessible_customers(self, refresh: bool = False) -> dict[str, Any]:
         """Retrieve accessible Google Ads customer IDs for the current user."""
         params = {"refresh": "true" if refresh else "false"}
-        return self.http.get(
-            "/api/v1/integrations/google-ads/customers",
-            params=params,
-        )
+        response = self.http.get("/api/v2/apps/google:ads/customers", params=params)
+        return {
+            "accessible_customers": [item["id"] for item in response.get("data", [])],
+            "customers": response.get("data", []),
+            "refreshed": response.get("refreshed", False),
+        }
 
     def set_customer_id(
         self, customer_id: str, integration_id: int | None = None
     ) -> dict[str, Any]:
         """Set the active Google Ads customer ID for the current user."""
         normalized = "".join(ch for ch in str(customer_id) if ch.isdigit())
-        data: dict[str, Any] = {"customer_id": normalized or str(customer_id)}
-        if integration_id is not None:
-            data["integration_id"] = integration_id
-        return self.http.put(
-            "/api/v1/integrations/google-ads/customer-id",
-            json_data=data,
+        _ = integration_id
+        selected = normalized or str(customer_id)
+        response = self.http.put(
+            "/api/v2/apps/google:ads/customer",
+            json_data={"account_id": selected},
         )
+        return {"success": True, "customer_id": response["account_id"]}
 
     def get_status(self) -> dict[str, Any]:
         """
@@ -133,7 +134,19 @@ class GoogleAuth:
             AuthenticationError: If not authenticated
             NetworkError: If request fails
         """
-        return self.http.get("/api/v1/integrations/google-ads/status")
+        response = self.http.get("/api/v2/apps/google:ads/connections")
+        connections = response.get("data", [])
+        if not connections:
+            return {"has_integration": False}
+        connection = connections[0]
+        return {
+            "has_integration": True,
+            "status": connection.get("status"),
+            "scopes": connection.get("scopes", []),
+            "updated_at": connection.get("updated_at"),
+            "customer_id": connection.get("account_id"),
+            "accessible_customers": connection.get("accessible_customers", []),
+        }
 
     def disconnect(self) -> dict[str, Any]:
         """
@@ -153,7 +166,14 @@ class GoogleAuth:
             ValidationError: If no integration found
             NetworkError: If request fails
         """
-        return self.http.delete("/api/v1/integrations/google-ads")
+        self.http.delete("/api/v2/apps/google:ads/connections")
+        from datetime import UTC, datetime
+
+        return {
+            "success": True,
+            "message": "Google Ads integration disconnected",
+            "deleted_at": datetime.now(UTC).isoformat(),
+        }
 
     @property
     def client(self) -> object:

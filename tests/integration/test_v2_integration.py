@@ -3382,6 +3382,15 @@ class TestErrorHandling:
 
 @pytest.mark.integration
 class TestAppsReadOnly:
+    def test_catalog_keys_and_aggregate_connections(self, v2_client):
+        apps = v2_client.apps.list().data
+        assert all(app.key == f"{app.name}:{app.kind}" for app in apps)
+        assert len({app.key for app in apps}) == len(apps)
+        user_id = _uid()
+        assert v2_client.apps.connections.list(user_id=user_id).data == []
+        if apps:
+            assert v2_client.apps.connections.list(apps[0].key, user_id=user_id).data == []
+
     def test_list_apps(self, v2_client):
         """List available apps (may be empty if no tools seeded)."""
         page = v2_client.apps.list()
@@ -3420,6 +3429,31 @@ class TestAppsReadOnly:
         assert isinstance(page, SyncPage)
         assert page.data == []
         assert page.has_more is False
+
+    def test_provider_setup_methods_reach_live_v2_contracts(self, v2_client):
+        """Provider setup helpers cover both successful empty reads and typed errors."""
+        keys = {app.key for app in v2_client.apps.list().data}
+        if "google:ads" in keys:
+            with pytest.raises(NotFoundError):
+                v2_client.apps.list_customers("google:ads", user_id=_uid())
+            with pytest.raises(NotFoundError):
+                v2_client.apps.select_customer("google:ads", "1234567890", user_id=_uid())
+        if "google:search_console" in keys:
+            with pytest.raises(NotFoundError):
+                v2_client.apps.list_sites("google:search_console", user_id=_uid())
+            with pytest.raises(NotFoundError):
+                v2_client.apps.select_site(
+                    "google:search_console", "sc-domain:example.com", user_id=_uid()
+                )
+        if "slack:messaging" not in keys:
+            pytest.skip("Slack app is not seeded")
+        workspaces = v2_client.apps.list_workspaces("slack:messaging")
+        assert isinstance(workspaces.available, bool)
+        assert isinstance(v2_client.apps.list_members("slack:messaging"), list)
+        assert isinstance(v2_client.apps.list_channels("slack:messaging"), list)
+        assert v2_client.apps.claim("slack:messaging", ticket="invalid-ticket").status == "error"
+        with pytest.raises(NotFoundError):
+            v2_client.apps.disconnect_workspace("slack:messaging", "T-does-not-exist")
 
 
 @pytest.mark.integration

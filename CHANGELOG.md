@@ -2,6 +2,26 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [Unreleased]
+
+## [4.25.0] - 2026-09-12
+
+### Added
+
+- Stable `app.key` (`provider:kind`) references work in app paths and agent tools.
+  Catalog responses include safe connection guidance and region choices.
+- `apps.connections.list()` lists all connections in the exact account or end-user
+  scope. Each connection exposes its app key, account label, and selected Google
+  Ads customer IDs without internal IDs or credential metadata.
+- API-key connects accept provider `options` and account-scoped `agent_id` assignment;
+  OAuth completion accepts `agent_id` too.
+- `connect_external_oauth` / `complete_external_oauth` support account-scoped external
+  MCP OAuth through the same state-bound flow used by the Platform.
+- Native Google Ads and Search Console setup supports OAuth completion, resource
+  discovery, selection, status, and disconnect in exact account/end-user scope.
+- Slack setup supports typed workspace, member, and channel discovery plus install,
+  claim, and per-workspace disconnect operations.
+
 ## [4.24.0] - 2026-09-12
 
 ### Added

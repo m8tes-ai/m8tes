@@ -8,12 +8,21 @@ from typing import TYPE_CHECKING
 from .._http import seg
 from .._types import (
     App,
+    AppAccountSelection,
     AppConnectionDetails,
     AppConnectionInitiation,
     AppConnectionResult,
+    AppExternalOAuthInitiation,
     AppProvisionResult,
     AppTool,
     AppTriggerType,
+    GoogleAdsCustomers,
+    GoogleSearchConsoleSites,
+    SlackChannel,
+    SlackClaimResult,
+    SlackInstallInitiation,
+    SlackMember,
+    SlackWorkspaces,
     SyncPage,
 )
 from ._utils import _build_params
@@ -76,7 +85,7 @@ class Apps:
     def is_connected(self, app_name: str, *, user_id: str | None = None) -> bool:
         """True if the app is connected for this account or end-user."""
         page = self.list(user_id=user_id)
-        return any(a.name == app_name and a.connected for a in page.data)
+        return any(app_name in (a.name, a.key) and a.connected for a in page.data)
 
     def connect_oauth(
         self,
@@ -98,11 +107,17 @@ class Apps:
         api_key: str,
         *,
         user_id: str | None = None,
+        options: dict | None = None,
+        agent_id: int | None = None,
     ) -> AppConnectionResult:
         """Connect an API key-based app immediately."""
         payload: dict = {"api_key": api_key}
         if user_id:
             payload["user_id"] = user_id
+        if options is not None:
+            payload["options"] = options
+        if agent_id is not None:
+            payload["agent_id"] = agent_id
         resp = self._http.request("POST", f"/apps/{seg(app_name)}/connect/api-key", json=payload)
         return AppConnectionResult.from_dict(resp.json())
 
@@ -140,6 +155,9 @@ class Apps:
         *,
         claim_ticket: str | None = None,
         user_id: str | None = None,
+        agent_id: int | None = None,
+        code: str | None = None,
+        redirect_uri: str | None = None,
     ) -> AppConnectionResult:
         """Complete OAuth after user authorization. Returns status confirming connection.
 
@@ -163,8 +181,111 @@ class Apps:
             payload["claim_ticket"] = claim_ticket
         if user_id:
             payload["user_id"] = user_id
+        if agent_id is not None:
+            payload["agent_id"] = agent_id
+        if code is not None:
+            payload["code"] = code
+        if redirect_uri is not None:
+            payload["redirect_uri"] = redirect_uri
         resp = self._http.request("POST", f"/apps/{seg(app_name)}/connect/complete", json=payload)
         return AppConnectionResult.from_dict(resp.json())
+
+    def list_customers(
+        self, app_name: str, *, refresh: bool = False, user_id: str | None = None
+    ) -> GoogleAdsCustomers:
+        """List Google Ads customers for the exact account or end-user scope."""
+        resp = self._http.request(
+            "GET",
+            f"/apps/{seg(app_name)}/customers",
+            params=_build_params(refresh=refresh, user_id=user_id),
+        )
+        return GoogleAdsCustomers.from_dict(resp.json())
+
+    def select_customer(
+        self, app_name: str, customer_id: str, *, user_id: str | None = None
+    ) -> AppAccountSelection:
+        payload = {"account_id": customer_id}
+        if user_id:
+            payload["user_id"] = user_id
+        resp = self._http.request("PUT", f"/apps/{seg(app_name)}/customer", json=payload)
+        return AppAccountSelection.from_dict(resp.json())
+
+    def list_sites(
+        self, app_name: str, *, refresh: bool = False, user_id: str | None = None
+    ) -> GoogleSearchConsoleSites:
+        """List Search Console properties for the exact account or end-user scope."""
+        resp = self._http.request(
+            "GET",
+            f"/apps/{seg(app_name)}/sites",
+            params=_build_params(refresh=refresh, user_id=user_id),
+        )
+        return GoogleSearchConsoleSites.from_dict(resp.json())
+
+    def select_site(
+        self, app_name: str, site_url: str, *, user_id: str | None = None
+    ) -> AppAccountSelection:
+        payload = {"account_id": site_url}
+        if user_id:
+            payload["user_id"] = user_id
+        resp = self._http.request("PUT", f"/apps/{seg(app_name)}/site", json=payload)
+        return AppAccountSelection.from_dict(resp.json())
+
+    def list_workspaces(self, app_name: str) -> SlackWorkspaces:
+        resp = self._http.request("GET", f"/apps/{seg(app_name)}/workspaces")
+        return SlackWorkspaces.from_dict(resp.json())
+
+    def list_members(self, app_name: str) -> builtins.list[SlackMember]:
+        resp = self._http.request("GET", f"/apps/{seg(app_name)}/members")
+        return [SlackMember.from_dict(item) for item in resp.json().get("data", [])]
+
+    def list_channels(self, app_name: str) -> builtins.list[SlackChannel]:
+        resp = self._http.request("GET", f"/apps/{seg(app_name)}/channels")
+        return [SlackChannel.from_dict(item) for item in resp.json().get("data", [])]
+
+    def install(self, app_name: str, *, return_to: str | None = None) -> SlackInstallInitiation:
+        payload = {"return_to": return_to} if return_to is not None else {}
+        resp = self._http.request("POST", f"/apps/{seg(app_name)}/install", json=payload)
+        return SlackInstallInitiation.from_dict(resp.json())
+
+    def claim(self, app_name: str, *, ticket: str) -> SlackClaimResult:
+        resp = self._http.request("POST", f"/apps/{seg(app_name)}/claim", json={"ticket": ticket})
+        return SlackClaimResult.from_dict(resp.json())
+
+    def disconnect_workspace(self, app_name: str, team_id: str) -> None:
+        self._http.request("DELETE", f"/apps/{seg(app_name)}/workspaces/{seg(team_id)}")
+
+    def connect_external_oauth(
+        self, app_name: str, redirect_uri: str
+    ) -> AppExternalOAuthInitiation:
+        """Start external MCP OAuth for this account (no end-user scope).
+
+        redirect_uri must be the m8tes /apps page. The consenting authenticated
+        browser completes the connection there; arbitrary external callbacks fail.
+        """
+        response = self._http.request(
+            "POST",
+            f"/apps/{seg(app_name)}/connect/external-oauth",
+            json={"redirect_uri": redirect_uri},
+        )
+        return AppExternalOAuthInitiation.from_dict(response.json())
+
+    def complete_external_oauth(
+        self,
+        app_name: str,
+        *,
+        code: str,
+        state: str,
+        redirect_uri: str,
+        agent_id: int | None = None,
+    ) -> AppConnectionResult:
+        """Verify account-bound OAuth state and store credentials."""
+        payload: dict = {"code": code, "state": state, "redirect_uri": redirect_uri}
+        if agent_id is not None:
+            payload["agent_id"] = agent_id
+        response = self._http.request(
+            "POST", f"/apps/{seg(app_name)}/connect/external-oauth/complete", json=payload
+        )
+        return AppConnectionResult.from_dict(response.json())
 
     def provision(self, app_name: str, *, user_id: str | None = None) -> AppProvisionResult:
         """Provision a platform-managed resource (e.g. a Twilio phone number).
@@ -223,13 +344,18 @@ class AppConnections:
     def __init__(self, http: HTTPClient):
         self._http = http
 
-    def list(self, app_name: str, *, user_id: str | None = None) -> SyncPage[AppConnectionDetails]:
-        """List connections for one app in the exact account or end-user scope."""
-        resp = self._http.request(
-            "GET",
-            f"/apps/{seg(app_name)}/connections",
-            params=_build_params(user_id=user_id),
-        )
+    def list(
+        self, app_name: str | None = None, *, user_id: str | None = None
+    ) -> SyncPage[AppConnectionDetails]:
+        """List all connections, or one app, in the exact account or end-user scope."""
+        if app_name is None:
+            resp = self._http.request(
+                "GET", "/apps/connections", params=_build_params(user_id=user_id)
+            )
+        else:
+            resp = self._http.request(
+                "GET", f"/apps/{seg(app_name)}/connections", params=_build_params(user_id=user_id)
+            )
         body = resp.json()
         return SyncPage(
             data=[AppConnectionDetails.from_dict(item) for item in body["data"]],
