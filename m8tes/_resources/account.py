@@ -41,7 +41,7 @@ class Account:
         as an account takeover and destroys every API key and webhook token with it.
 
         API keys, webhook tokens, and in-flight run-callback tokens are NOT revoked, so an
-        agent mid-run keeps working. To revoke a key, use `client.keys.delete(id)`.
+        agent mid-run keeps working. To revoke a key, use `client.keys.revoke(id)`.
 
         Session-authenticated only: an `m8_` key gets a 403, because a credential you paste
         into CI must not be able to sign the account owner out of their browser.
