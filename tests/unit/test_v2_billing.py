@@ -5,7 +5,7 @@ import responses
 
 from m8tes._http import HTTPClient
 from m8tes._resources.billing import Billing
-from m8tes._types import Receipt, Run, RunUsage, UsageTimeseries
+from m8tes._types import Balance, Invoice, Receipt, Run, RunUsage, UsageTimeseries
 
 BASE = "https://api.test/v2"
 
@@ -226,6 +226,44 @@ class TestUsageTimeseries:
         assert responses.calls[0].request.params == {}
 
 
+class TestInvoices:
+    @responses.activate
+    def test_fetches_fresh_invoice_links(self, billing):
+        responses.add(
+            responses.GET,
+            f"{BASE}/billing/receipts/7/invoice",
+            json={
+                "receipt_id": 7,
+                "number": "M8-0007",
+                "invoice_pdf_url": "https://pay.stripe.test/invoice/pdf",
+                "hosted_invoice_url": "https://invoice.stripe.test/i/7",
+            },
+        )
+        invoice = billing.invoice(7)
+        assert isinstance(invoice, Invoice)
+        assert invoice.receipt_id == 7
+        assert invoice.number == "M8-0007"
+        assert invoice.invoice_pdf_url == "https://pay.stripe.test/invoice/pdf"
+        assert invoice.hosted_invoice_url == "https://invoice.stripe.test/i/7"
+
+    def test_balance_transactions_carry_has_invoice(self):
+        row = {
+            "type": "topup",
+            "amount_micros": 1,
+            "balance_after_micros": 1,
+            "created_at": "2026-07-01T12:00:00Z",
+        }
+        balance = Balance.from_dict(
+            {
+                "balance_micros": 1,
+                "balance_usd": "0.0000",
+                "currency": "usd",
+                "transactions": [{**row, "has_invoice": True}, row],
+            }
+        )
+        assert [t.has_invoice for t in balance.transactions] == [True, False]
+
+
 class TestReceipts:
     @responses.activate
     def test_lists_receipts(self, billing):
@@ -240,6 +278,7 @@ class TestReceipts:
                         "currency": "usd",
                         "description": "API token top-up",
                         "receipt_url": "https://pay.stripe.test/r/1",
+                        "has_invoice": True,
                         "created_at": "2026-07-01T12:00:00Z",
                     },
                     {
@@ -259,6 +298,8 @@ class TestReceipts:
         assert page.data[0].amount_cents == 5000
         assert page.data[0].receipt_url == "https://pay.stripe.test/r/1"
         assert page.data[1].receipt_url is None
+        assert page.data[0].has_invoice is True
+        assert page.data[1].has_invoice is False  # older API responses omit the field
         assert page.has_more is False
 
     @responses.activate
