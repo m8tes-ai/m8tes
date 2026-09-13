@@ -5066,7 +5066,7 @@ class TestV2Billing:
         assert "free" not in slugs
         pro = next(p for p in plans if p.slug == "pro")
         assert pro.display_name == "Teams"
-        assert pro.included_runs == 100
+        assert pro.included_runs == 500
         assert pro.annual_price_cents == pro.monthly_price_cents * 10
         assert "free" in {p.slug for p in v2_client.billing.plans(include_free=True)}
 
