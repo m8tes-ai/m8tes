@@ -5054,7 +5054,7 @@ class TestV2Billing:
         assert isinstance(usage.overage_enabled, bool)
         assert isinstance(usage.overage_used_cents, int)
         assert isinstance(usage.overage_cap_cents, int)
-        assert usage.overage_rate_cents == 1000  # platform $10/run rate
+        assert usage.overage_rate_cents == 200  # platform $2/task rate
 
     def test_plans_returns_catalog(self, v2_client):
         from m8tes._types import Plan
