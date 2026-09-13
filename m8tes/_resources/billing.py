@@ -10,7 +10,17 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .._types import Balance, Plan, Receipt, SubscriptionCheckout, SyncPage, Usage, UsageTimeseries
+from .._http import seg
+from .._types import (
+    Balance,
+    Invoice,
+    Plan,
+    Receipt,
+    SubscriptionCheckout,
+    SyncPage,
+    Usage,
+    UsageTimeseries,
+)
 from ._utils import _build_params, _resolve_agent_id
 
 if TYPE_CHECKING:
@@ -87,6 +97,15 @@ class Billing:
             next_starting_after=body.get("next_starting_after"),
             _fetch_next=_fetch_next,
         )
+
+    def invoice(self, receipt_id: int) -> Invoice:
+        """Stripe invoice links for one top-up whose `has_invoice` is True.
+
+        `invoice_pdf_url` downloads the PDF. Links expire, so call this right before
+        use. Raises `NotFoundError` for auto-reloads and top-ups that predate invoices.
+        """
+        resp = self._http.request("GET", f"/billing/receipts/{seg(receipt_id)}/invoice")
+        return Invoice.from_dict(resp.json())
 
     def plans(self, *, include_free: bool = False) -> list[Plan]:
         """List purchasable plans; opt in to Hobby for a complete pricing surface."""

@@ -5142,6 +5142,12 @@ class TestV2Billing:
         assert isinstance(page.data, list)
         assert isinstance(page.has_more, bool)
 
+    def test_invoice_for_unknown_receipt_is_not_found(self, v2_client):
+        # A fresh integration account has no invoiced top-ups; the route must answer 404
+        # (never 500) for an id outside the account.
+        with pytest.raises(NotFoundError):
+            v2_client.billing.invoice(2_000_000_000)
+
     def test_balance_carries_auto_reload_fields(self, v2_client):
         bal = v2_client.billing.balance()
         assert bal.auto_reload_enabled is False  # off by default

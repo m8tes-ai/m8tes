@@ -4,6 +4,14 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.26.0] - 2026-09-12
+
+### Added
+
+- `billing.invoice(receipt_id)` returns fresh Stripe invoice links (`invoice_pdf_url`,
+  `hosted_invoice_url`, `number`) for a prepaid top-up. `Receipt.has_invoice` and
+  `TokenTransaction.has_invoice` say which top-ups have one.
+
 ## [4.25.0] - 2026-09-12
 
 ### Added
