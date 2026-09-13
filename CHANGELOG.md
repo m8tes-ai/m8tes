@@ -11,6 +11,13 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 - `client.account.revoke_sessions()` ends every session on every device without revoking
   API keys, webhook tokens, or in-flight run-callback tokens. Session-authenticated only
   (an `m8_` key gets 403). The non-destructive revocation path for SSO-only accounts.
+## [4.26.0] - 2026-09-12
+
+### Added
+
+- `billing.invoice(receipt_id)` returns fresh Stripe invoice links (`invoice_pdf_url`,
+  `hosted_invoice_url`, `number`) for a prepaid top-up. `Receipt.has_invoice` and
+  `TokenTransaction.has_invoice` say which top-ups have one.
 
 ## [4.25.0] - 2026-09-12
 

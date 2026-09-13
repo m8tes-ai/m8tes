@@ -2349,6 +2349,9 @@ class TokenTransaction:
     # payment behind them. Same value `billing.receipts()` serves.
     id: int | None = None
     receipt_url: str | None = None
+    # True when Stripe issued an invoice for this top-up; fetch it with
+    # `billing.invoice(id)`. False on debits, grants, auto-reloads and older top-ups.
+    has_invoice: bool = False
 
     @classmethod
     def from_dict(cls, data: dict) -> TokenTransaction:
@@ -2361,6 +2364,7 @@ class TokenTransaction:
             created_at=data["created_at"],
             id=data.get("id"),
             receipt_url=data.get("receipt_url"),
+            has_invoice=data.get("has_invoice", False),
         )
 
 
@@ -2498,6 +2502,8 @@ class Receipt:
     description: str | None
     receipt_url: str | None
     created_at: str
+    # True when `billing.invoice(id)` has a Stripe invoice PDF to return.
+    has_invoice: bool = False
 
     @classmethod
     def from_dict(cls, data: dict) -> Receipt:
@@ -2508,6 +2514,27 @@ class Receipt:
             description=data.get("description"),
             receipt_url=data.get("receipt_url"),
             created_at=data.get("created_at", ""),
+            has_invoice=data.get("has_invoice", False),
+        )
+
+
+@dataclass
+class Invoice:
+    """Fresh Stripe invoice links for one top-up. The links expire, so fetch one with
+    `billing.invoice(receipt_id)` right before use instead of storing it."""
+
+    receipt_id: int
+    number: str | None
+    invoice_pdf_url: str | None
+    hosted_invoice_url: str | None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Invoice:
+        return cls(
+            receipt_id=data["receipt_id"],
+            number=data.get("number"),
+            invoice_pdf_url=data.get("invoice_pdf_url"),
+            hosted_invoice_url=data.get("hosted_invoice_url"),
         )
 
 
