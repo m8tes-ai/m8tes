@@ -32,3 +32,18 @@ def test_account_export_calls_endpoint():
 
     http.request.assert_called_once_with("GET", "/account/export")
     assert result["account"]["email"] == "a@b.com"
+
+
+def test_account_revoke_sessions_calls_endpoint():
+    """Wire test: the method must POST the route, with no body and no scoping.
+
+    Revocation is always account-wide (`token_version` is the only lever), so a `user_id`
+    here would imply a per-end-user revocation the API cannot do.
+    """
+    http = MagicMock()
+    http.request.return_value.json.return_value = {"sessions_revoked": True}
+
+    result = AccountResource(http).revoke_sessions()
+
+    http.request.assert_called_once_with("POST", "/account/sessions/revoke")
+    assert result["sessions_revoked"] is True

@@ -33,6 +33,22 @@ class Account:
         resp = self._http.request("DELETE", "/account")
         return cast("dict[str, Any]", resp.json())
 
+    def revoke_sessions(self) -> dict[str, Any]:
+        """Sign the account out everywhere: end every session, on every device.
+
+        The revocation path for an account that has no password to change — an SSO-only
+        account (Google sign-in) previously had to run a password RESET, which is treated
+        as an account takeover and destroys every API key and webhook token with it.
+
+        API keys, webhook tokens, and in-flight run-callback tokens are NOT revoked, so an
+        agent mid-run keeps working. To revoke a key, use `client.keys.revoke(id)`.
+
+        Session-authenticated only: an `m8_` key gets a 403, because a credential you paste
+        into CI must not be able to sign the account owner out of their browser.
+        """
+        resp = self._http.request("POST", "/account/sessions/revoke")
+        return cast("dict[str, Any]", resp.json())
+
     def change_password(self, current_password: str, new_password: str) -> dict[str, Any]:
         """Change the account password, proving you know the current one.
 

@@ -4,6 +4,14 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.27.0] - 2026-09-13
+
+### Added
+
+- `client.account.revoke_sessions()` ends every session on every device without revoking
+  API keys, webhook tokens, or in-flight run-callback tokens. Session-authenticated only
+  (an `m8_` key gets 403). The non-destructive revocation path for SSO-only accounts.
+
 ## [4.26.0] - 2026-09-12
 
 ### Added
