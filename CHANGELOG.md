@@ -4,6 +4,10 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+### Added
+
+- `agents.list(fields="summary")` requests the slim roster projection (omits
+  instructions, tools, and channel bindings). Default list behaviour is unchanged.
 ## [4.28.0] - 2026-09-14
 
 ### Added

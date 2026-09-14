@@ -151,18 +151,27 @@ class Agents:
         limit: int = 20,
         starting_after: int | None = None,
         include_archived: bool = False,
+        fields: str | None = None,
     ) -> SyncPage[Teammate]:
+        """List agents. Pass ``fields="summary"`` for a slim roster projection."""
         params = _build_params(
             user_id=user_id,
             limit=limit,
             starting_after=starting_after,
             include_archived="true" if include_archived else None,
+            fields=fields,
         )
         resp = self._http.request("GET", "/agents/", params=params)
         body = resp.json()
 
         def _fetch_next(**kw: object) -> SyncPage[Teammate]:
-            return self.list(user_id=user_id, include_archived=include_archived, limit=limit, **kw)  # type: ignore[arg-type]
+            return self.list(
+                user_id=user_id,
+                include_archived=include_archived,
+                limit=limit,
+                fields=fields,
+                **kw,  # type: ignore[arg-type]
+            )
 
         return SyncPage(
             data=[Teammate.from_dict(d) for d in body["data"]],
