@@ -4,6 +4,14 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.28.0] - 2026-09-14
+
+### Added
+
+- `runs.list(fields="summary")` requests the slim list projection (stamped closing
+  headline only; skips the conversation_messages prose scan). Default list behaviour
+  is unchanged.
+
 ## [4.27.0] - 2026-09-13
 
 ### Added

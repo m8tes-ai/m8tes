@@ -2338,6 +2338,33 @@ class TestRunsReadOnly:
         assert isinstance(page, SyncPage)
         assert len(page.data) == 0
 
+    def test_list_fields_summary_projection(self, v2_client):
+        """fields=summary is wired: accepted on a real row, and unknown values 422.
+
+        Summary always omits `latest_message_preview` (prose batch skipped). Creating a
+        run makes the assertion non-vacuous — an empty page would pass even if `fields`
+        were ignored.
+        """
+        tm = v2_client.teammates.create(name="RunsFieldsSummary")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=tm.id, message="fields-summary probe", stream=False
+            )
+            with contextlib.suppress(M8tesError):
+                v2_client.runs.cancel(run.id)
+
+            page = v2_client.runs.list(fields="summary", teammate_id=tm.id, limit=20)
+            assert isinstance(page, SyncPage)
+            row = next(r for r in page.data if r.id == run.id)
+            assert row.latest_message_preview is None
+
+            # Param is enforced server-side — ignored `fields` would not 422.
+            with pytest.raises(ValidationError) as exc_info:
+                v2_client._http.request("GET", "/runs/", params={"fields": "not-a-projection"})
+            assert exc_info.value.status_code == 422
+        finally:
+            v2_client.teammates.delete(tm.id)
+
     def test_cancel_nonexistent_run(self, v2_client):
         """Cancel nonexistent run returns 404."""
         with pytest.raises(NotFoundError):

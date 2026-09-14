@@ -869,6 +869,7 @@ class Runs:
         status: str | None = None,
         sort: Literal["created", "priority"] | None = None,
         exclude_platform_runs: bool | None = None,
+        fields: Literal["summary"] | None = None,
         limit: int = 20,
         starting_after: int | None = None,
     ) -> SyncPage[Run]:
@@ -881,6 +882,10 @@ class Runs:
         Day-1 / pulse / context maintenance) so you can ask whether the *user*
         has run anything themselves yet. Only Platform accounts have a Company
         Agent, so on an API-only account the filter matches nothing.
+
+        Pass ``fields="summary"`` for a slim list projection (stamped closing
+        headline only; skips the conversation_messages prose scan). Platform
+        list UIs that need body excerpts should omit ``fields``.
         """
         teammate_id = _resolve_agent_id(teammate_id, agent_id)
         params = _build_params(
@@ -892,6 +897,7 @@ class Runs:
             exclude_platform_runs=(
                 None if exclude_platform_runs is None else str(exclude_platform_runs).lower()
             ),
+            fields=fields,
             limit=limit,
             starting_after=starting_after,
         )
@@ -906,6 +912,7 @@ class Runs:
                 status=status,
                 sort=sort,
                 exclude_platform_runs=exclude_platform_runs,
+                fields=fields,
                 limit=limit,
                 **kw,  # type: ignore[arg-type]
             )
