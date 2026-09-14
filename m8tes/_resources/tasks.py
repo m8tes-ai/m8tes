@@ -359,6 +359,7 @@ class Tasks:
         permission_mode: str | None = None,
         model: str | None = None,
         effort: str | None = None,
+        max_turns: int | None = None,
         idempotency_key: str | None = None,
     ) -> RunStream | Run:
         """Execute a saved task, creating a new run.
@@ -403,6 +404,8 @@ class Tasks:
             body["model"] = model
         if effort is not None:
             body["effort"] = effort
+        if max_turns is not None:
+            body["max_turns"] = max_turns
 
         headers = idempotency_headers(idempotency_key)
         if stream:
@@ -430,6 +433,7 @@ class Tasks:
         permission_mode: str | None = None,
         model: str | None = None,
         effort: str | None = None,
+        max_turns: int | None = None,
         on_approval: Callable[[PermissionRequest], str] | None = None,
         on_question: Callable[[PermissionRequest], dict[str, str]] | None = None,
         poll_interval: float = 2.0,
@@ -452,6 +456,7 @@ class Tasks:
             permission_mode=permission_mode,
             model=model,
             effort=effort,
+            max_turns=max_turns,
         )
         finished = cast(Run, run)
         # Prefer the API-stamped owner (same rule as runs.create_and_wait).

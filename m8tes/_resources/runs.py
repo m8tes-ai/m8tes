@@ -195,6 +195,7 @@ class Runs:
         email_inbox: bool = False,
         email_notifications: bool = False,
         output_schema: dict | None = None,
+        max_turns: int | None = None,
         files: _list | None = None,
         raise_on_error: bool = False,
         idempotency_key: str | None = None,
@@ -225,6 +226,10 @@ class Runs:
         run.output_data instead of parsing prose. Inline your definitions — $ref/$defs are not
         supported. output_data is None when the model produced no structured result, so always
         None-check it. The schema sticks to the run: replies and retries stay structured.
+
+        Pass max_turns= to hard-cap conversation turns for this run (1–500; platform default
+        200). Persisted as a run-wide budget so resumes and replies inherit the remaining
+        turns (not a fresh allotment per continuation).
 
         Every call sends an ``Idempotency-Key``, minted per call unless you pass
         ``idempotency_key=``. That is what makes this POST safe to retry: a request
@@ -269,6 +274,8 @@ class Runs:
             body["email_notifications"] = True
         if output_schema is not None:
             body["output_schema"] = output_schema
+        if max_turns is not None:
+            body["max_turns"] = max_turns
 
         headers = idempotency_headers(idempotency_key)
 
@@ -676,6 +683,7 @@ class Runs:
         email_inbox: bool = False,
         email_notifications: bool = False,
         output_schema: dict | None = None,
+        max_turns: int | None = None,
         on_approval: Callable[[PermissionRequest], str] | None = None,
         on_question: Callable[[PermissionRequest], dict[str, str]] | None = None,
         poll_interval: float = 2.0,
@@ -717,6 +725,7 @@ class Runs:
                 email_inbox=email_inbox,
                 email_notifications=email_notifications,
                 output_schema=output_schema,
+                max_turns=max_turns,
             ),
         )
         # Preserve email_address from initial response — GET /runs/{id} doesn't return it
@@ -805,6 +814,7 @@ class Runs:
         permission_mode: str | None = None,
         model: str | None = None,
         effort: str | None = None,
+        max_turns: int | None = None,
         raise_on_error: bool = False,
     ) -> Generator[str, None, None]:
         """Create a streaming run and yield only text delta strings.
@@ -851,6 +861,7 @@ class Runs:
             permission_mode=permission_mode,
             model=model,
             effort=effort,
+            max_turns=max_turns,
             raise_on_error=raise_on_error,
         )
         run_stream = cast(RunStream, stream)
