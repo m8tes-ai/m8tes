@@ -12,6 +12,9 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ### Added
 
+- `runs.create(..., max_turns=)` and `tasks.run(..., max_turns=)` — hard-cap conversation
+  turns for a run (1–500; platform default 200). Persisted as a run-wide budget so resumes
+  and replies inherit the remaining turns (not a fresh allotment per continuation).
 - `runs.list(fields="summary")` requests the slim list projection (stamped closing
   headline only; skips the conversation_messages prose scan). Default list behaviour
   is unchanged.
