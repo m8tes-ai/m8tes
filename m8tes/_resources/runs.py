@@ -227,7 +227,7 @@ class Runs:
         supported. output_data is None when the model produced no structured result, so always
         None-check it. The schema sticks to the run: replies and retries stay structured.
 
-        Pass max_turns= to hard-cap conversation turns for this run (1–500; platform default
+        Pass max_turns= to hard-cap conversation turns for this run (1-500; platform default
         200). Persisted as a run-wide budget so resumes and replies inherit the remaining
         turns (not a fresh allotment per continuation).
 
