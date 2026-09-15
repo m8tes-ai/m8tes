@@ -4,10 +4,18 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.29.0] - 2026-09-15
+
 ### Added
 
 - `agents.list(fields="summary")` requests the slim roster projection (omits
   instructions, tools, and channel bindings). Default list behaviour is unchanged.
+- `Run.failure_kind` — `"limit"` when a quota, rate limit or spend ceiling stopped
+  the run (the provider's or the plan's), `"error"` otherwise. Present for
+  `status="failed"` and for `status="cancelled"` when a mid-run spend guard retained
+  a classified reason; `None` for a plain human stop and for runs that did not fail.
+  Lets a client soften a limit in its own UI without matching on provider prose.
+
 ## [4.28.0] - 2026-09-14
 
 ### Added

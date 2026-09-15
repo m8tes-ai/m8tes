@@ -678,6 +678,15 @@ class Run:
     # it to the one it retried. `retryable` says whether runs.retry() will be
     # accepted; `error_code` is the machine-readable failure class when known.
     error_code: str | None = None
+    # Coarse bucket for a classified stop: "limit" when a quota, rate limit or spend
+    # ceiling stopped it (the provider's or the plan's), "error" for everything else.
+    # Set when status is "failed", and also when status is "cancelled" but a mid-run
+    # spend guard retained a classified reason (cancelled:{source};prior={reason}).
+    # None for a plain human stop and for runs that did not fail. Derived server-side
+    # from the same classification `error_code` reports, so a client can soften a limit
+    # in its own UI without matching on provider prose — which providers reword whenever
+    # they like. Presentation only, not a separate run state.
+    failure_kind: str | None = None
     retryable: bool = False
     # A saved conversation can resume on the same failed/cancelled run via reply().
     can_continue: bool = False
@@ -783,6 +792,7 @@ class Run:
             email_address=data.get("email_address"),
             task_id=data.get("task_id"),
             error_code=data.get("error_code"),
+            failure_kind=data.get("failure_kind"),
             auth_method=data.get("auth_method"),
             auth_provider=data.get("auth_provider"),
             retryable=data.get("retryable", False),
