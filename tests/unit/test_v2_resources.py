@@ -1102,6 +1102,33 @@ class TestRuns:
         assert "exclude_platform_runs" not in responses.calls[0].request.params
 
     @responses.activate
+    def test_list_archived_only(self, http):
+        responses.add(responses.GET, f"{BASE}/runs/", json={"data": [], "has_more": False})
+        Runs(http).list(archived="only")
+        assert responses.calls[0].request.params.get("archived") == "only"
+
+    @responses.activate
+    def test_list_default_omits_archived(self, http):
+        """Omitted, not sent as ``exclude``: the server owns the default."""
+        responses.add(responses.GET, f"{BASE}/runs/", json={"data": [], "has_more": False})
+        Runs(http).list()
+        assert "archived" not in responses.calls[0].request.params
+
+    @responses.activate
+    def test_list_archived_survives_pagination(self, http):
+        """Page two of the archive must still be the archive."""
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/",
+            json={"data": [{"id": 1}], "has_more": True, "next_starting_after": 1},
+        )
+        responses.add(responses.GET, f"{BASE}/runs/", json={"data": [{"id": 2}], "has_more": False})
+        page = Runs(http).list(archived="only", limit=1)
+        list(page.auto_paging_iter())
+        assert responses.calls[0].request.params.get("archived") == "only"
+        assert responses.calls[1].request.params.get("archived") == "only"
+
+    @responses.activate
     def test_list_exclude_platform_runs_survives_pagination(self, http):
         responses.add(
             responses.GET,

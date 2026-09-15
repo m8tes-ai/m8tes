@@ -881,6 +881,7 @@ class Runs:
         user_id: str | None = None,
         status: str | None = None,
         sort: Literal["created", "priority"] | None = None,
+        archived: Literal["exclude", "only", "include"] | None = None,
         exclude_platform_runs: bool | None = None,
         fields: Literal["summary"] | None = None,
         limit: int = 20,
@@ -890,6 +891,11 @@ class Runs:
         webhook-triggered task's results); user_id scopes to one end-user.
         sort: ``created`` (newest first, the default) or ``priority`` (runs waiting
         on a human first).
+
+        ``archived`` decides what the archive does to the list: ``exclude`` (the
+        default — archiving hides a run), ``only`` to read the archive on its own,
+        or ``include`` for both. Reach for ``only`` rather than ``include`` when you
+        want archived rows: on a busy account the live runs fill the page first.
 
         ``exclude_platform_runs=True`` hides the platform's own work (Lead Mate
         Day-1 / pulse / context maintenance) so you can ask whether the *user*
@@ -907,6 +913,7 @@ class Runs:
             user_id=user_id,
             status=status,
             sort=sort,
+            archived=archived,
             exclude_platform_runs=(
                 None if exclude_platform_runs is None else str(exclude_platform_runs).lower()
             ),
@@ -924,6 +931,7 @@ class Runs:
                 user_id=user_id,
                 status=status,
                 sort=sort,
+                archived=archived,
                 exclude_platform_runs=exclude_platform_runs,
                 fields=fields,
                 limit=limit,

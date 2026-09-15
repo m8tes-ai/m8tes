@@ -11,6 +11,13 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 - `agents.list(fields="summary")` requests the slim roster projection (omits
   instructions, tools, and channel bindings). Default list behaviour is unchanged.
 
+## [4.29.0] - 2026-09-14
+
+### Added
+
+- `runs.list(archived=...)` reads archived runs: `"exclude"` (default), `"only"` for the
+  archive by itself, or `"include"` for both. `"only"` is the usable one on a busy account,
+  where live runs fill the page before an archived row appears. Carried across pages.
 ## [4.28.1] - 2026-09-15
 
 ### Fixed

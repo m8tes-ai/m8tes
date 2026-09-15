@@ -2517,6 +2517,13 @@ class TestRunShareArchiveRuntime:
             # and archive is idempotent.
             assert v2_client.runs.archive(run.id).id == run.id
             assert all(r.id != run.id for r in v2_client.runs.list(limit=100).data)
+
+            # archived=only is the archive board's fetch: default exclude hid the row above;
+            # only must surface it, and include must too.
+            only_ids = {r.id for r in v2_client.runs.list(archived="only", limit=100).data}
+            assert run.id in only_ids
+            include_ids = {r.id for r in v2_client.runs.list(archived="include", limit=100).data}
+            assert run.id in include_ids
         finally:
             v2_client.teammates.delete(tm.id)
 
