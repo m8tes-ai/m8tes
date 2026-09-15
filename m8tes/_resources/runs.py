@@ -227,9 +227,11 @@ class Runs:
         supported. output_data is None when the model produced no structured result, so always
         None-check it. The schema sticks to the run: replies and retries stay structured.
 
-        Pass max_turns= to hard-cap conversation turns for this run (1-500; platform default
-        200). Persisted as a run-wide budget so resumes and replies inherit the remaining
-        turns (not a fresh allotment per continuation).
+        Pass max_turns= to hard-cap conversation turns for each REQUEST on this run (1-500;
+        platform default 200). Persisted, so an automatic continuation of the request in
+        flight (an approval resume, an interrupted-run re-drive, or a provider/credits
+        fallback Continue) inherits the remaining turns rather than a fresh allotment;
+        a new message you send re-arms the cap.
 
         Every call sends an ``Idempotency-Key``, minted per call unless you pass
         ``idempotency_key=``. That is what makes this POST safe to retry: a request

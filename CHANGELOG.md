@@ -10,6 +10,16 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 - `agents.list(fields="summary")` requests the slim roster projection (omits
   instructions, tools, and channel bindings). Default list behaviour is unchanged.
+
+## [4.28.1] - 2026-09-15
+
+### Fixed
+
+- `max_turns` caps each REQUEST on a run, not the run's whole lifetime. A message you
+  send next re-arms the cap; only an automatic continuation of the request in flight
+  (an approval resume, an interrupted-run re-drive, or a provider/credits fallback
+  Continue) inherits the remaining turns. As shipped in 4.28.0, a run that reached
+  the cap could never be continued again.
 - `Run.failure_kind` — `"limit"` when a quota, rate limit or spend ceiling stopped
   the run (the provider's or the plan's), `"error"` otherwise. Present for
   `status="failed"` and for `status="cancelled"` when a mid-run spend guard retained
