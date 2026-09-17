@@ -4,6 +4,16 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.29.1] - 2026-09-17
+
+### Changed
+
+- Documented platform default for `runs.create(..., max_turns=)` / `tasks.run(..., max_turns=)`
+  as **500** (was 200). Cap range remains 1–500.
+- Acknowledged Claude Agent SDK 0.2.154 `system_message` subtypes
+  (`cloud_session_delta`, `dev_intent`, `peer_message_hold`, `turn_handoff_available`,
+  `turn_preempted`) as inert for API consumers (parity with agent-runtime).
+
 ## [4.29.0] - 2026-09-15
 
 ### Added

@@ -258,14 +258,14 @@ _ACKNOWLEDGED_SYSTEM_SUBTYPES = frozenset(
         # an API consumer (describes the host CLI's own session, not the caller's run).
         "cloud_session_status",
         "tool_host_result",
-        # Informational only — a queued feedback draft, not a failure signal.
-        "feedback_draft_queued",
-        # Claude Agent SDK — cloud/session peer telemetry. Inert for API consumers.
+        # Claude Agent SDK 0.2.154 — more cloud/session + multi-agent telemetry. Inert.
         "cloud_session_delta",
         "dev_intent",
         "peer_message_hold",
         "turn_handoff_available",
         "turn_preempted",
+        # Informational only — a queued feedback draft, not a failure signal.
+        "feedback_draft_queued",
     }
 )
 

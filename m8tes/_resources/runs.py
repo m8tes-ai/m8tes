@@ -228,7 +228,7 @@ class Runs:
         None-check it. The schema sticks to the run: replies and retries stay structured.
 
         Pass max_turns= to hard-cap conversation turns for each REQUEST on this run (1-500;
-        platform default 200). Persisted, so an automatic continuation of the request in
+        platform default 500). Persisted, so an automatic continuation of the request in
         flight (an approval resume, an interrupted-run re-drive, or a provider/credits
         fallback Continue) inherits the remaining turns rather than a fresh allotment;
         a new message you send re-arms the cap.
