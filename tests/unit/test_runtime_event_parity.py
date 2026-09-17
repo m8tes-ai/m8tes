@@ -260,6 +260,12 @@ _ACKNOWLEDGED_SYSTEM_SUBTYPES = frozenset(
         "tool_host_result",
         # Informational only — a queued feedback draft, not a failure signal.
         "feedback_draft_queued",
+        # Claude Agent SDK — cloud/session peer telemetry. Inert for API consumers.
+        "cloud_session_delta",
+        "dev_intent",
+        "peer_message_hold",
+        "turn_handoff_available",
+        "turn_preempted",
     }
 )
 
