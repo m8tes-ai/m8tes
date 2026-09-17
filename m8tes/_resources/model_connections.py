@@ -51,10 +51,10 @@ class ModelConnections:
         return ModelConnection.from_dict(body)
 
     def clear_default(self) -> bool:
-        """Clear the external-provider default for new Auto runs.
+        """Clear the preferred external model provider default for new Auto runs.
 
-        Teams use m8tes inference; Hobby and Individual choose a connected external
-        provider automatically. Explicit models and API/Embed billing are unchanged.
+        Teams use m8tes as the model provider; Hobby and Individual choose a connected
+        external model provider automatically. Explicit models and API/Embed billing are unchanged.
         """
         body = self._http.request("DELETE", "/model-connections/preferred-default").json()
         return bool(body.get("cleared"))
