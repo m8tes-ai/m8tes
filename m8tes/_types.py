@@ -153,7 +153,7 @@ class ModelConnection:
 
 @dataclass
 class ApplyPreferredModelResult:
-    """Result of Confirm → apply-default for a connected model plan."""
+    """Result of Confirm → apply-default for a connected model provider."""
 
     provider: str
     model: str

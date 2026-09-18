@@ -142,7 +142,7 @@ class Billing:
         return str(resp.json()["url"])
 
     def activate_free(self) -> Usage:
-        """Activate Hobby with a connected model plan; idempotent if already active."""
+        """Activate Hobby with a connected model provider; idempotent if already active."""
         resp = self._http.request("POST", "/billing/activate-free")
         return Usage.from_dict(resp.json())
 

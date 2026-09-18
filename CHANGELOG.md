@@ -4,6 +4,11 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- Docstrings now say **model provider** instead of "model plan" for own-subscription /
+  connection wording (no API shape change).
+
 ## [4.29.1] - 2026-09-17
 
 ### Changed
