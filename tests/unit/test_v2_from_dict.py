@@ -217,11 +217,11 @@ class TestPermissionRequestFromDict:
                 "status": "pending",
                 "mate_name": "Support",
                 "task_name": "triage inbox",
-                "consequence": "Allows the Mate to: Send email.",
+                "consequence": "Allows the mate to: Send email.",
             }
         )
         assert (p.mate_name, p.task_name) == ("Support", "triage inbox")
-        assert p.consequence == "Allows the Mate to: Send email."
+        assert p.consequence == "Allows the mate to: Send email."
 
     def test_script_identity(self):
         p = PermissionRequest.from_dict(
