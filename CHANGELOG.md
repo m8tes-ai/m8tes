@@ -4,6 +4,12 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.29.2] - 2026-09-18
+
+### Changed
+
+- Expose join-stream `replay_complete` as `StreamEventType.REPLAY_COMPLETE` so joins
+  neither warn "Upgrading the m8tes SDK may add support" nor decode as UNKNOWN.
 ### Changed
 
 - Docstrings now say **model provider** instead of "model plan" for own-subscription /

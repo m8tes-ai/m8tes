@@ -171,6 +171,21 @@ def test_the_three_measured_frames_do_not_warn(event_type, caplog):
         StreamEvent._warned_unknown_types.clear()
 
 
+def test_replay_complete_is_a_named_stream_event_without_upgrade_warning(caplog):
+    """Join catch-up marker from run_join — named, never an upgrade warning (Greptile #2014)."""
+    StreamEvent._warned_unknown_types.clear()
+    try:
+        with caplog.at_level("WARNING", logger="m8tes.streaming"):
+            events = StreamEvent.from_dict({"type": "replay_complete"})
+        assert not caplog.records, (
+            f"replay_complete warned: {[r.getMessage() for r in caplog.records]}"
+        )
+        assert [e.type for e in events] == [StreamEventType.REPLAY_COMPLETE]
+        assert events[0].raw == {"type": "replay_complete"}
+    finally:
+        StreamEvent._warned_unknown_types.clear()
+
+
 def test_a_genuinely_unknown_type_still_warns(caplog):
     """The warning is still doing its job for types nobody has classified.
 

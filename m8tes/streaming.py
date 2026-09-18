@@ -116,6 +116,11 @@ class StreamEventType(StrEnum):
     # Stream completion
     DONE = "done"
 
+    # Join-transport marker from run_join (not an agent-runtime EventType). Named
+    # so every cross-worker join does not decode as UNKNOWN and warn "upgrade the
+    # SDK" — platform clients clear compact seeds on it; API consumers can ignore.
+    REPLAY_COMPLETE = "replay_complete"
+
     # Sandbox connection events
     SANDBOX_CONNECTING = "sandbox-connecting"
     SANDBOX_CONNECTED = "sandbox-connected"
