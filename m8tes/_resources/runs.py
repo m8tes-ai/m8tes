@@ -227,8 +227,8 @@ class Runs:
         supported. output_data is None when the model produced no structured result, so always
         None-check it. The schema sticks to the run: replies and retries stay structured.
 
-        Pass max_turns= to hard-cap conversation turns for each REQUEST on this run (1-500;
-        platform default 500). Persisted, so an automatic continuation of the request in
+        Pass max_turns= to hard-cap conversation turns for each REQUEST on this run (1-2000;
+        platform default 2000). Persisted, so an automatic continuation of the request in
         flight (an approval resume, an interrupted-run re-drive, or a provider/credits
         fallback Continue) inherits the remaining turns rather than a fresh allotment;
         a new message you send re-arms the cap.

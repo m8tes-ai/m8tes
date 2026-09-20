@@ -4,6 +4,13 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.29.3] - 2026-09-20
+
+### Changed
+
+- Documented platform default for `runs.create(..., max_turns=)` / `tasks.run(..., max_turns=)`
+  as **2000** (was 500). Cap range is now 1–2000.
+
 ## [4.29.2] - 2026-09-18
 
 ### Changed
