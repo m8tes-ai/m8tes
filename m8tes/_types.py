@@ -3012,9 +3012,22 @@ class JudgmentClaim(TypedDict):
     evidence_ids: list[str]
 
 
-class JudgmentEvidence(TypedDict):
+class JudgmentSource(TypedDict):
+    type: Literal["document", "tool_result"]
+    id: int
+
+
+class JudgmentInlineEvidence(TypedDict):
     id: str
     text: str
+
+
+class JudgmentReferencedEvidence(TypedDict):
+    id: str
+    source: JudgmentSource
+
+
+JudgmentEvidence = JudgmentInlineEvidence | JudgmentReferencedEvidence
 
 
 class JudgmentChoiceAnswer(TypedDict):
@@ -3045,10 +3058,19 @@ class JudgmentUsage(TypedDict):
     output_tokens: int
 
 
+class JudgmentEvidenceProvenance(TypedDict):
+    evidence_id: str
+    origin: Literal["caller_provided", "stored_document", "stored_tool_result"]
+    source_id: int | None
+    content_sha256: str
+    independently_authenticated: Literal[False]
+
+
 class JudgmentCoverage(TypedDict):
     claim_ids: list[str]
     evidence_ids: list[str]
-    evidence_origin: Literal["caller_provided"]
+    evidence_origin: Literal["caller_provided", "stored_sources", "mixed"]
+    provenance: list[JudgmentEvidenceProvenance]
 
 
 @dataclass
@@ -3056,7 +3078,7 @@ class Judgment:
     """Advisory result; coverage describes submitted inputs, not source authenticity.
 
     ``cost_usd`` is estimated provider cost, not a customer billing charge.
-    The service is stateless: ``id`` cannot be used to retrieve this result later.
+    Successful results are retrievable for 30 days with ``client.judgments.get(id)``.
     """
 
     id: str

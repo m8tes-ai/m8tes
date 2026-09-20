@@ -139,6 +139,7 @@ REPLAY_HEADER = "Idempotent-Replay"
 # could have been retried on a route that ignores the key. Anchoring is the whole
 # point of the check, so it must not be approximate.
 _IDEMPOTENT_POST_PATHS = (
+    re.compile(r"^/judgments/?$"),
     re.compile(r"^/runs/?$"),
     re.compile(r"^/runs/first-session/?$"),
     re.compile(r"^/runs/with-files/?$"),

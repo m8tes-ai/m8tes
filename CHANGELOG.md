@@ -4,6 +4,16 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.33.0] - 2026-09-21
+
+### Added
+
+- Jev judgment retrieval for 30 days, scoped platform document/tool-result evidence
+  references with content provenance, and optional run attribution.
+- Caller-provided idempotency keys protect an operation for 24 hours. Automatic
+  POST retries require a key; replays return the original result and cost without
+  another provider charge. Pending or conflicting requests raise typed errors.
+
 ## [4.32.1] - 2026-09-20
 
 ### Added

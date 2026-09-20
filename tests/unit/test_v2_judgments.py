@@ -98,3 +98,100 @@ def test_judgment_validation_error_is_not_retried_or_treated_as_a_judgment():
             evidence=[],
         )
     assert len(responses.calls) == 1
+
+
+@responses.activate
+def test_idempotency_key_is_header_and_run_attribution_is_body():
+    responses.post(f"{BASE}/judgments", json=RESULT)
+    with M8tes(api_key="m8_test", base_url=BASE) as client:
+        client.judgments.create(
+            mode="verify", claims=[], evidence=[], run_id=42, idempotency_key="report-v1"
+        )
+    request = responses.calls[0].request
+    assert request.headers["Idempotency-Key"] == "report-v1"
+    assert json.loads(request.body) == {
+        "mode": "verify",
+        "claims": [],
+        "evidence": [],
+        "run_id": 42,
+    }
+
+
+@responses.activate
+@pytest.mark.parametrize("key,expected_calls", [(None, 1), ("report-v1", 2)])
+def test_provider_failure_retries_only_with_idempotency_key(key, expected_calls, monkeypatch):
+    from m8tes._exceptions import APIError
+
+    monkeypatch.setattr("m8tes._http.time.sleep", lambda _: None)
+    responses.post(f"{BASE}/judgments", status=503, json={"error": {"message": "Unavailable"}})
+    responses.post(f"{BASE}/judgments", json=RESULT)
+    with M8tes(api_key="m8_test", base_url=BASE) as client:
+        if key:
+            assert (
+                client.judgments.create(
+                    mode="verify", claims=[], evidence=[], idempotency_key=key
+                ).id
+                == RESULT["id"]
+            )
+        else:
+            with pytest.raises(APIError):
+                client.judgments.create(mode="verify", claims=[], evidence=[])
+    assert len(responses.calls) == expected_calls
+    if key:
+        assert {call.request.headers["Idempotency-Key"] for call in responses.calls} == {key}
+
+
+@responses.activate
+def test_get_saved_result_preserves_original_cost_and_user_scope():
+    responses.get(f"{BASE}/judgments/judgment_test?user_id=customer%2F42", json=RESULT)
+    with M8tes(api_key="m8_test", base_url=BASE) as client:
+        result = client.judgments.get("judgment_test", user_id="customer/42")
+    assert result.id == RESULT["id"]
+    assert result.cost_usd == RESULT["cost_usd"]
+    assert len(responses.calls) == 1
+
+
+@responses.activate
+def test_source_reference_is_not_expanded_by_sdk():
+    evidence = [{"id": "e1", "source": {"type": "document", "id": 123}}]
+    responses.post(f"{BASE}/judgments", json=RESULT)
+    with M8tes(api_key="m8_test", base_url=BASE) as client:
+        client.judgments.create(mode="verify", claims=[], evidence=evidence)
+    assert json.loads(responses.calls[0].request.body)["evidence"] == evidence
+
+
+@responses.activate
+def test_pending_idempotent_attempt_is_not_retried():
+    from m8tes._exceptions import ConflictError
+
+    responses.post(
+        f"{BASE}/judgments",
+        status=409,
+        json={"error": {"message": "Attempt is pending", "code": "judgment_in_progress"}},
+    )
+    with M8tes(api_key="m8_test", base_url=BASE) as client, pytest.raises(ConflictError):
+        client.judgments.create(
+            mode="verify", claims=[], evidence=[], idempotency_key="pending-attempt"
+        )
+    assert len(responses.calls) == 1
+
+
+@responses.activate
+def test_get_preserves_source_provenance_without_authenticating_it():
+    coverage = {
+        "claim_ids": ["c1"],
+        "evidence_ids": ["e1"],
+        "evidence_origin": "stored_sources",
+        "provenance": [
+            {
+                "evidence_id": "e1",
+                "origin": "stored_document",
+                "source_id": 123,
+                "content_sha256": "a" * 64,
+                "independently_authenticated": False,
+            }
+        ],
+    }
+    responses.get(f"{BASE}/judgments/judgment_test", json={**RESULT, "coverage": coverage})
+    with M8tes(api_key="m8_test", base_url=BASE) as client:
+        assert client.judgments.get("judgment_test").coverage == coverage

@@ -6032,11 +6032,11 @@ class TestJudgments:
             evidence=[{"id": "e1", "text": "The campaign is paused. Profit data is unavailable."}],
             user_id=_uid(),
         )
-        assert result.coverage == {
-            "claim_ids": ["supported", "contradicted", "missing"],
-            "evidence_ids": ["e1"],
-            "evidence_origin": "caller_provided",
-        }
+        assert result.coverage is not None
+        assert result.coverage["claim_ids"] == ["supported", "contradicted", "missing"]
+        assert result.coverage["evidence_ids"] == ["e1"]
+        assert result.coverage["evidence_origin"] == "caller_provided"
+        assert result.coverage["provenance"][0]["independently_authenticated"] is False
         assert result.rubric_version
         for claim_id, expected in [
             ("supported", "supported"),
@@ -6053,5 +6053,41 @@ class TestJudgments:
                 mode="verify",
                 claims=[{"id": "c1", "text": "Done", "evidence_ids": ["unknown"]}],
                 evidence=[{"id": "e1", "text": "Task result"}],
+                user_id=_uid(),
+            )
+
+    def test_saved_judgment_replay_and_user_scope(self, judgments_client):
+        user_id = _uid()
+        key = f"sdk-judgment-{uuid.uuid4().hex}"
+        request = {
+            "mode": "verify",
+            "claims": [{"id": "c1", "text": "Campaign is paused", "evidence_ids": []}],
+            "evidence": [],
+            "user_id": user_id,
+            "idempotency_key": key,
+        }
+        first = judgments_client.judgments.create(**request)
+        replay = judgments_client.judgments.create(**request)
+        saved = judgments_client.judgments.get(first.id, user_id=user_id)
+        assert first == replay == saved
+        assert first.cost_usd == 0  # Missing evidence resolves without a provider call.
+        with pytest.raises(NotFoundError):
+            judgments_client.judgments.get(first.id, user_id=_uid())
+        with pytest.raises(NotFoundError):
+            judgments_client.judgments.get("jv_does_not_exist", user_id=user_id)
+        with pytest.raises(ConflictError):
+            judgments_client.judgments.create(
+                **{
+                    **request,
+                    "claims": [{"id": "c1", "text": "Different claim", "evidence_ids": []}],
+                }
+            )
+
+    def test_source_reference_requires_accessible_record(self, judgments_client):
+        with pytest.raises(NotFoundError):
+            judgments_client.judgments.create(
+                mode="verify",
+                claims=[{"id": "c1", "text": "Campaign is paused", "evidence_ids": ["e1"]}],
+                evidence=[{"id": "e1", "source": {"type": "document", "id": 2147483647}}],
                 user_id=_uid(),
             )
