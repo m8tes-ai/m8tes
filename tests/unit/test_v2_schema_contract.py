@@ -24,6 +24,7 @@ from m8tes._types import (
     GroupInvite,
     GroupInvitePreview,
     GroupMember,
+    Judgment,
     Memory,
     PermissionPolicy,
     PermissionRequest,
@@ -83,6 +84,7 @@ GroupResponse = _schemas.GroupResponse
 GroupMemberResponse = _schemas.GroupMemberResponse
 GroupInviteResponse = _schemas.GroupInviteResponse
 GroupInvitePreviewResponse = _schemas.GroupInvitePreview
+JudgmentResponse = _schemas.JudgmentResponse
 
 
 def _pydantic_fields(model: type) -> set[str]:
@@ -95,6 +97,7 @@ def _dataclass_fields(cls: type) -> set[str]:
 
 # (PydanticResponse, SDKDataclass, fields intentionally excluded from SDK)
 SCHEMA_PAIRS = [
+    (JudgmentResponse, Judgment, set()),
     (TeammateResponse, Teammate, set()),
     (DevRunResponse, Run, set()),
     (DevTaskResponse, Task, set()),
@@ -208,6 +211,10 @@ def _probe_value(field: dataclasses.Field):
         return _UNSUPPORTED
     if base == "list" or base.startswith("list["):
         return ["probe"]
+    if base == "JudgmentUsage":
+        return {"input_tokens": 321, "output_tokens": 20}
+    if base == "JudgmentCoverage":
+        return {"claim_ids": ["c1"], "evidence_ids": ["e1"], "evidence_origin": "caller_provided"}
     if base.startswith("dict"):
         return {"probe": "value"}
     if base == "bool":

@@ -21,6 +21,7 @@ from ._resources import (
     Documents,
     GitHubApp,
     Groups,
+    Judgments,
     Keys,
     McpServers,
     Memories,
@@ -99,6 +100,7 @@ class M8tes:
         self.users = Users(self._http)
         self.value = Value(self._http)
         self.settings = Settings(self._http)
+        self.judgments = Judgments(self._http)
         self.keys = Keys(self._http)
         self.webhooks = Webhooks(self._http)
 

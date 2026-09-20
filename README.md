@@ -43,6 +43,7 @@ For production, keep strict mode on and pass `user_id` for each customer. These 
 | Connect Stripe, Slack, or another app | [Tools](https://m8tes.ai/docs/tools) |
 | Scope agents, tasks, and memory | [Users](https://m8tes.ai/docs/users) |
 | Configure built-in management and feedback tools | [Built-in tools](https://m8tes.ai/docs/built-in-tools) |
+| Check report claims or get bounded second opinions | [Jev judgments](https://m8tes.ai/docs/built-in-tools#jev-judgments) |
 
 ## Auth & usage
 
@@ -454,6 +455,7 @@ CRUD accepts `user_id` for end-user isolation, while membership and invitation m
 | `client.agents` | `create` `list` `get` `update` `delete` `reset` `enable_webhook` `disable_webhook` `enable_email_inbox` `disable_email_inbox` `enable_fetchmail` `disable_fetchmail` | Agent personas with tools and instructions |
 | `client.agent_templates` | `list` | Pre-built agent template catalog (slugs for `agents.create(from_template=...)`) |
 | `client.runs` | `create` `stream` `poll` `wait` `create_and_wait` `reply` `reply_and_wait` `stream_text` `get` `list` `cancel` `retry` `permissions` `approve` `answer` `update_permission_mode` `list_files` `download_file` | Execute agents and stream results |
+| `client.judgments` | `create` | Platform-funded typed judgments and claim verification against caller-supplied evidence; advisory, not proof or approval |
 | `client.audit_logs` | `list` | Account-scoped API request history |
 | `client.tasks` | `create` `list` `get` `update` `delete` `run` `run_and_wait` `lessons` `delete_lesson` `clear_lessons` | Reusable task definitions (+ lesson curation) |
 | `client.tasks.triggers` | `create` `list` `delete` | Schedule, webhook, and email triggers |

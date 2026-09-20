@@ -5980,3 +5980,78 @@ class TestTeams:
     def test_invite_preview_for_unknown_token_is_validation_error(self, v2_client):
         with pytest.raises(ValidationError):
             v2_client.teams.invite_preview(f"no-such-{uuid.uuid4().hex[:8]}")
+
+
+@pytest.mark.skipif(
+    os.getenv("E2E_JUDGMENTS_PILOT") != "1",
+    reason="Live Jev checks cost provider tokens; set E2E_JUDGMENTS_PILOT=1 explicitly",
+)
+class TestJudgments:
+    """SDK → live V2 → TypeSafe, with judgments enabled on the backend.
+
+    Set E2E_JUDGMENTS_API_KEY to an m8tes account key (not a TypeSafe
+    provider key). The backend must have its TypeSafe provider configured.
+    """
+
+    @pytest.fixture
+    def judgments_client(self, backend_url):
+        key = os.getenv("E2E_JUDGMENTS_API_KEY")
+        if not key:
+            pytest.fail("E2E_JUDGMENTS_API_KEY must identify an authenticated m8tes account")
+        with M8tes(api_key=key, base_url=f"{backend_url}/api/v2", timeout=30) as client:
+            yield client
+
+    def test_decide_returns_typed_answers(self, judgments_client):
+        result = judgments_client.judgments.create(
+            mode="decide",
+            state={"test_result": "The test suite failed."},
+            questions={
+                "tests_passed": {
+                    "type": "noul",
+                    "instructions": "Does test_result say the test suite passed?",
+                }
+            },
+            user_id=_uid(),
+        )
+        answer = result.answers["tests_passed"]
+        assert answer["type"] == "noul"
+        assert 0 <= answer["noul"] < 0.5
+        assert result.model.startswith("jev-")
+        assert result.usage["input_tokens"] > 0
+        assert result.cost_usd >= 0
+        assert result.coverage is None
+
+    def test_verify_covers_supported_contradicted_and_missing_evidence(self, judgments_client):
+        result = judgments_client.judgments.create(
+            mode="verify",
+            claims=[
+                {"id": "supported", "text": "The campaign is paused.", "evidence_ids": ["e1"]},
+                {"id": "contradicted", "text": "The campaign is active.", "evidence_ids": ["e1"]},
+                {"id": "missing", "text": "The campaign is profitable.", "evidence_ids": ["e1"]},
+            ],
+            evidence=[{"id": "e1", "text": "The campaign is paused. Profit data is unavailable."}],
+            user_id=_uid(),
+        )
+        assert result.coverage == {
+            "claim_ids": ["supported", "contradicted", "missing"],
+            "evidence_ids": ["e1"],
+            "evidence_origin": "caller_provided",
+        }
+        assert result.rubric_version
+        for claim_id, expected in [
+            ("supported", "supported"),
+            ("contradicted", "contradicted"),
+            ("missing", "insufficient_evidence"),
+        ]:
+            answer = result.answers[claim_id]
+            assert answer["type"] == "choice"
+            assert answer["choice"] == expected
+
+    def test_unknown_evidence_is_rejected(self, judgments_client):
+        with pytest.raises(ValidationError):
+            judgments_client.judgments.create(
+                mode="verify",
+                claims=[{"id": "c1", "text": "Done", "evidence_ids": ["unknown"]}],
+                evidence=[{"id": "e1", "text": "Task result"}],
+                user_id=_uid(),
+            )

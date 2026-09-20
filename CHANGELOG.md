@@ -4,6 +4,15 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.31.0] - 2026-09-20
+
+### Added
+
+- `client.judgments.create(...)` evaluates bounded Choice, Noul, and Score questions
+  or verifies claims against caller-supplied evidence through `/api/v2/judgments`.
+  Typed requests and results expose probabilities, usage, provider cost, and evidence
+  coverage. Judgments are advisory and platform-funded; provider cost is not a user charge.
+
 ## [4.30.0] - 2026-09-20
 
 ### Added

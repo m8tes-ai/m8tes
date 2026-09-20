@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any, Generic, Literal, TypeVar
+from typing import Any, Generic, Literal, NotRequired, TypedDict, TypeVar
 
 T = TypeVar("T")
 GroupMemberRole = Literal["viewer", "runner", "editor"]
@@ -2979,4 +2979,104 @@ class AppExternalOAuthInitiation:
             authorization_url=data["authorization_url"],
             state=data["state"],
             expires_in=data.get("expires_in", 1800),
+        )
+
+
+JudgmentContent = str | dict[str, Any] | list[Any]
+
+
+class JudgmentChoiceQuestion(TypedDict):
+    type: Literal["choice"]
+    instructions: str
+    criteria: dict[str, str | None]
+
+
+class JudgmentNoulQuestion(TypedDict):
+    type: Literal["noul"]
+    instructions: str
+    criteria: NotRequired[dict[Literal["true", "false"], str] | None]
+
+
+class JudgmentScoreQuestion(TypedDict):
+    type: Literal["score"]
+    instructions: str
+    criteria: list[str]
+
+
+JudgmentQuestion = JudgmentChoiceQuestion | JudgmentNoulQuestion | JudgmentScoreQuestion
+
+
+class JudgmentClaim(TypedDict):
+    id: str
+    text: str
+    evidence_ids: list[str]
+
+
+class JudgmentEvidence(TypedDict):
+    id: str
+    text: str
+
+
+class JudgmentChoiceAnswer(TypedDict):
+    type: Literal["choice"]
+    choice: str
+    probabilities: dict[str, float]
+    confidence: float
+
+
+class JudgmentNoulAnswer(TypedDict):
+    type: Literal["noul"]
+    noul: float
+
+
+class JudgmentScoreAnswer(TypedDict):
+    type: Literal["score"]
+    score: float
+    legend: dict[str, str]
+    probabilities: dict[str, float]
+    confidence: float
+
+
+JudgmentAnswer = JudgmentChoiceAnswer | JudgmentNoulAnswer | JudgmentScoreAnswer
+
+
+class JudgmentUsage(TypedDict):
+    input_tokens: int
+    output_tokens: int
+
+
+class JudgmentCoverage(TypedDict):
+    claim_ids: list[str]
+    evidence_ids: list[str]
+    evidence_origin: Literal["caller_provided"]
+
+
+@dataclass
+class Judgment:
+    """Advisory result; coverage describes submitted inputs, not source authenticity.
+
+    ``cost_usd`` is estimated provider cost, not a customer billing charge.
+    The service is stateless: ``id`` cannot be used to retrieve this result later.
+    """
+
+    id: str
+    model: str
+    answers: dict[str, JudgmentAnswer]
+    usage: JudgmentUsage
+    latency_ms: int
+    cost_usd: float
+    rubric_version: str | None
+    coverage: JudgmentCoverage | None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Judgment:
+        return cls(
+            id=data["id"],
+            model=data["model"],
+            answers=data["answers"],
+            usage=data["usage"],
+            latency_ms=data["latency_ms"],
+            cost_usd=data["cost_usd"],
+            rubric_version=data.get("rubric_version"),
+            coverage=data.get("coverage"),
         )

@@ -12,6 +12,7 @@ from .channels import Channels
 from .documents import Documents
 from .github_app import GitHubApp
 from .groups import Groups
+from .judgments import Judgments
 from .keys import Keys
 from .mcp_servers import McpServers
 from .memories import Memories
@@ -45,6 +46,7 @@ __all__ = [
     "Documents",
     "GitHubApp",
     "Groups",
+    "Judgments",
     "Keys",
     "McpServers",
     "Memories",
