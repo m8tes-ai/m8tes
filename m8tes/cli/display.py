@@ -523,7 +523,8 @@ class JsonDisplay(StreamDisplay):
 
     def on_event(self, event: StreamEvent) -> None:
         """Output event as JSON line."""
-        # Don't accumulate - just output raw
+        # Task exit status is derived from this accumulator in every format.
+        self.accumulator.process(event)
         output = {
             "type": event.type,
             **event.raw,

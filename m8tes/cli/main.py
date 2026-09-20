@@ -21,9 +21,11 @@ from .v2 import normalize_v2_base_url
 def create_client(
     api_key: str | None = None, base_url: str | None = None, allow_no_key: bool = False
 ) -> M8tes | None:
-    """Create a v2 SDK client, resolving the key from args → keychain → env."""
+    """Create a v2 SDK client, resolving the key from args → env → saved profile."""
     try:
-        # Try to load saved API key if not provided (refreshes an expired session token)
+        # An explicit environment key must never refresh or replace a saved login.
+        api_key = api_key or os.getenv("M8TES_API_KEY")
+        # Only fall back to the saved profile when no explicit key was supplied.
         from_profile = False
         if not api_key:
             from .auth import AuthCLI
@@ -50,12 +52,13 @@ def create_client(
     except Exception as e:
         if allow_no_key:
             return None
-        print(f"❌ {e}")
+        print(f"❌ {e}", file=sys.stderr)
         # Don't repeat guidance if it's already in the error message
         if "m8tes auth" not in str(e):
             print(
                 "💡 Try 'm8tes auth login' to authenticate or "
-                "set M8TES_API_KEY environment variable"
+                "set M8TES_API_KEY environment variable",
+                file=sys.stderr,
             )
         sys.exit(1)
 
@@ -167,7 +170,7 @@ def _real_main(argv: list[str]) -> int:
     try:
         return command.execute(args, client)
     except Exception as e:
-        print(f"❌ Command execution failed: {e}")
+        print(f"❌ Command execution failed: {e}", file=sys.stderr)
         return 1
 
 

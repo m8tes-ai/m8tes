@@ -10,6 +10,7 @@ fatal error — a swallowed error made `m8tes mate list` exit 0 on auth failure.
 """
 
 # mypy: disable-error-code="union-attr,arg-type,index,assignment,no-untyped-def"
+import sys
 from typing import TYPE_CHECKING
 
 from .._exceptions import (
@@ -22,7 +23,7 @@ from .._exceptions import (
     ValidationError,
 )
 from .prompt import confirm_prompt, prompt
-from .util import parse_id
+from .util import UserScope, parse_id, scope_cli_suffix
 
 if TYPE_CHECKING:
     from .._client import M8tes
@@ -33,17 +34,6 @@ def _parse_mate_id(mate_id: str) -> int:
     return parse_id(mate_id, "Teammate ID")
 
 
-# Available tools with descriptions
-AVAILABLE_TOOLS = [
-    {
-        "id": "run_gaql_query",
-        "name": "Google Ads Query (GAQL)",
-        "description": (
-            "Execute GAQL queries to retrieve Google Ads campaign data, metrics, and performance"
-        ),
-    },
-]
-
 # One page covers every realistic CLI account; auto_paging_iter handles the rest.
 _LIST_LIMIT = 100
 
@@ -51,7 +41,7 @@ _LIST_LIMIT = 100
 class MateCLI:
     """CLI for teammate management operations."""
 
-    def __init__(self, client: "M8tes"):
+    def __init__(self, client: "M8tes", *, user_id: str | None = None):
         """
         Initialize MateCLI.
 
@@ -59,8 +49,11 @@ class MateCLI:
             client: v2 M8tes SDK client
         """
         self.client = client
+        self.scope: UserScope = {"user_id": user_id} if user_id is not None else {}
 
-    def select_or_confirm_mate(self, mate_id: int | None) -> int | None:
+    def select_or_confirm_mate(
+        self, mate_id: int | None, *, user_id: str | None = None
+    ) -> int | None:
         """
         Get mate ID with auto-detection and user confirmation.
 
@@ -88,7 +81,8 @@ class MateCLI:
         try:
             # Page through everything: .data alone caps at one page, and an account
             # whose only enabled agent sits past it would read as "none enabled".
-            agents = list(self.client.agents.list(limit=_LIST_LIMIT).auto_paging_iter())
+            scope = {"user_id": user_id} if user_id is not None else {}
+            agents = list(self.client.agents.list(limit=_LIST_LIMIT, **scope).auto_paging_iter())
         except AuthenticationError:
             # Handle authentication errors with clear guidance
             print()
@@ -124,7 +118,7 @@ class MateCLI:
         print("📋 Available agents:")
         if not agents:
             print("   No agents found.")
-            print("💡 Create an agent first: m8tes agent create")
+            print(f"💡 Create an agent first: m8tes agent create{scope_cli_suffix(scope)}")
             return None
 
         for idx, inst in enumerate(agents, 1):
@@ -199,6 +193,7 @@ class MateCLI:
             goals=goals,
             inbound_imessage_enabled=inbound_imessage_enabled,
             imessage_chat_guid=imessage_chat_guid,
+            **self.scope,
         )
 
         print("✅ Agent created successfully!")
@@ -252,34 +247,12 @@ class MateCLI:
             print("❌ Instructions cannot be empty")
             return
 
-        # Step 4: Tools (required, explicit selection)
+        # App IDs are validated by V2, using the current catalog rather than a
+        # stale local list of individual tool function names.
         print()
-        print("=" * 60)
-        print("Available Tools:")
-        print("=" * 60)
-        for idx, tool in enumerate(AVAILABLE_TOOLS, 1):
-            print(f"\n{idx}. {tool['name']} ({tool['id']})")
-            print(f"   {tool['description']}")
-        print("\n" + "=" * 60)
-        print()
-
-        tools: list[str] = []
-        tool_input = prompt(
-            "Select tools (comma-separated numbers or IDs, or press Enter to skip): ",
-            allow_empty=True,
-        )
-
-        if tool_input.strip():
-            tools = self._parse_tool_selection(tool_input.strip())
-            if tools is None:
-                print("❌ Invalid tool selection")  # type: ignore[unreachable]
-                return  # type: ignore[unreachable]
-
-        if not tools:
-            print("⚠️  Warning: No tools selected. Agent will have no tool access.")
-            if not confirm_prompt("Continue without tools?", default=False):
-                print("❌ Agent creation cancelled")
-                return
+        print(f"Discover app IDs with: m8tes apps list{scope_cli_suffix(self.scope)}")
+        tool_input = prompt("App IDs (comma-separated, or Enter for none): ", allow_empty=True)
+        tools = list(dict.fromkeys(part.strip() for part in tool_input.split(",") if part.strip()))
 
         # Step 5: Goals & Metrics (optional, text)
         print()
@@ -336,45 +309,11 @@ class MateCLI:
             instructions=instructions,
             role=mate_role,
             goals=goals,
+            **self.scope,
         )
 
         print("✅ Agent created successfully!")
         self._show_mate_usage_guide(instance)
-
-    def _parse_tool_selection(self, tool_input: str) -> list[str] | None:
-        """
-        Parse user's tool selection input.
-
-        Args:
-            tool_input: User input (comma-separated numbers or IDs)
-
-        Returns:
-            List of tool IDs, or None if invalid
-        """
-        tools = []
-        parts = [p.strip() for p in tool_input.split(",")]
-
-        for part in parts:
-            # Try parsing as number (index)
-            try:
-                idx = int(part) - 1  # Convert to 0-based index
-                if 0 <= idx < len(AVAILABLE_TOOLS):
-                    tools.append(AVAILABLE_TOOLS[idx]["id"])
-                else:
-                    print(f"❌ Invalid tool number: {part} (must be 1-{len(AVAILABLE_TOOLS)})")
-                    return None
-            except ValueError:
-                # Not a number, check if it's a valid tool ID
-                tool_ids = [t["id"] for t in AVAILABLE_TOOLS]
-                if part in tool_ids:
-                    tools.append(part)
-                else:
-                    print(f"❌ Unknown tool ID: {part}")
-                    print(f"   Available tools: {', '.join(tool_ids)}")
-                    return None
-
-        # Remove duplicates while preserving order
-        return list(dict.fromkeys(tools))
 
     def list_interactive(
         self, include_disabled: bool = False, *, user_id: str | None = None
@@ -401,9 +340,13 @@ class MateCLI:
 
         if not agents:
             print("No agents found.")
-            print("💡 Create your first agent with: m8tes agent create")
+            scope = {"user_id": user_id} if user_id is not None else {}
+            print(f"💡 Create your first agent with: m8tes agent create{scope_cli_suffix(scope)}")
             if not include_disabled:
-                print("💡 To see disabled agents: m8tes agent list --include-disabled")
+                print(
+                    "💡 To see disabled agents: m8tes agent list --include-disabled"
+                    f"{scope_cli_suffix(scope)}"
+                )
             return
 
         for instance in agents:
@@ -447,7 +390,7 @@ class MateCLI:
         Args:
             mate_id: Teammate ID to retrieve
         """
-        instance = self.client.agents.get(_parse_mate_id(mate_id))
+        instance = self.client.agents.get(_parse_mate_id(mate_id), **self.scope)
 
         print("🤝 Agent Details")
         print()
@@ -472,38 +415,50 @@ class MateCLI:
     def task_interactive(
         self,
         message: str,
-        mate_id: str,
+        mate_id: str | None,
         output_format: str = "verbose",
         debug: bool = False,
         task_setup_tools: bool = True,
+        *,
+        user_id: str | None = None,
+        model: str | None = None,
     ) -> None:
         """
         Execute a one-off task with the teammate using streaming.
 
         Args:
             message: Task description
-            mate_id: Teammate ID to use
+            mate_id: Agent ID, or None for V2 quick-start provisioning
             output_format: Display format ("verbose", "compact", or "json")
             debug: Enable debug mode with detailed logging
             task_setup_tools: When False, force-disable built-in same-scope
                 management tools for this run (True inherits the agent default)
+            user_id: End-user scope for lookup and execution
+            model: Optional model override for this run
         """
         from .display import create_display
+
+        diagnostics = sys.stderr if output_format == "json" else sys.stdout
 
         # Show task header (unless json mode)
         if output_format != "json":
             print(f"🎯 Task: {message}")
             print()
 
-        instance = self.client.agents.get(_parse_mate_id(mate_id))
+        scope = {"user_id": user_id} if user_id is not None else {}
+        instance = (
+            self.client.agents.get(_parse_mate_id(mate_id), **scope)
+            if mate_id is not None
+            else None
+        )
 
-        if output_format != "json":
+        if instance is not None and output_format != "json":
             print(f"🤝 Using: {instance.name} (ID: {instance.id})")
             print()
 
         if debug:
-            print("[DEBUG] Starting task execution...")
-            print()
+            print("[DEBUG] Starting task execution...", file=diagnostics)
+            print(file=diagnostics)
 
         # Create display renderer
         display = create_display(output_format)
@@ -513,10 +468,12 @@ class MateCLI:
         # default; only an explicit False (the --no-task-setup-tools flag)
         # overrides it for this run.
         stream = self.client.runs.create(
-            agent_id=instance.id,
+            agent_id=instance.id if instance is not None else None,
             message=message,
             stream=True,
             task_setup_tools=None if task_setup_tools else False,
+            **scope,
+            **({"model": model} if model is not None else {}),
         )
 
         event_count = 0
@@ -524,15 +481,18 @@ class MateCLI:
             for event in stream:
                 event_count += 1
                 if debug and output_format != "json":
-                    print(f"[DEBUG] Event #{event_count}: {event.type}")
+                    print(f"[DEBUG] Event #{event_count}: {event.type}", file=diagnostics)
                 display.on_event(event)
 
             display.finish()
 
             if debug:
-                print(f"\n[DEBUG] Received {event_count} events")
-                print(f"[DEBUG] Text accumulated: {len(display.get_final_text())} chars")
-                print(f"[DEBUG] Errors: {len(display.accumulator.get_errors())}")
+                print(f"\n[DEBUG] Received {event_count} events", file=diagnostics)
+                print(
+                    f"[DEBUG] Text accumulated: {len(display.get_final_text())} chars",
+                    file=diagnostics,
+                )
+                print(f"[DEBUG] Errors: {len(display.accumulator.get_errors())}", file=diagnostics)
 
             # Check for errors or empty response
             has_errors = display.accumulator.has_errors()
@@ -565,10 +525,12 @@ class MateCLI:
 
         except KeyboardInterrupt:
             display.finish()
-            print("\n\n⏸️  Task interrupted")
+            print("\n\n⏸️  Task interrupted", file=diagnostics)
             raise
 
-    def _validated_resume_run_id(self, run_id: int, instance, output_format: str) -> int | None:
+    def _validated_resume_run_id(
+        self, run_id: int, instance, output_format: str, *, user_id: str | None = None
+    ) -> int | None:
         """Confirm a resume target actually belongs to the selected mate.
 
         The v2 server replies on the RUN's own agent regardless of which mate the
@@ -579,7 +541,9 @@ class MateCLI:
         from .._exceptions import M8tesError
 
         try:
-            run = self.client.runs.get(run_id)
+            run = self.client.runs.get(
+                run_id, **({"user_id": user_id} if user_id is not None else {})
+            )
         except M8tesError as exc:
             if output_format != "json":
                 print(f"❌ Cannot resume run {run_id}: {exc}")
@@ -594,7 +558,13 @@ class MateCLI:
         return run_id
 
     def chat_interactive(
-        self, mate_id: str, resume_run_id: int | None = None, output_format: str = "verbose"
+        self,
+        mate_id: str,
+        resume_run_id: int | None = None,
+        output_format: str = "verbose",
+        *,
+        user_id: str | None = None,
+        model: str | None = None,
     ) -> None:
         """
         Start an interactive chat session with the teammate using streaming.
@@ -622,10 +592,11 @@ class MateCLI:
             )
             print()
 
-        instance = self.client.agents.get(_parse_mate_id(mate_id))
+        scope = {"user_id": user_id} if user_id is not None else {}
+        instance = self.client.agents.get(_parse_mate_id(mate_id), **scope)
         run_id: int | None = None
         if resume_run_id is not None:
-            run_id = self._validated_resume_run_id(resume_run_id, instance, output_format)
+            run_id = self._validated_resume_run_id(resume_run_id, instance, output_format, **scope)
         if output_format != "json":
             print(f"🤝 Chatting with: {instance.name} (ID: {instance.id})")
             if run_id:
@@ -678,7 +649,7 @@ class MateCLI:
                                 print(f"❌ Invalid run ID: {parts[1]} (must be a number)")
                             continue
                         validated = self._validated_resume_run_id(
-                            candidate, instance, output_format
+                            candidate, instance, output_format, **scope
                         )
                         if validated is not None:
                             run_id = validated
@@ -698,7 +669,11 @@ class MateCLI:
                         is_first = run_id is None
                         if is_first:
                             stream = self.client.runs.create(
-                                agent_id=instance.id, message=message, stream=True
+                                agent_id=instance.id,
+                                message=message,
+                                stream=True,
+                                **scope,
+                                **({"model": model} if model is not None else {}),
                             )
                         else:
                             stream = self.client.runs.reply(run_id, message=message, stream=True)
@@ -733,6 +708,7 @@ class MateCLI:
                                 print(
                                     "⚠️  Its run ID hadn't arrived yet — the next message "
                                     "starts a NEW run; find this one with: m8tes run list"
+                                    f"{scope_cli_suffix(scope)}"
                                 )
                         continue
 
@@ -755,7 +731,7 @@ class MateCLI:
             mate_id: Teammate ID to update
         """
         # Get current teammate
-        instance = self.client.agents.get(_parse_mate_id(mate_id))
+        instance = self.client.agents.get(_parse_mate_id(mate_id), **self.scope)
 
         print(f"🔧 Update Agent: {instance.name} (ID: {instance.id})")
         print()
@@ -799,7 +775,7 @@ class MateCLI:
         # Update teammate (empty strings mean "keep current", so send None)
         print("⏳ Updating agent...")
         self.client.agents.update(
-            instance.id, name=new_name or None, instructions=new_instructions or None
+            instance.id, name=new_name or None, instructions=new_instructions or None, **self.scope
         )
 
         print("✅ Agent updated successfully!")
@@ -824,7 +800,7 @@ class MateCLI:
             imessage_chat_guid: Updated BlueBubbles chat GUID
         """
         # Get current teammate (validates the ID before patching)
-        instance = self.client.agents.get(_parse_mate_id(mate_id))
+        instance = self.client.agents.get(_parse_mate_id(mate_id), **self.scope)
 
         self.client.agents.update(
             instance.id,
@@ -832,6 +808,7 @@ class MateCLI:
             instructions=instructions,
             inbound_imessage_enabled=inbound_imessage_enabled,
             imessage_chat_guid=imessage_chat_guid,
+            **self.scope,
         )
 
         print("✅ Agent updated successfully!")
@@ -850,7 +827,7 @@ class MateCLI:
         """
         try:
             # Get teammate info
-            instance = self.client.agents.get(_parse_mate_id(mate_id))
+            instance = self.client.agents.get(_parse_mate_id(mate_id), **self.scope)
 
             print(f"✅ Enable Agent: {instance.name} (ID: {instance.id})")
             print()
@@ -863,7 +840,7 @@ class MateCLI:
 
             # Enable teammate
             print("⏳ Enabling agent...")
-            updated = self.client.agents.enable(instance.id)
+            updated = self.client.agents.enable(instance.id, **self.scope)
 
             print("✅ Agent enabled successfully!")
             print(f"   Status: {updated.status}")
@@ -886,7 +863,7 @@ class MateCLI:
         """
         try:
             # Get teammate info
-            instance = self.client.agents.get(_parse_mate_id(mate_id))
+            instance = self.client.agents.get(_parse_mate_id(mate_id), **self.scope)
 
             print(f"⏸️  Disable Agent: {instance.name} (ID: {instance.id})")
             print()
@@ -911,12 +888,14 @@ class MateCLI:
 
             # Disable teammate
             print("⏳ Disabling agent...")
-            updated = self.client.agents.disable(instance.id)
+            updated = self.client.agents.disable(instance.id, **self.scope)
 
             print("✅ Agent disabled successfully!")
             print(f"   Status: {updated.status}")
             print("   Run history has been preserved.")
-            print(f"💡 To re-enable: m8tes agent enable {instance.id}")
+            print(
+                f"💡 To re-enable: m8tes agent enable {instance.id}{scope_cli_suffix(self.scope)}"
+            )
 
         except ValidationError as e:
             print(f"❌ Failed to disable agent: {e}")
@@ -936,7 +915,7 @@ class MateCLI:
         """
         try:
             # Get teammate info
-            instance = self.client.agents.get(_parse_mate_id(mate_id))
+            instance = self.client.agents.get(_parse_mate_id(mate_id), **self.scope)
 
             print(f"🗑️  Archive Agent: {instance.name} (ID: {instance.id})")
             print()
@@ -956,14 +935,14 @@ class MateCLI:
 
             # Archive teammate (raises on failure)
             print("⏳ Archiving agent...")
-            self.client.agents.delete(instance.id)
+            self.client.agents.delete(instance.id, **self.scope)
 
             print("✅ Agent archived successfully!")
             print("   Run history has been preserved.")
 
         except NotFoundError:
             print(f"❌ Agent not found: No agent with ID {mate_id}")
-            print("   Use 'm8tes agent list' to see available agents")
+            print(f"   To see available agents: m8tes agent list{scope_cli_suffix(self.scope)}")
             raise
         except PermissionDeniedError:
             print("❌ Access denied: You don't have permission to archive this agent")
@@ -1119,30 +1098,33 @@ class MateCLI:
             for line in instance.goals.splitlines():
                 print(f"      {line}")
 
+        scope = scope_cli_suffix(self.scope)
         print("\n🚀 How to Use Your Agent:")
 
         # Task mode examples
         if mode != "chat":
             print("\n1️⃣  Run a one-off task:")
-            print(f'   m8tes agent task {instance.id} "Your task here"')
+            print(f'   m8tes agent task {instance.id} "Your task here"{scope}')
 
             # Show tool-specific examples if Google Ads tools are available
             if any(
                 "google_ads" in tool.lower() or "gaql" in tool.lower() for tool in instance.tools
             ):
                 print("\n   💡 Google Ads Example:")
-                print(f'   m8tes agent task {instance.id} "What\'s my daily Google Ads spend?"')
+                print(
+                    f'   m8tes agent task {instance.id} "What\'s my daily Google Ads spend?"{scope}'
+                )
 
         # Chat mode examples
         if mode != "task":
             print("\n2️⃣  Start an interactive chat session:")
-            print(f"   m8tes agent chat {instance.id}")
+            print(f"   m8tes agent chat {instance.id}{scope}")
 
         # General commands
         print("\n📊 Other Commands:")
-        print("   m8tes agent list         # View all your agents")
-        print(f"   m8tes agent get {instance.id}     # Get agent details")
-        print(f"   m8tes agent update {instance.id}  # Update agent configuration")
+        print(f"   m8tes agent list{scope}         # View all your agents")
+        print(f"   m8tes agent get {instance.id}{scope}     # Get agent details")
+        print(f"   m8tes agent update {instance.id}{scope}  # Update agent configuration")
 
         print("\n📚 Need Help?")
         print("   m8tes agent --help")

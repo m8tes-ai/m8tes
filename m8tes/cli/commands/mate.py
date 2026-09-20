@@ -11,7 +11,9 @@ raise it. Both map to exit code 1.
 
 from argparse import Action, ArgumentParser, Namespace
 from collections.abc import Sequence
+from contextlib import redirect_stdout
 import shlex
+import sys
 from typing import TYPE_CHECKING, ClassVar, Optional
 
 from ..._exceptions import (
@@ -27,7 +29,7 @@ from ...exceptions import (
     M8tesError as LegacyM8tesError,
 )
 from ..base import Command, CommandGroup
-from ..util import show_auth_guidance
+from ..util import add_user_id_argument, show_auth_guidance, user_scope
 
 if TYPE_CHECKING:
     from ..._client import M8tes
@@ -70,14 +72,15 @@ class CreateCommand(Command):
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add create-specific arguments."""
+        add_user_id_argument(parser)
         # Non-interactive mode flags
         parser.add_argument("--name", help="Agent name (for non-interactive mode)")
         parser.add_argument(
             "--tools",
             nargs="+",
             help=(
-                "Tool IDs space-separated (for non-interactive mode). "
-                "Example: --tools run_gaql_query. Required for non-interactive mode."
+                "Optional app IDs separated by spaces, for example --tools gmail slack. "
+                "Discover IDs with m8tes apps list."
             ),
         )
         parser.add_argument(
@@ -119,7 +122,7 @@ class CreateCommand(Command):
 
         from ..mates import MateCLI
 
-        mate_cli = MateCLI(client)
+        mate_cli = MateCLI(client, **user_scope(args))
         try:
             # Check for non-interactive mode
             non_interactive = getattr(args, "non_interactive", False)
@@ -128,7 +131,7 @@ class CreateCommand(Command):
                 # Validate required fields for non-interactive
                 name = getattr(args, "name", None)
                 instructions = getattr(args, "instructions", None)
-                tools = getattr(args, "tools", None)
+                tools = getattr(args, "tools", None) or []
                 role = getattr(args, "role", None)
                 goals_str = getattr(args, "goals", None)
                 inbound_imessage_enabled = getattr(args, "enable_imessage", False)
@@ -140,11 +143,6 @@ class CreateCommand(Command):
                 if not instructions:
                     print("❌ --instructions is required for non-interactive mode")
                     return 1
-                if not tools:
-                    print("❌ --tools is required for non-interactive mode")
-                    print("   Example: --tools run_gaql_query")
-                    return 1
-
                 goals = goals_str.strip() if goals_str and goals_str.strip() else None
 
                 # Create teammate directly
@@ -202,7 +200,7 @@ class ListCommand(Command):
 
         from ..mates import MateCLI
 
-        mate_cli = MateCLI(client)
+        mate_cli = MateCLI(client, **user_scope(args))
         try:
             include_disabled = getattr(args, "include_disabled", False)
             mate_cli.list_interactive(
@@ -229,6 +227,7 @@ class GetCommand(Command):
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add get-specific arguments."""
+        add_user_id_argument(parser)
         parser.add_argument("agent_id", help="Agent ID to retrieve")
 
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
@@ -240,7 +239,7 @@ class GetCommand(Command):
 
         from ..mates import MateCLI
 
-        mate_cli = MateCLI(client)
+        mate_cli = MateCLI(client, **user_scope(args))
         try:
             mate_cli.get_interactive(args.agent_id)
             return 0
@@ -292,12 +291,15 @@ class TaskCommand(Command):
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add task-specific arguments."""
+        parser.add_argument("--user-id", help="End-user scope (required for strict API accounts)")
+        parser.add_argument("--model", help="Model for this run, e.g. deepseek-v4-1-flash")
         parser.add_argument(
             "command_args",
             nargs="+",
             action=_SplitCommandArgsAction,
             help=(
-                "[agent_id] message - agent_id is optional (will auto-detect). "
+                "[agent_id] message - agent_id is optional (scoped quick start with "
+                "--user-id, otherwise auto-detect). "
                 'Examples: task 7 "Do X" or task "Do X"'
             ),
         )
@@ -324,14 +326,16 @@ class TaskCommand(Command):
 
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
         """Execute teammate task."""
+        diagnostics = sys.stderr if getattr(args, "output", "verbose") == "json" else sys.stdout
         if not client:
-            print("❌ Authentication required for agent tasks")
-            show_auth_guidance()
+            print("❌ Authentication required for agent tasks", file=diagnostics)
+            with redirect_stdout(diagnostics):
+                show_auth_guidance()
             return 1
 
         from ..mates import MateCLI
 
-        mate_cli = MateCLI(client)
+        mate_cli = MateCLI(client, **user_scope(args))
         try:
             # Parse flexible arguments: [mate_id] message
             # Try parsing first arg as integer mate_id
@@ -341,9 +345,9 @@ class TaskCommand(Command):
             try:
                 mate_id = int(args.command_args[0])
                 if len(args.command_args) < 2:
-                    print("❌ Message required when specifying agent_id")
-                    print("   Usage: m8tes agent task <agent_id> <message>")
-                    print('   Example: m8tes agent task 7 "Do something"')
+                    print("❌ Message required when specifying agent_id", file=diagnostics)
+                    print("   Usage: m8tes agent task <agent_id> <message>", file=diagnostics)
+                    print('   Example: m8tes agent task 7 "Do something"', file=diagnostics)
                     return 1
                 message = " ".join(args.command_args[1:])
             except (ValueError, IndexError):
@@ -352,14 +356,23 @@ class TaskCommand(Command):
                 message = " ".join(args.command_args)
 
             if not message or not message.strip():
-                print("❌ Task message cannot be empty")
+                print("❌ Task message cannot be empty", file=diagnostics)
                 return 1
 
-            # Get or confirm mate_id (with auto-detection)
-            confirmed_mate_id = mate_cli.select_or_confirm_mate(mate_id)
-
-            if confirmed_mate_id is None:
-                return 1
+            execution_options = {
+                key: value
+                for key in ("user_id", "model")
+                if (value := getattr(args, key, None)) is not None
+            }
+            # A scoped first run uses V2's quick-start provisioning. No existing
+            # agent or interactive selection is required for a new API account.
+            if mate_id is None and "user_id" in execution_options:
+                confirmed_mate_id = None
+            else:
+                with redirect_stdout(diagnostics):
+                    confirmed_mate_id = mate_cli.select_or_confirm_mate(mate_id)
+                if confirmed_mate_id is None:
+                    return 1
 
             output_format = getattr(args, "output", "verbose")
             debug = getattr(args, "debug", False)
@@ -367,21 +380,26 @@ class TaskCommand(Command):
 
             mate_cli.task_interactive(
                 message,
-                str(confirmed_mate_id),
+                str(confirmed_mate_id) if confirmed_mate_id is not None else None,
                 output_format=output_format,
                 debug=debug,
                 task_setup_tools=not no_task_setup_tools,
+                **execution_options,
             )
             return 0
         except _AUTH_ERRORS as e:
-            print(f"❌ Authentication failed: {e}")
-            show_auth_guidance()
+            print(f"❌ Authentication failed: {e}", file=diagnostics)
+            with redirect_stdout(diagnostics):
+                show_auth_guidance()
             return 1
         except _CLI_ERRORS as e:
-            print(f"❌ Agent task failed: {e}")
+            print(
+                f"❌ Agent task failed: {e}",
+                file=diagnostics,
+            )
             return 1
         except KeyboardInterrupt:
-            print("\n👋 Task cancelled.")
+            print("\n👋 Task cancelled.", file=diagnostics)
             return 1
 
 
@@ -395,6 +413,8 @@ class ChatCommand(Command):
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add chat-specific arguments."""
+        parser.add_argument("--user-id", help="End-user scope (required for strict API accounts)")
+        parser.add_argument("--model", help="Model for new runs; resumed runs keep their model")
         parser.add_argument(
             "agent_id",
             nargs="?",
@@ -422,7 +442,7 @@ class ChatCommand(Command):
 
         from ..mates import MateCLI
 
-        mate_cli = MateCLI(client)
+        mate_cli = MateCLI(client, **user_scope(args))
         try:
             # Parse mate_id (may be None for auto-detect)
             mate_id = None
@@ -434,7 +454,15 @@ class ChatCommand(Command):
                     return 1
 
             # Get or confirm mate_id (with auto-detection)
-            confirmed_mate_id = mate_cli.select_or_confirm_mate(mate_id)
+            execution_options = {
+                key: value
+                for key in ("user_id", "model")
+                if (value := getattr(args, key, None)) is not None
+            }
+            scope = (
+                {"user_id": execution_options["user_id"]} if "user_id" in execution_options else {}
+            )
+            confirmed_mate_id = mate_cli.select_or_confirm_mate(mate_id, **scope)
 
             if confirmed_mate_id is None:
                 return 1
@@ -443,12 +471,15 @@ class ChatCommand(Command):
             output_format = getattr(args, "output", "verbose")
 
             if output_format == "verbose":
-                mate_cli.chat_interactive(str(confirmed_mate_id), resume_run_id=resume_run_id)
+                mate_cli.chat_interactive(
+                    str(confirmed_mate_id), resume_run_id=resume_run_id, **execution_options
+                )
             else:
                 mate_cli.chat_interactive(
                     str(confirmed_mate_id),
                     resume_run_id=resume_run_id,
                     output_format=output_format,
+                    **execution_options,
                 )
             return 0
         except _AUTH_ERRORS as e:
@@ -473,6 +504,7 @@ class UpdateCommand(Command):
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add update-specific arguments."""
+        add_user_id_argument(parser)
         parser.add_argument("agent_id", help="Agent ID to update")
         # Non-interactive mode flags
         parser.add_argument("--name", help="New agent name (for non-interactive mode)")
@@ -508,7 +540,7 @@ class UpdateCommand(Command):
 
         from ..mates import MateCLI
 
-        mate_cli = MateCLI(client)
+        mate_cli = MateCLI(client, **user_scope(args))
         try:
             mate_id = args.agent_id
 
@@ -573,6 +605,7 @@ class EnableCommand(Command):
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add enable-specific arguments."""
+        add_user_id_argument(parser)
         parser.add_argument("agent_id", help="Agent ID to enable")
 
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
@@ -584,7 +617,7 @@ class EnableCommand(Command):
 
         from ..mates import MateCLI
 
-        mate_cli = MateCLI(client)
+        mate_cli = MateCLI(client, **user_scope(args))
         try:
             mate_id = args.agent_id
             mate_cli.enable_interactive(mate_id)
@@ -611,6 +644,7 @@ class DisableCommand(Command):
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add disable-specific arguments."""
+        add_user_id_argument(parser)
         parser.add_argument("agent_id", help="Agent ID to disable")
         parser.add_argument(
             "--force",
@@ -627,7 +661,7 @@ class DisableCommand(Command):
 
         from ..mates import MateCLI
 
-        mate_cli = MateCLI(client)
+        mate_cli = MateCLI(client, **user_scope(args))
         try:
             mate_id = args.agent_id
             force = getattr(args, "force", False)
@@ -655,6 +689,7 @@ class ArchiveCommand(Command):
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add archive-specific arguments."""
+        add_user_id_argument(parser)
         parser.add_argument("agent_id", help="Agent ID to archive")
         parser.add_argument(
             "--force",
@@ -671,7 +706,7 @@ class ArchiveCommand(Command):
 
         from ..mates import MateCLI
 
-        mate_cli = MateCLI(client)
+        mate_cli = MateCLI(client, **user_scope(args))
         try:
             mate_id = args.agent_id
             force = getattr(args, "force", False)

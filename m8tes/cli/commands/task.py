@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING, ClassVar, Optional
 from ..._exceptions import AuthenticationError, M8tesError
 from ...exceptions import M8tesError as LegacyM8tesError
 from ..base import Command, CommandGroup
-from ..util import show_auth_guidance
+from ..util import add_user_id_argument, show_auth_guidance, user_scope
 
 if TYPE_CHECKING:
     from ..._client import M8tes
@@ -44,11 +44,11 @@ def _run(action: str, work: Callable[[], None], *, cancelled: str | None = None)
         return 1
 
 
-def _task_cli(client: "M8tes") -> "TaskCLI":
+def _task_cli(client: "M8tes", args: Namespace) -> "TaskCLI":
     """Build the TaskCLI (imported lazily so tests can patch the class)."""
     from ..tasks import TaskCLI
 
-    return TaskCLI(client)
+    return TaskCLI(client, **user_scope(args))
 
 
 def _require_client(client: Optional["M8tes"], purpose: str = "task management") -> bool:
@@ -91,6 +91,7 @@ class CreateCommand(Command):
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add create-specific arguments."""
+        add_user_id_argument(parser)
         # Non-interactive mode flags
         # --agent-id is the advertised spelling; --mate-id keeps old scripts working.
         parser.add_argument(
@@ -121,7 +122,7 @@ class CreateCommand(Command):
         if not _require_client(client):
             return 1
 
-        task_cli = _task_cli(client)  # type: ignore[arg-type]
+        task_cli = _task_cli(client, args)  # type: ignore[arg-type]
 
         if not getattr(args, "non_interactive", False):
             return _run(
@@ -136,7 +137,7 @@ class CreateCommand(Command):
         instructions = getattr(args, "instructions", None)
 
         if not mate_id:
-            print("❌ --mate-id is required for non-interactive mode")
+            print("❌ --agent-id is required for non-interactive mode")
             return 1
         if not name:
             print("❌ --name is required for non-interactive mode")
@@ -168,6 +169,7 @@ class ListCommand(Command):
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add list-specific arguments."""
+        add_user_id_argument(parser)
         parser.add_argument(
             "--agent-id",
             dest="mate_id",
@@ -195,7 +197,7 @@ class ListCommand(Command):
         if not _require_client(client):
             return 1
 
-        task_cli = _task_cli(client)  # type: ignore[arg-type]
+        task_cli = _task_cli(client, args)  # type: ignore[arg-type]
         return _run(
             "Error listing tasks",
             lambda: task_cli.list_interactive(
@@ -217,6 +219,7 @@ class GetCommand(Command):
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add get-specific arguments."""
+        add_user_id_argument(parser)
         parser.add_argument("task_id", help="Task ID to retrieve")
 
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
@@ -224,7 +227,7 @@ class GetCommand(Command):
         if not _require_client(client):
             return 1
 
-        task_cli = _task_cli(client)  # type: ignore[arg-type]
+        task_cli = _task_cli(client, args)  # type: ignore[arg-type]
         return _run("Error getting task", lambda: task_cli.get_interactive(args.task_id))
 
 
@@ -238,6 +241,7 @@ class ExecuteCommand(Command):
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add execute-specific arguments."""
+        add_user_id_argument(parser)
         parser.add_argument("task_id", help="Task ID to execute")
 
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
@@ -245,7 +249,7 @@ class ExecuteCommand(Command):
         if not _require_client(client, "task execution"):
             return 1
 
-        task_cli = _task_cli(client)  # type: ignore[arg-type]
+        task_cli = _task_cli(client, args)  # type: ignore[arg-type]
         return _run(
             "Task execution failed",
             lambda: task_cli.execute_interactive(args.task_id),
@@ -263,6 +267,7 @@ class UpdateCommand(Command):
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add update-specific arguments."""
+        add_user_id_argument(parser)
         parser.add_argument("task_id", help="Task ID to update")
         parser.add_argument("--name", help="New task name")
         parser.add_argument("--instructions", help="New task instructions")
@@ -283,7 +288,7 @@ class UpdateCommand(Command):
             print("❌ At least one field must be provided for update")
             return 1
 
-        task_cli = _task_cli(client)  # type: ignore[arg-type]
+        task_cli = _task_cli(client, args)  # type: ignore[arg-type]
         return _run(
             "Error updating task",
             lambda: task_cli.update_interactive(
@@ -306,6 +311,7 @@ class EnableCommand(Command):
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add enable-specific arguments."""
+        add_user_id_argument(parser)
         parser.add_argument("task_id", help="Task ID to enable")
 
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
@@ -313,7 +319,7 @@ class EnableCommand(Command):
         if not _require_client(client):
             return 1
 
-        task_cli = _task_cli(client)  # type: ignore[arg-type]
+        task_cli = _task_cli(client, args)  # type: ignore[arg-type]
         return _run("Error enabling task", lambda: task_cli.enable_interactive(args.task_id))
 
 
@@ -327,6 +333,7 @@ class DisableCommand(Command):
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add disable-specific arguments."""
+        add_user_id_argument(parser)
         parser.add_argument("task_id", help="Task ID to disable")
 
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
@@ -334,7 +341,7 @@ class DisableCommand(Command):
         if not _require_client(client):
             return 1
 
-        task_cli = _task_cli(client)  # type: ignore[arg-type]
+        task_cli = _task_cli(client, args)  # type: ignore[arg-type]
         return _run("Error disabling task", lambda: task_cli.disable_interactive(args.task_id))
 
 
@@ -348,6 +355,7 @@ class ArchiveCommand(Command):
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add archive-specific arguments."""
+        add_user_id_argument(parser)
         parser.add_argument("task_id", help="Task ID to archive")
 
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
@@ -355,5 +363,5 @@ class ArchiveCommand(Command):
         if not _require_client(client):
             return 1
 
-        task_cli = _task_cli(client)  # type: ignore[arg-type]
+        task_cli = _task_cli(client, args)  # type: ignore[arg-type]
         return _run("Error archiving task", lambda: task_cli.archive_interactive(args.task_id))

@@ -19,7 +19,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 
 from .._exceptions import RunFailedError
-from .util import parse_id as _parse_id
+from .util import UserScope, parse_id as _parse_id, scope_cli_suffix
 
 if TYPE_CHECKING:
     from .._client import M8tes
@@ -37,7 +37,7 @@ def _is_visible(task: Task, *, status: str | None, include_disabled: bool) -> bo
 class TaskCLI:
     """CLI for task management operations."""
 
-    def __init__(self, client: M8tes):
+    def __init__(self, client: M8tes, *, user_id: str | None = None):
         """
         Initialize TaskCLI.
 
@@ -45,6 +45,7 @@ class TaskCLI:
             client: v2 SDK client
         """
         self.client = client
+        self.scope: UserScope = {"user_id": user_id} if user_id is not None else {}
 
     def create_interactive(self) -> None:
         """
@@ -60,10 +61,10 @@ class TaskCLI:
         print()
 
         # Step 1: Show available agents and get mate_id
-        agents = list(self.client.agents.list().auto_paging_iter())
+        agents = list(self.client.agents.list(**self.scope).auto_paging_iter())
         if not agents:
             print("❌ No agents available. Create an agent first.")
-            print("💡 Run: m8tes agent create")
+            print(f"💡 Run: m8tes agent create{scope_cli_suffix(self.scope)}")
             return
 
         print("Available agents:")
@@ -152,6 +153,7 @@ class TaskCLI:
             instructions=instructions,
             expected_output=expected_output,
             goals=goals,
+            **self.scope,
         )
 
         self._print_created(task)
@@ -180,6 +182,7 @@ class TaskCLI:
             instructions=instructions,
             expected_output=expected_output,
             goals=goals,
+            **self.scope,
         )
 
         self._print_created(task)
@@ -192,7 +195,7 @@ class TaskCLI:
         print(f"   Status: {task.status}")
         print()
         print("💡 To execute this task:")
-        print(f"   m8tes task execute {task.id}")
+        print(f"   m8tes task execute {task.id}{scope_cli_suffix(self.scope)}")
 
     def list_interactive(
         self,
@@ -218,7 +221,9 @@ class TaskCLI:
         print()
 
         agent_id = _parse_id(mate_id, "Teammate ID") if mate_id else None
-        page = self.client.tasks.list(agent_id=agent_id, include_archived=include_archived)
+        page = self.client.tasks.list(
+            agent_id=agent_id, include_archived=include_archived, **self.scope
+        )
         tasks = [
             task
             for task in page.auto_paging_iter()
@@ -227,7 +232,7 @@ class TaskCLI:
 
         if not tasks:
             print("No tasks found.")
-            print("💡 Create a new task with: m8tes task create <mate_id> <name> <instructions>")
+            print(f"💡 Create a new task with: m8tes task create{scope_cli_suffix(self.scope)}")
             return
 
         for task in tasks:
@@ -266,7 +271,7 @@ class TaskCLI:
         Args:
             task_id: Task ID to retrieve
         """
-        task = self.client.tasks.get(_parse_id(task_id, "Task ID"))
+        task = self.client.tasks.get(_parse_id(task_id, "Task ID"), **self.scope)
 
         print("📋 Task Details")
         print()
@@ -295,7 +300,7 @@ class TaskCLI:
         from .display import create_display
 
         parsed_id = _parse_id(task_id, "Task ID")
-        task = self.client.tasks.get(parsed_id)
+        task = self.client.tasks.get(parsed_id, **self.scope)
 
         print(f"🎯 Executing task: {task.name}")
         print()
@@ -305,7 +310,7 @@ class TaskCLI:
         display.start()
 
         # Stream the run (RunStream closes the response when iteration ends)
-        stream = cast("RunStream", self.client.tasks.run(parsed_id, stream=True))
+        stream = cast("RunStream", self.client.tasks.run(parsed_id, stream=True, **self.scope))
         try:
             for event in stream:
                 display.on_event(event)
@@ -350,6 +355,7 @@ class TaskCLI:
             instructions=instructions,
             expected_output=expected_output,
             goals=goals,
+            **self.scope,
         )
 
         print("✅ Task updated successfully!")
@@ -365,14 +371,18 @@ class TaskCLI:
 
     def enable_interactive(self, task_id: str) -> None:
         """Enable a disabled task (re-arms schedules its disable paused)."""
-        task = self.client.tasks.update(_parse_id(task_id, "Task ID"), status="enabled")
+        task = self.client.tasks.update(
+            _parse_id(task_id, "Task ID"), status="enabled", **self.scope
+        )
         print("✅ Task enabled!")
         print(f"   ID: {task.id}")
         print(f"   Status: {task.status}")
 
     def disable_interactive(self, task_id: str) -> None:
         """Disable a task (pauses its schedules and event triggers)."""
-        task = self.client.tasks.update(_parse_id(task_id, "Task ID"), status="disabled")
+        task = self.client.tasks.update(
+            _parse_id(task_id, "Task ID"), status="disabled", **self.scope
+        )
         print("⏸️  Task disabled!")
         print(f"   ID: {task.id}")
         print(f"   Status: {task.status}")
@@ -386,7 +396,7 @@ class TaskCLI:
         """
         # v2 DELETE archives and answers 204 — failure arrives as a typed exception,
         # so there is no success flag to check any more.
-        self.client.tasks.delete(_parse_id(task_id, "Task ID"))
+        self.client.tasks.delete(_parse_id(task_id, "Task ID"), **self.scope)
 
         print("✅ Task archived successfully!")
         print(f"   ID: {task_id}")

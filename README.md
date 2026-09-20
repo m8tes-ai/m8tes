@@ -10,32 +10,36 @@ Run agents from Python with 190+ integrations, memory, streaming, and per-user i
 ## Install
 
 ```bash
-pip install -U "m8tes>=4.8"
+pip install -U "m8tes>=4.32.1"
 ```
 
 ## Quick start
 
 1. [Create an account and save your API key](https://m8tes.ai/docs/quickstart).
-2. Open [Account → Model connections](https://m8tes.ai/account), connect xAI, and finish provider sign-in. Wait for **Connected**.
-3. Set `M8TES_API_KEY`, then stream a reply:
+2. Set the key in your terminal:
+
+```bash
+export M8TES_API_KEY=m8_your_key_here
+```
+
+3. Stream a reply using the **$1 test credit** included with new API accounts. No card or provider sign-in is required:
 
 ```python
 from m8tes import M8tes
 
 client = M8tes()
-# Personal development only: this disables strict user_id checks account-wide.
-# This persists. For customer-facing apps, keep strict mode on and pass user_id.
-client.settings.update(require_end_user_id=False)
-
 for text in client.runs.stream_text(
     message="Draft a warm reply to a customer asking to cancel.",
-    model="grok-4.6",
+    user_id="hello_world",
+    model="deepseek-v4-1-flash",
     raise_on_error=True,
 ):
     print(text, end="", flush=True)
 ```
 
-For production, keep strict mode on and pass `user_id` for each customer. These runs use prepaid funds; new balances start at **$0**. [Top up before running](https://m8tes.ai/docs/billing-usage#prepaid-balance).
+The test credit covers `deepseek-v4-1-flash`, with one run in flight at a time. Keep strict mode on and pass a distinct `user_id` for each customer. [Top up](https://m8tes.ai/docs/billing-usage#prepaid-balance) for the full model catalog and sustained traffic. Platform/web signups start with a $0 prepaid balance.
+
+For personal development on your own model subscription, follow the optional [provider setup guide](https://m8tes.ai/docs/quickstart#develop-on-your-model-subscription). That flow connects a provider and explicitly disables strict scope checks account-wide; customer-facing apps should keep strict mode enabled.
 
 | Next step | Guide |
 |---|---|
@@ -64,7 +68,7 @@ for plan in client.billing.plans(include_free=True):
 client.billing.set_overage(enabled=True, monthly_cap_cents=5000)  # $50 cap
 ```
 
-New accounts start unfunded. Connect a model subscription to activate the $0 Hobby plan immediately (150 runs every 30 days), choose Individual for $20/month and 1,000 runs using that subscription, or choose a team plan starting at $1,000/month with inference included.
+New API accounts include $1 test credit for `deepseek-v4-1-flash`; platform/web signups start unfunded. For personal development, connect a model subscription to activate the $0 Hobby plan immediately (150 runs every 30 days), choose Individual for $20/month and 1,000 runs using that subscription, or choose a team plan starting at $1,000/month with inference included.
 
 Enable an @notifications.m8tes.ai inbox per agent with `email_inbox=True` on `client.agents.create(...)` or call `client.agents.enable_email_inbox(agent_id)` later.
 
@@ -221,6 +225,9 @@ with client.runs.create(message="...") as stream:
     if stream.has_errors:
         print("run failed:", stream.errors)
 ```
+
+Provider error results are included in `stream.errors`, even when the stream ends
+with a completion frame. `raise_on_error=True` raises `RunFailedError` for these too.
 
 ### Resume a dropped stream
 
@@ -534,15 +541,15 @@ except AuthenticationError:
 
 Exceptions above cover problems *reaching* the API. A run can also fail
 *upstream* — an expired Claude credential, an exhausted plan quota, a model rate
-limit. The HTTP call succeeds, so no exception is raised, but the run carries the
-failure: `status` is `"completed"`, the message is in `run.output`, and
-`run.error_code` holds a machine-readable class (e.g. `oauth_revoked`,
-`subscription_quota_exhausted`, `rate_limited`). Check `error_code` before
-trusting `output`:
+limit. By default, `create_and_wait()` returns the failed run without raising:
+`status` is `"failed"`, and `run.error_code` can hold a machine-readable class
+(e.g. `oauth_revoked`, `subscription_quota_exhausted`, `rate_limited`). Pass
+`raise_on_error=True` to raise `RunFailedError`, or check the returned status and
+error code before trusting `output`:
 
 ```python
 run = client.runs.create_and_wait(agent_id=mate.id, message="...")
-if run.error_code:
+if run.status == "failed" or run.error_code:
     print(f"run failed upstream: {run.error_code} — {run.output}")
 else:
     print(run.output)
@@ -560,6 +567,14 @@ client = M8tes(api_key="m8_...", timeout=300)  # custom timeout in seconds
 ```
 
 ## CLI
+
+With SDK 4.32.1+, use the same API key and starter path from your terminal:
+
+```bash
+m8tes agent task "Say hello" --user-id hello_world --model deepseek-v4-1-flash
+```
+
+Omit the agent ID for a scoped quick-start run; V2 finds or creates the scoped agent. To target an existing agent, add its ID before the message. `agent chat` also accepts `--user-id` and `--model`; replies and resumed runs keep the original run's scope and model.
 
 ```bash
 m8tes auth login                    # authenticate

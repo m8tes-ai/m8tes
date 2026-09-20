@@ -55,6 +55,10 @@ def get_v2_api_key(args: Any, client: Any = None) -> str | None:
     if client_key:
         return client_key
 
+    env_key = os.environ.get("M8TES_API_KEY")
+    if env_key:
+        return env_key
+
     auth_cli = AuthCLI(base_url=getattr(args, "base_url", None))
     return auth_cli.get_valid_api_key()
 

@@ -161,8 +161,8 @@ def _declared_floor() -> tuple[int, ...]:
     return tuple(int(p) for p in floors.pop().split("."))
 
 
-#: The lowest m8tes version that can RUN the documented quickstart. Currently 3.2, the
-#: release in which `stream_text` gained `raise_on_error`.
+#: The lowest m8tes version that can run all documented entry flows: 4.32.1 for scoped
+#: CLI execution, following 3.2 for stream errors and 4.8 for offline testing.
 #:
 #: A plain constant, deliberately. The first attempt asserted only `floor <= current
 #: version`, which codex showed was worthless for the bug it was written for: reverting
@@ -181,7 +181,8 @@ def _declared_floor() -> tuple[int, ...]:
 #: cost is a manual step; the benefit is a guard that actually fails. `test_…_kwarg_exists`
 #: above covers the related and more likely error (documenting an argument that does not
 #: exist at all), which is what this constant cannot see.
-_REQUIRED_FLOOR = (4, 8)
+# Scoped CLI execution requires 4.32.1; keep the shared install command current.
+_REQUIRED_FLOOR = (4, 32, 1)
 
 
 @requires_frontend
@@ -191,7 +192,7 @@ def test_the_documented_install_floor_supports_the_documented_api():
     fl, rq = ".".join(map(str, floor)), ".".join(map(str, _REQUIRED_FLOOR))
     assert floor == _REQUIRED_FLOOR, (
         f"the docs tell people to install m8tes>={fl}, but the quickstart needs >={rq} — "
-        f"`stream_text(raise_on_error=…)` does not exist below it. Anyone copying that "
+        f"the documented scoped CLI flags do not exist below it. Anyone copying that "
         f"constraint into a requirements file resolves to a version the docs' own code "
         f"will not run on. Files that declare it: {', '.join(_FLOOR_FILES)}. If the docs "
         f"now use something newer, raise _REQUIRED_FLOOR too."

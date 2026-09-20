@@ -44,7 +44,7 @@ _INTERNAL_EVENT_TYPES: frozenset[str] = frozenset(
         "message_snapshot",  # persistence payload the backend consumes
         "system_message",  # generic runtime notice
         "sdk_init",  # session init; the backend logs tools/config from it
-        "sdk_success",  # terminal marker; callers use DONE
+        "sdk_success",  # non-error result bookkeeping; errors are normalized below
         "sdk_content_snapshot",  # message content snapshot for persistence
         "keep-alive",  # SSE heartbeat
         "ping",  # SSE heartbeat
@@ -240,6 +240,21 @@ class StreamEvent:
         Returns:
             List of StreamEvent objects (usually just one event per payload).
         """
+        # ResultMessage uses sdk_success even when the provider failed. The backend
+        # marks these runs failed; a following done frame does not undo the error.
+        if data.get("type") == "sdk_success" and data.get("is_error") is True:
+            return [
+                ErrorEvent(
+                    type=StreamEventType.SDK_ERROR,
+                    raw=data,
+                    error=str(
+                        data.get("result")
+                        or data.get("error")
+                        or "The model provider returned an error."
+                    ),
+                )
+            ]
+
         # Check for Claude SDK system messages (init, success, etc)
         if data.get("subtype") in ("init", "success"):
             # Skip system messages entirely

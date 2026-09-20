@@ -1497,6 +1497,45 @@ class TestRuns:
 
 
 class TestRunConvenienceHelpers:
+    @pytest.mark.parametrize(
+        ("detail", "expected"),
+        [
+            ({"result": "provider quota exhausted"}, "provider quota exhausted"),
+            ({"error": "provider unavailable"}, "provider unavailable"),
+            ({}, "The model provider returned an error."),
+        ],
+    )
+    @responses.activate
+    def test_sdk_result_failure_survives_done(self, http, detail, expected):
+        frame = {"type": "sdk_success", "is_error": True, **detail}
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/",
+            body=(
+                f"data: {json.dumps(frame)}\n\n"
+                'data: {"type":"done","completion_state":"complete"}\n\n'
+            ),
+            content_type="text/event-stream",
+        )
+        with pytest.raises(RunFailedError, match=expected):
+            list(Runs(http).stream_text(message="hi", raise_on_error=True))
+
+    @pytest.mark.parametrize("is_error", [False, None])
+    @responses.activate
+    def test_successful_sdk_result_is_not_a_failure(self, http, is_error):
+        frame = {"type": "sdk_success", "is_error": is_error, "result": "Done"}
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/",
+            body=(
+                'data: {"type":"text-delta","delta":"Hello"}\n\n'
+                f"data: {json.dumps(frame)}\n\n"
+                'data: {"type":"done","completion_state":"complete"}\n\n'
+            ),
+            content_type="text/event-stream",
+        )
+        assert list(Runs(http).stream_text(message="hi", raise_on_error=True)) == ["Hello"]
+
     @responses.activate
     def test_create_and_wait(self, http):
         """create_and_wait calls create(stream=False) then polls until completed."""

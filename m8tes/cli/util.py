@@ -12,9 +12,10 @@ from collections.abc import Callable, Generator
 import contextlib
 import difflib
 import re
+import shlex
 import signal
 import sys
-from typing import Any
+from typing import Any, TypedDict
 
 CANCELLED_EXIT = 130  # POSIX: 128 + SIGINT (2)
 
@@ -180,3 +181,23 @@ def graceful_main(fn: Callable[[list[str]], int], argv: list[str]) -> int:
         return CANCELLED_EXIT
     finally:
         signal.signal(signal.SIGTERM, old_term)
+
+
+def add_user_id_argument(parser: argparse.ArgumentParser) -> None:
+    """Expose the end-user scope required by strict API accounts."""
+    parser.add_argument("--user-id", help="End-user scope (required for strict API accounts)")
+
+
+class UserScope(TypedDict, total=False):
+    user_id: str
+
+
+def user_scope(args: argparse.Namespace) -> UserScope:
+    """Only forward an explicitly supplied tenant scope."""
+    user_id = getattr(args, "user_id", None)
+    return {"user_id": user_id} if user_id is not None else {}
+
+
+def scope_cli_suffix(scope: UserScope) -> str:
+    """Keep copyable follow-up commands in the same tenant, including opaque IDs."""
+    return f" --user-id {shlex.quote(scope['user_id'])}" if "user_id" in scope else ""

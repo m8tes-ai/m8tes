@@ -4,6 +4,35 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.32.1] - 2026-09-20
+
+### Added
+
+- `m8tes agent task` and `agent chat` accept `--user-id` and `--model`. Scope is
+  carried through agent lookup and chat resume validation. A scoped task without
+  an agent ID uses V2 quick-start provisioning, so a new API account can run
+  without first creating an agent. Replies retain the run's scope and model.
+
+- Agent and saved-task management commands, plus `run get`, `run list`, and
+  `run list-agent`, accept `--user-id`. Follow-up commands retain the scope,
+  including shell quoting for tenant IDs containing spaces.
+
+### Fixed
+
+- Provider result frames with `is_error: true` now raise with `raise_on_error`,
+  including when the wire event is named `sdk_success` and ends with `done`.
+- Recovery hints after empty listings, interrupted chats, failed lookups, and
+  retries preserve tenant scope.
+- Explicit CLI environment keys take precedence over saved logins without refreshing
+  the saved profile. Startup and unexpected execution failures use stderr.
+- Agent creation no longer requires integrations. The wizard accepts current app
+  IDs from `m8tes apps list` instead of a stale hardcoded tool-function menu.
+- The README starts with the scoped $1 API test-credit path instead of requiring
+  a provider connection or disabling strict scope checks.
+- JSON task output now returns a nonzero exit code on stream errors and keeps
+  failure, authentication, and debug diagnostics on stderr so stdout remains
+  valid JSON lines.
+
 ## [4.31.0] - 2026-09-20
 
 ### Added

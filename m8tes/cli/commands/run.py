@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, ClassVar, Optional
 
 from ..._exceptions import M8tesError as SDKM8tesError
 from ..base import Command, CommandGroup
+from ..util import UserScope, add_user_id_argument, scope_cli_suffix, user_scope
 from ..v2 import v2_client_from_args
 
 if TYPE_CHECKING:
@@ -47,6 +48,7 @@ class GetRunCommand(Command):
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add get-specific arguments."""
+        add_user_id_argument(parser)
         parser.add_argument("run_id", help="Run ID to retrieve")
 
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
@@ -58,7 +60,7 @@ class GetRunCommand(Command):
         try:
             run_id = int(args.run_id)
 
-            run = client.runs.get(run_id)
+            run = client.runs.get(run_id, **user_scope(args))
             outcome = client.runs.outcome(run_id)
 
             print(f"\n📊 Run Details - ID: {run_id}")
@@ -98,6 +100,7 @@ class ListRunsCommand(Command):
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add list-specific arguments."""
+        add_user_id_argument(parser)
         parser.add_argument("--limit", type=int, default=10, help="Maximum runs to return")
 
     def execute(self, args: Namespace, client: Optional["M8tes"] = None) -> int:
@@ -108,7 +111,7 @@ class ListRunsCommand(Command):
 
         try:
             limit = getattr(args, "limit", 10)
-            runs = client.runs.list(limit=limit).data
+            runs = client.runs.list(limit=limit, **user_scope(args)).data
 
             print(f"🏃 Your Runs (showing {len(runs)})")
             print()
@@ -143,6 +146,7 @@ class ListTeammateRunsCommand(Command):
 
     def add_arguments(self, parser: ArgumentParser) -> None:
         """Add list-agent-specific arguments."""
+        add_user_id_argument(parser)
         parser.add_argument("agent_id", help="Agent ID")
         parser.add_argument("--limit", type=int, default=10, help="Maximum runs to return")
 
@@ -155,7 +159,7 @@ class ListTeammateRunsCommand(Command):
         try:
             agent_id = int(args.agent_id)
             limit = getattr(args, "limit", 10)
-            runs = client.runs.list(agent_id=agent_id, limit=limit).data
+            runs = client.runs.list(agent_id=agent_id, limit=limit, **user_scope(args)).data
 
             print(f"🏃 Runs for Agent {agent_id} (showing {len(runs)})")
             print()
@@ -406,7 +410,8 @@ class RetryRunCommand(Command):
             print("\n✅ Retry started")
             print(f"   New run: {run.id} (retry of {run.retry_of_run_id})")
             print(f"   Status: {run.status}")
-            print(f"   Watch:  m8tes run get {run.id}")
+            scope: UserScope = {"user_id": run.user_id} if run.user_id is not None else {}
+            print(f"   Watch:  m8tes run get {run.id}{scope_cli_suffix(scope)}")
             return 0
         except SDKM8tesError as e:
             if getattr(e, "code", None) == "retry_needs_confirmation":
