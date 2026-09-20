@@ -4,6 +4,13 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.30.0] - 2026-09-20
+
+### Added
+
+- `runs.unarchive(id)` — restore an archived run to the default list. Idempotent.
+  The inverse of `runs.archive(id)`.
+
 ## [4.29.3] - 2026-09-20
 
 ### Changed

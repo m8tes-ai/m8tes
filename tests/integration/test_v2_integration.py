@@ -2405,6 +2405,10 @@ class TestRunsReadOnly:
         with pytest.raises(NotFoundError):
             v2_client.runs.archive(999999)
 
+    def test_unarchive_nonexistent_run(self, v2_client):
+        with pytest.raises(NotFoundError):
+            v2_client.runs.unarchive(999999)
+
 
 @pytest.mark.integration
 class TestRunsWithFiles:
@@ -2524,6 +2528,15 @@ class TestRunShareArchiveRuntime:
             assert run.id in only_ids
             include_ids = {r.id for r in v2_client.runs.list(archived="include", limit=100).data}
             assert run.id in include_ids
+
+            restored = v2_client.runs.unarchive(run.id)
+            assert restored.id == run.id
+            assert restored.archived is False
+            # Idempotent, and the row returns to the default list / leaves archived=only.
+            assert v2_client.runs.unarchive(run.id).archived is False
+            assert any(r.id == run.id for r in v2_client.runs.list(limit=100).data)
+            only_after = {r.id for r in v2_client.runs.list(archived="only", limit=100).data}
+            assert run.id not in only_after
         finally:
             v2_client.teammates.delete(tm.id)
 

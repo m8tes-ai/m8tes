@@ -1127,8 +1127,18 @@ class Runs:
         """Archive a run — a soft delete that hides it from the default list.
 
         Idempotent: archiving an already-archived run succeeds and changes nothing.
+        Restore with :meth:`unarchive`.
         """
         resp = self._http.request("POST", f"/runs/{seg(run_id)}/archive")
+        return Run.from_dict(resp.json())
+
+    def unarchive(self, run_id: int) -> Run:
+        """Restore an archived run — it returns to the default list.
+
+        Idempotent: unarchiving a run that is already visible succeeds and changes
+        nothing. The inverse of :meth:`archive`.
+        """
+        resp = self._http.request("POST", f"/runs/{seg(run_id)}/unarchive")
         return Run.from_dict(resp.json())
 
     def mark_viewed(self, run_id: int, *, user_id: str | None = None) -> Run:

@@ -924,6 +924,18 @@ class TestRuns:
         assert result.id == 42
 
     @responses.activate
+    def test_unarchive(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/42/unarchive",
+            json={"id": 42, "status": "completed", "archived": False},
+        )
+        result = Runs(http).unarchive(42)
+        assert isinstance(result, Run)
+        assert result.id == 42
+        assert result.archived is False
+
+    @responses.activate
     def test_mark_viewed(self, http):
         responses.add(
             responses.POST,
