@@ -5403,6 +5403,35 @@ class TestMcpServersCRUD:
             v2_client.mcp_servers.delete(srv.id)
         assert all(s.id != srv.id for s in v2_client.mcp_servers.list())
 
+    def test_oauth_sign_in_errors_are_typed(self, v2_client):
+        """oauth2 servers start signed out; bad sign-in calls fail as 400s, not 500s.
+
+        No happy path here on purpose: it needs a live vendor and a human at its consent
+        screen. The backend unit suite covers discovery, exchange and refresh.
+        """
+        srv = v2_client.mcp_servers.create(
+            name="vendor mcp",
+            url="https://example.com/mcp",
+            kind="mcp_http",
+            auth_type="oauth2",
+        )
+        rest = v2_client.mcp_servers.create(
+            name="plain rest",
+            url="https://example.com/v1",
+            tool_defs=[{"name": "ping", "method": "GET", "path": "/ping"}],
+        )
+        try:
+            assert srv.auth_type == "oauth2" and srv.has_secret is False
+            with pytest.raises(M8tesError) as exc:
+                v2_client.mcp_servers.start_oauth(rest.id)
+            assert exc.value.status_code == 400
+            with pytest.raises(M8tesError) as exc:
+                v2_client.mcp_servers.complete_oauth(srv.id, code="c", state="not-a-state")
+            assert exc.value.status_code == 400
+        finally:
+            v2_client.mcp_servers.delete(srv.id)
+            v2_client.mcp_servers.delete(rest.id)
+
     def test_attach_to_teammate_by_slug(self, v2_client):
         srv = v2_client.mcp_servers.create(
             name="crm sync",

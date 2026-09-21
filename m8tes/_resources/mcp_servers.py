@@ -10,6 +10,14 @@ to the agent. Attach a server to an agent by passing its ``slug`` in ``tools=[..
         tool_defs=[{"name": "get_invoice", "method": "GET", "path": "/invoices/{id}"}],
     )
     client.agents.create(name="ops", tools=[srv.slug])
+
+A hosted MCP server that needs an OAuth sign-in takes ``auth_type="oauth2"`` and no secret.
+The owner signs in once; tokens are stored and refreshed server-side:
+
+    srv = client.mcp_servers.create(
+        name="beehiiv", url="https://mcp.beehiiv.com/mcp", kind="mcp_http", auth_type="oauth2",
+    )
+    link = client.mcp_servers.start_oauth(srv.id)  # send the owner to link.authorization_url
 """
 
 from __future__ import annotations
@@ -18,7 +26,7 @@ import builtins
 from typing import TYPE_CHECKING, Any
 
 from .._http import seg
-from .._types import McpServer
+from .._types import AppExternalOAuthInitiation, McpServer
 
 if TYPE_CHECKING:
     from .._http import HTTPClient
@@ -51,7 +59,7 @@ class McpServers:
     ) -> McpServer:
         """Register a custom tool server. ``kind`` is rest_api (default), mcp_http,
         mcp_sse, or script. ``auth_type`` is one of none/bearer/custom_header/
-        api_key_in_url/oauth_token; ``secret`` is write-only. ``kind=script`` takes
+        api_key_in_url/oauth_token/oauth2; ``secret`` is write-only. ``kind=script`` takes
         ``script_source`` and rejects ``user_id``."""
         body: dict[str, Any] = {
             "name": name,
@@ -140,6 +148,34 @@ class McpServers:
         """
         params = {"user_id": user_id} if user_id else None
         resp = self._http.request("POST", f"/mcp-servers/{seg(server_id)}/approve", params=params)
+        return McpServer.from_dict(resp.json())
+
+    def start_oauth(
+        self, server_id: int, *, user_id: str | None = None
+    ) -> AppExternalOAuthInitiation:
+        """Start the owner's sign-in to an ``auth_type="oauth2"`` MCP server.
+
+        Discovers the server's authorization server and registers a client on first use.
+        Send the owner to ``authorization_url``; they return to the m8tes Apps page, which
+        completes the sign-in.
+        """
+        params = {"user_id": user_id} if user_id else None
+        resp = self._http.request(
+            "POST", f"/mcp-servers/{seg(server_id)}/oauth/start", params=params
+        )
+        return AppExternalOAuthInitiation.from_dict(resp.json())
+
+    def complete_oauth(
+        self, server_id: int, *, code: str, state: str, user_id: str | None = None
+    ) -> McpServer:
+        """Finish sign-in with the ``code`` and ``state`` from the redirect. Discovers tools."""
+        params = {"user_id": user_id} if user_id else None
+        resp = self._http.request(
+            "POST",
+            f"/mcp-servers/{seg(server_id)}/oauth/complete",
+            json={"code": code, "state": state},
+            params=params,
+        )
         return McpServer.from_dict(resp.json())
 
     def delete(self, server_id: int, *, user_id: str | None = None) -> None:

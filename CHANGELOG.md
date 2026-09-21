@@ -4,6 +4,15 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.34.0] - 2026-09-21
+
+### Added
+
+- `client.mcp_servers.start_oauth()` and `complete_oauth()`: connect a hosted MCP server
+  that needs an OAuth sign-in (`auth_type="oauth2"`). m8tes discovers the server's sign-in,
+  registers itself, and stores and refreshes the tokens. `McpServer.sign_in_host` names
+  where the owner signs in.
+
 ## [4.33.0] - 2026-09-21
 
 ### Added

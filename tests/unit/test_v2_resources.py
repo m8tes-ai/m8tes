@@ -3666,3 +3666,47 @@ class TestTeams:
         )
         with pytest.raises(NotFoundError):
             Teams(http).invite_preview("nope")
+
+
+class TestMcpServersOAuth:
+    """Sign-in to an auth_type="oauth2" remote MCP server."""
+
+    _SERVER: ClassVar[dict] = {
+        "id": 7,
+        "slug": "beehiiv",
+        "name": "beehiiv",
+        "url": "https://mcp.beehiiv.com/mcp",
+        "kind": "mcp_http",
+        "auth_type": "oauth2",
+        "status": "active",
+        "has_secret": True,
+        "sign_in_host": "mcp.beehiiv.com",
+    }
+
+    @responses.activate
+    def test_start_oauth_returns_the_sign_in_link(self, http):
+        from m8tes._resources.mcp_servers import McpServers
+
+        responses.add(
+            responses.POST,
+            f"{BASE}/mcp-servers/7/oauth/start",
+            json={
+                "authorization_url": "https://mcp.beehiiv.com/authorize?x=1",
+                "state": "s",
+                "expires_in": 1800,
+            },
+        )
+        link = McpServers(http).start_oauth(7, user_id="cust_1")
+        assert link.authorization_url.startswith("https://mcp.beehiiv.com/authorize")
+        assert link.state == "s"
+        assert responses.calls[0].request.params == {"user_id": "cust_1"}
+
+    @responses.activate
+    def test_complete_oauth_sends_code_and_state(self, http):
+        from m8tes._resources.mcp_servers import McpServers
+
+        responses.add(responses.POST, f"{BASE}/mcp-servers/7/oauth/complete", json=self._SERVER)
+        server = McpServers(http).complete_oauth(7, code="c", state="s")
+        assert json.loads(responses.calls[0].request.body) == {"code": "c", "state": "s"}
+        assert server.has_secret is True
+        assert server.sign_in_host == "mcp.beehiiv.com"

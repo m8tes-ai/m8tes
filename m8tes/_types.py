@@ -2650,6 +2650,8 @@ class McpServer:
     updated_at: str = ""
     script_sha256: str | None = None
     script_allowlist: list[str] = field(default_factory=list)
+    # auth_type="oauth2": the host the owner signs in at; has_secret is True once they have.
+    sign_in_host: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> McpServer:
@@ -2670,6 +2672,7 @@ class McpServer:
             updated_at=data.get("updated_at", ""),
             script_sha256=data.get("script_sha256"),
             script_allowlist=data.get("script_allowlist") or [],
+            sign_in_host=data.get("sign_in_host"),
         )
 
 
