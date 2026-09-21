@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Literal, overload
 
 from .._http import IDEMPOTENCY_HEADER, seg
-from .._types import Judgment, JudgmentClaim, JudgmentEvidence, JudgmentQuestion
+from .._types import Judgment, JudgmentClaim, JudgmentConnection, JudgmentEvidence, JudgmentQuestion
 from ._utils import _build_params
 
 if TYPE_CHECKING:
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 
 
 class Judgments:
-    """client.judgments — platform-funded Jev judgments.
+    """client.judgments — advisory Jev judgments with optional account funding.
 
     Answers are advisory, not verified truth or approval to execute an action.
     Successful results are retrievable for 30 days within their original user scope,
@@ -103,3 +103,22 @@ class Judgments:
             params=_build_params(user_id=user_id),
         )
         return Judgment.from_dict(response.json())
+
+    def configure(self, *, api_key: str) -> JudgmentConnection:
+        """Store a write-only TypeSafe key for this entire m8tes account.
+
+        Configure once from a trusted server: all end-user and agent judgments
+        then use your TypeSafe account. Never pass the key in prompts/tool args.
+        Invalid customer credentials never fall back to platform funding.
+        """
+        response = self._http.request("PUT", "/judgments/connection", json={"api_key": api_key})
+        return JudgmentConnection.from_dict(response.json())
+
+    def connection(self) -> JudgmentConnection:
+        """Read connection/availability metadata without returning the API key."""
+        response = self._http.request("GET", "/judgments/connection")
+        return JudgmentConnection.from_dict(response.json())
+
+    def disconnect(self) -> None:
+        """Remove the account key; restore platform funding if it is available."""
+        self._http.request("DELETE", "/judgments/connection")

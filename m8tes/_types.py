@@ -3077,10 +3077,36 @@ class JudgmentCoverage(TypedDict):
 
 
 @dataclass
+class JudgmentConnection:
+    """Account-level TypeSafe connection metadata; the API key is write-only.
+
+    ``connected`` means a customer key is stored, not that the provider has
+    validated it. ``enabled`` reflects current service availability.
+    """
+
+    connected: bool
+    enabled: bool
+    funding_source: Literal["platform", "customer"]
+    model: str
+    updated_at: str | None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> JudgmentConnection:
+        return cls(
+            connected=data["connected"],
+            enabled=data["enabled"],
+            funding_source=data["funding_source"],
+            model=data["model"],
+            updated_at=data.get("updated_at"),
+        )
+
+
+@dataclass
 class Judgment:
     """Advisory result; coverage describes submitted inputs, not source authenticity.
 
-    ``cost_usd`` is estimated provider cost, not a customer billing charge.
+    ``cost_usd`` estimates provider cost, not a debit from your m8tes balance.
+    Customer-funded calls are billed by TypeSafe to the connected account.
     Successful results are retrievable for 30 days with ``client.judgments.get(id)``.
     """
 
@@ -3092,6 +3118,7 @@ class Judgment:
     cost_usd: float
     rubric_version: str | None
     coverage: JudgmentCoverage | None
+    funding_source: Literal["platform", "customer"] = "platform"
 
     @classmethod
     def from_dict(cls, data: dict) -> Judgment:
@@ -3104,4 +3131,5 @@ class Judgment:
             cost_usd=data["cost_usd"],
             rubric_version=data.get("rubric_version"),
             coverage=data.get("coverage"),
+            funding_source=data.get("funding_source", "platform"),
         )

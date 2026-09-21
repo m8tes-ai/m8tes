@@ -4,6 +4,18 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.35.0] - 2026-09-21
+
+### Added
+
+- Account-level TypeSafe connections: configure a write-only key, inspect metadata,
+  or disconnect with `judgments.configure`, `connection`, and `disconnect`.
+- Judgment `funding_source` identifies platform or customer provider funding.
+  Customer keys cover all account workloads and never silently fall back to the
+  platform after a provider error. m8tes does not debit the customer balance.
+  A key TypeSafe rejects returns 403 `jev_credential_rejected`, distinct from a
+  provider outage (503 `jev_unavailable`).
+
 ## [4.34.0] - 2026-09-21
 
 ### Added

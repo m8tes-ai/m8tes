@@ -195,3 +195,72 @@ def test_get_preserves_source_provenance_without_authenticating_it():
     responses.get(f"{BASE}/judgments/judgment_test", json={**RESULT, "coverage": coverage})
     with M8tes(api_key="m8_test", base_url=BASE) as client:
         assert client.judgments.get("judgment_test").coverage == coverage
+
+
+CONNECTION = {
+    "connected": True,
+    "enabled": True,
+    "funding_source": "customer",
+    "model": "jev-1.13.0",
+    "updated_at": "2026-09-21T01:00:00Z",
+}
+
+
+@responses.activate
+def test_connection_configure_read_and_disconnect_are_account_scoped():
+    from m8tes import JudgmentConnection
+
+    responses.put(f"{BASE}/judgments/connection", json=CONNECTION)
+    responses.get(f"{BASE}/judgments/connection", json=CONNECTION)
+    responses.delete(f"{BASE}/judgments/connection", status=204)
+    with M8tes(api_key="m8_test", base_url=BASE) as client:
+        configured = client.judgments.configure(api_key="test_typesafe_secret")
+        assert isinstance(configured, JudgmentConnection)
+        assert configured.connected and configured.enabled
+        assert configured.funding_source == "customer"
+        assert configured.updated_at == "2026-09-21T01:00:00Z"
+        assert client.judgments.connection() == configured
+        assert client.judgments.disconnect() is None
+    assert json.loads(responses.calls[0].request.body) == {"api_key": "test_typesafe_secret"}
+    assert all(call.request.url == f"{BASE}/judgments/connection" for call in responses.calls)
+    assert "test_typesafe_secret" not in repr(configured)
+
+
+@responses.activate
+def test_unconfigured_connection_can_be_disabled_with_platform_funding():
+    responses.get(
+        f"{BASE}/judgments/connection",
+        json={
+            **CONNECTION,
+            "connected": False,
+            "enabled": False,
+            "funding_source": "platform",
+            "updated_at": None,
+        },
+    )
+    with M8tes(api_key="m8_test", base_url=BASE) as client:
+        connection = client.judgments.connection()
+    assert not connection.connected and not connection.enabled
+    assert connection.updated_at is None
+    assert connection.funding_source == "platform"
+
+
+@responses.activate
+def test_invalid_connection_key_propagates_error_without_fallback():
+    responses.put(
+        f"{BASE}/judgments/connection",
+        status=422,
+        json={"error": {"message": "Invalid key", "code": "invalid_request"}},
+    )
+    with M8tes(api_key="m8_test", base_url=BASE) as client, pytest.raises(ValidationError):
+        client.judgments.configure(api_key="")
+    assert len(responses.calls) == 1
+
+
+@responses.activate
+@pytest.mark.parametrize("funding", [None, "platform", "customer"])
+def test_judgment_funding_parses_and_defaults_for_older_servers(funding):
+    payload = {**RESULT, **({"funding_source": funding} if funding else {})}
+    responses.get(f"{BASE}/judgments/judgment_test", json=payload)
+    with M8tes(api_key="m8_test", base_url=BASE) as client:
+        assert client.judgments.get("judgment_test").funding_source == (funding or "platform")

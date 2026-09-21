@@ -6120,3 +6120,52 @@ class TestJudgments:
                 evidence=[{"id": "e1", "source": {"type": "document", "id": 2147483647}}],
                 user_id=_uid(),
             )
+
+
+class TestJudgmentConnection:
+    """Account connection lifecycle on the fixture's newly registered test account.
+
+    Uses a synthetic key and never creates a paid judgment or touches an existing
+    customer's connection. Configuration stores credentials without a provider call.
+    """
+
+    def test_configure_read_rotate_and_disconnect(self, v2_client):
+        from m8tes import JudgmentConnection
+
+        initial = v2_client.judgments.connection()
+        assert isinstance(initial, JudgmentConnection)
+        assert not initial.connected
+        assert initial.funding_source == "platform"
+        assert initial.updated_at is None
+        try:
+            configured = v2_client.judgments.configure(api_key="apikey_sdk_connection_test")
+            assert configured.connected
+            assert configured.funding_source == "customer"
+            assert configured.updated_at is not None
+            assert v2_client.judgments.connection() == configured
+            rotated = v2_client.judgments.configure(api_key="apikey_sdk_rotated_test")
+            assert rotated.connected and rotated.funding_source == "customer"
+            assert "apikey_sdk" not in repr(rotated)
+        finally:
+            v2_client.judgments.disconnect()
+        disconnected = v2_client.judgments.connection()
+        assert not disconnected.connected
+        assert disconnected.funding_source == "platform"
+        assert disconnected.updated_at is None
+        # Disconnect is idempotent, including when no key is stored.
+        assert v2_client.judgments.disconnect() is None
+
+    def test_blank_key_rejected_without_mutating_connection(self, v2_client):
+        initial = v2_client.judgments.connection()
+        with pytest.raises(ValidationError):
+            v2_client.judgments.configure(api_key="")
+        assert v2_client.judgments.connection() == initial
+
+    @pytest.mark.parametrize("operation", ["connection", "configure", "disconnect"])
+    def test_connection_requires_authentication(self, backend_url, operation):
+        with (
+            M8tes(api_key="m8_invalid_connection_key", base_url=f"{backend_url}/api/v2") as client,
+            pytest.raises(AuthenticationError),
+        ):
+            method = getattr(client.judgments, operation)
+            method(**({"api_key": "apikey_sdk_test"} if operation == "configure" else {}))
