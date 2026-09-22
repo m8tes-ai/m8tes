@@ -883,6 +883,7 @@ class Runs:
         sort: Literal["created", "priority"] | None = None,
         archived: Literal["exclude", "only", "include"] | None = None,
         exclude_platform_runs: bool | None = None,
+        include_end_user_runs: bool | None = None,
         fields: Literal["summary"] | None = None,
         limit: int = 20,
         starting_after: int | None = None,
@@ -902,6 +903,11 @@ class Runs:
         has run anything themselves yet. Only Platform accounts have a Company
         Agent, so on an API-only account the filter matches nothing.
 
+        Omitting ``user_id`` is the account view (``end_user_id IS NULL``), not
+        every tenant. Pass ``include_end_user_runs=True`` to include this
+        account's end-user (API tenant) runs on that unscoped list. Ignored
+        when ``user_id`` is set.
+
         Pass ``fields="summary"`` for a slim list projection (stamped closing
         headline only; skips the conversation_messages prose scan). Platform
         list UIs that need body excerpts should omit ``fields``.
@@ -916,6 +922,9 @@ class Runs:
             archived=archived,
             exclude_platform_runs=(
                 None if exclude_platform_runs is None else str(exclude_platform_runs).lower()
+            ),
+            include_end_user_runs=(
+                None if include_end_user_runs is None else str(include_end_user_runs).lower()
             ),
             fields=fields,
             limit=limit,
@@ -933,6 +942,7 @@ class Runs:
                 sort=sort,
                 archived=archived,
                 exclude_platform_runs=exclude_platform_runs,
+                include_end_user_runs=include_end_user_runs,
                 fields=fields,
                 limit=limit,
                 **kw,  # type: ignore[arg-type]

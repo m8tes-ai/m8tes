@@ -4,6 +4,13 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.36.0] - 2026-09-22
+
+### Added
+
+- `runs.list(include_end_user_runs=True)` includes this account's end-user (API tenant)
+  runs on the unscoped list. The default is account-level only (`end_user_id IS NULL`).
+
 ## [4.35.0] - 2026-09-21
 
 ### Added

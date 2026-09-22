@@ -1158,6 +1158,41 @@ class TestRuns:
         assert responses.calls[1].request.params.get("exclude_platform_runs") == "true"
 
     @responses.activate
+    def test_list_include_end_user_runs(self, http):
+        responses.add(responses.GET, f"{BASE}/runs/", json={"data": [], "has_more": False})
+        Runs(http).list(include_end_user_runs=True)
+        assert responses.calls[0].request.params.get("include_end_user_runs") == "true"
+
+    @responses.activate
+    def test_list_include_end_user_runs_false_is_explicit(self, http):
+        responses.add(responses.GET, f"{BASE}/runs/", json={"data": [], "has_more": False})
+        Runs(http).list(include_end_user_runs=False)
+        assert responses.calls[0].request.params.get("include_end_user_runs") == "false"
+
+    @responses.activate
+    def test_list_default_omits_include_end_user_runs(self, http):
+        responses.add(responses.GET, f"{BASE}/runs/", json={"data": [], "has_more": False})
+        Runs(http).list()
+        assert "include_end_user_runs" not in responses.calls[0].request.params
+
+    @responses.activate
+    def test_list_include_end_user_runs_survives_pagination(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/",
+            json={"data": [{"id": 1}], "has_more": True, "next_starting_after": 1},
+        )
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/",
+            json={"data": [{"id": 2}], "has_more": False},
+        )
+        page = Runs(http).list(include_end_user_runs=True, limit=1)
+        list(page.auto_paging_iter())
+        assert responses.calls[0].request.params.get("include_end_user_runs") == "true"
+        assert responses.calls[1].request.params.get("include_end_user_runs") == "true"
+
+    @responses.activate
     def test_get(self, http):
         responses.add(
             responses.GET,
