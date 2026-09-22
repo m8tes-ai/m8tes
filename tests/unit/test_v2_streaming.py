@@ -137,6 +137,47 @@ class TestRunStream:
         list(stream)  # no raise
         assert stream.text == "ok"
 
+    def test_sdk_success_is_error_is_not_discarded(self):
+        lines = _sse_frame(
+            {
+                "type": "sdk_success",
+                "subtype": "success",
+                "is_error": True,
+                "error_code": "tool_limit_exceeded",
+                "message": "Too many connected tools.",
+                "result": "raw provider body",
+            }
+        )
+        resp = self._make_response(lines)
+        stream = RunStream(resp, raise_on_error=True)
+
+        with pytest.raises(RunFailedError) as exc:
+            list(stream)
+
+        assert exc.value.details["errors"] == ["Too many connected tools."]
+        assert stream.has_errors is True
+        resp.close.assert_called_once()
+
+    def test_is_error_success_subtype_without_sdk_success_type_is_an_error(self):
+        """The subtype alone must not route a failed result to the lifecycle drop."""
+        lines = _sse_frame({"type": "result", "subtype": "success", "is_error": True})
+        stream = RunStream(self._make_response(lines), raise_on_error=True)
+
+        with pytest.raises(RunFailedError) as exc:
+            list(stream)
+
+        assert exc.value.details["errors"] == ["The model provider returned an error."]
+
+    def test_clean_sdk_success_is_still_internal(self):
+        lines = _sse_frame(
+            {"type": "sdk_success", "subtype": "success", "is_error": False, "result": "done"}
+        )
+        resp = self._make_response(lines)
+        stream = RunStream(resp)
+
+        assert list(stream) == []
+        assert stream.has_errors is False
+
     def test_empty_stream_yields_nothing(self):
         """Empty response yields no events."""
         resp = self._make_response([])

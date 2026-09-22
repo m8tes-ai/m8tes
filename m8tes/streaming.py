@@ -240,24 +240,28 @@ class StreamEvent:
         Returns:
             List of StreamEvent objects (usually just one event per payload).
         """
-        # ResultMessage uses sdk_success even when the provider failed. The backend
-        # marks these runs failed; a following done frame does not undo the error.
-        if data.get("type") == "sdk_success" and data.get("is_error") is True:
+        # ResultMessage uses sdk_success (subtype="success") even when the provider
+        # failed. The backend marks these runs failed; treat the frame as an error
+        # before dropping clean SDK lifecycle markers, or raise_on_error=True silently
+        # returns an empty success. A following done frame does not undo the error.
+        # `message` is the platform's safe copy; prefer it over the raw provider body.
+        is_result = data.get("type") == "sdk_success" or data.get("subtype") == "success"
+        if is_result and data.get("is_error") is True:
             return [
                 ErrorEvent(
                     type=StreamEventType.SDK_ERROR,
                     raw=data,
                     error=str(
-                        data.get("result")
+                        data.get("message")
+                        or data.get("result")
                         or data.get("error")
                         or "The model provider returned an error."
                     ),
                 )
             ]
 
-        # Check for Claude SDK system messages (init, success, etc)
+        # Check for clean Claude SDK system messages (init, success, etc)
         if data.get("subtype") in ("init", "success"):
-            # Skip system messages entirely
             return []
 
         # Get event type from flat format. The value is whatever JSON the server

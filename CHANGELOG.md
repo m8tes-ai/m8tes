@@ -4,6 +4,13 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+### Fixed
+
+- A failed provider result frame now surfaces the platform's safe `message`
+  (e.g. "Too many connected tools.") in `ErrorEvent.error` and
+  `RunFailedError`, instead of the raw provider body in `result`. Frames with
+  `subtype="success"` and `is_error=true` are treated as failures even when the
+  wire event is not named `sdk_success`.
 ## [4.37.0] - 2026-09-22
 
 ### Added
@@ -944,7 +951,6 @@ v2 SDK client a developer uses, and the legacy v1 SDK is gone.
 - `RunMessage` now carries per-turn cost and timing: `input_tokens`, `output_tokens`, `cache_creation_tokens`, `cache_read_tokens`, `claude_cost_usd`, `sandbox_cost_usd`, `execution_time_ms`, `error_message`. This is the only place spend is attributable to a single turn.
 
   Both are additive, so existing code is unaffected. Internals (`sandbox_id`, `claude_session_id`, `sandbox_metrics`, `last_sequence`) stay unpublished on purpose — implementation details should not become public contract.
-
 
 ### Added
 - `client.permissions` now reaches the **account-level scope**: `user_id` is optional on `create()`, `list()`, and `delete()`, and omitting it targets the policies that apply to runs carrying no `user_id`. Same convention `client.memories` already used.
