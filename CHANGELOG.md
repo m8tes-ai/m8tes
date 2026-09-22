@@ -4,6 +4,16 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.37.0] - 2026-09-22
+
+### Added
+
+- `client.runs.needs_you()`: the runs waiting on a human, as a full `count` plus the top
+  few `items`. Same visibility and same "needs a human" predicate as
+  `check().awaiting_count`. Titles are public-safe — a one-off task named after its own
+  prompt reads "<Mate> needs you" rather than echoing what was typed — because this feeds
+  the iOS companion's Lock Screen widgets. Use `count`, not `len(items)`: `items` is capped.
+
 ## [4.36.0] - 2026-09-22
 
 ### Added

@@ -2395,6 +2395,26 @@ class TestRunsReadOnly:
         assert empty.total_count == 0
         assert empty.latest_run_id is None
 
+    def test_needs_you(self, v2_client):
+        """runs.needs_you() agrees with check().awaiting_count and is scope-isolated.
+
+        The two answer the same question from different queries, so a drift between
+        them means one of the surfaces is lying about whether work is waiting.
+        """
+        needs = v2_client.runs.needs_you()
+        assert needs.count == v2_client.runs.check().awaiting_count
+        # `items` is a capped top-N; `count` is the whole set.
+        assert len(needs.items) <= needs.count
+        for item in needs.items:
+            assert item.run_id > 0
+            assert item.title  # never blank — the fallback is "<Mate> needs you"
+            assert item.mate_name
+
+        # A never-seen end-user scope is empty by strict isolation.
+        empty = v2_client.runs.needs_you(user_id=_uid())
+        assert empty.count == 0
+        assert empty.items == []
+
     def test_share_nonexistent_run(self, v2_client):
         with pytest.raises(NotFoundError):
             v2_client.runs.share(999999)

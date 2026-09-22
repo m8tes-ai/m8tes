@@ -11,6 +11,7 @@ import uuid
 from .._http import IDEMPOTENCY_HEADER, REPLAY_HEADER, seg
 from .._streaming import RunStream
 from .._types import (
+    NeedsYou,
     PermissionMode,
     PermissionModeResponse,
     PermissionRequest,
@@ -980,6 +981,26 @@ class Runs:
         """
         resp = self._http.request("GET", "/runs/check", params=_build_params(user_id=user_id))
         return RunCheck.from_dict(resp.json())
+
+    def needs_you(self, *, user_id: str | None = None) -> NeedsYou:
+        """The runs waiting on a human, as a count plus the top few.
+
+        Same visibility and same "needs a human" predicate as
+        ``check().awaiting_count`` — live approval pauses and completed turns that
+        still ask a question — so the two can never disagree about whether anything
+        is waiting.
+
+        Built for a glanceable surface (the iOS companion's widgets), so titles are
+        public-safe: a one-off task named after its own prompt is replaced with
+        "<Mate> needs you" rather than echoed. Never assume the title is the task
+        name a human typed, and use ``count`` rather than ``len(items)`` to decide
+        whether anything is waiting — ``items`` is capped.
+
+        Omitting ``user_id`` reads the account scope (``end_user_id IS NULL``);
+        passing it narrows to that end-user.
+        """
+        resp = self._http.request("GET", "/runs/needs-you", params=_build_params(user_id=user_id))
+        return NeedsYou.from_dict(resp.json())
 
     def activity(self, *, user_id: str | None = None) -> RunActivitySnapshot:
         """Read complete activity per visible agent, without a history window.

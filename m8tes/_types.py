@@ -67,6 +67,48 @@ class SyncPage(Generic[T]):
 
 
 @dataclass
+class NeedsYouItem:
+    """One run a human needs to look at.
+
+    Deliberately narrow: no message bodies, no tokens, and never the typed prompt.
+    The iOS companion renders these on the Lock Screen, which is public — so the
+    server withholds the prompt rather than trusting each client to.
+    """
+
+    run_id: int
+    title: str
+    mate_name: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> NeedsYouItem:
+        return cls(
+            run_id=data["run_id"],
+            title=data["title"],
+            mate_name=data["mate_name"],
+        )
+
+
+@dataclass
+class NeedsYou:
+    """Compact "waiting on a human" summary.
+
+    ``count`` is the whole set; ``items`` is only the top few, ordered the way
+    ``runs.list(sort="priority")`` orders them. Do not infer "nothing waiting"
+    from an empty ``items`` — check ``count``.
+    """
+
+    count: int
+    items: list[NeedsYouItem]
+
+    @classmethod
+    def from_dict(cls, data: dict) -> NeedsYou:
+        return cls(
+            count=data["count"],
+            items=[NeedsYouItem.from_dict(i) for i in data.get("items", [])],
+        )
+
+
+@dataclass
 class ModelPricing:
     """USD price per MILLION tokens (from the same table that bills runs).
 
