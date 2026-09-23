@@ -165,6 +165,29 @@ class Model:
 
 
 @dataclass
+class ModelConnectionAccount:
+    """One connected subscription account. A provider may have several."""
+
+    id: int
+    status: str
+    account_label: str | None = None
+    account_email: str | None = None
+    expires_at: str | None = None
+    created_at: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ModelConnectionAccount:
+        return cls(
+            id=int(data["id"]),
+            status=data["status"],
+            account_label=data.get("account_label"),
+            account_email=data.get("account_email"),
+            expires_at=data.get("expires_at"),
+            created_at=data.get("created_at"),
+        )
+
+
+@dataclass
 class ModelConnection:
     """Write-only account OAuth connection status for a model provider."""
 
@@ -177,6 +200,7 @@ class ModelConnection:
     expires_at: str | None = None
     default_model: str | None = None
     resolved_default_model: str | None = None
+    accounts: list[ModelConnectionAccount] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: dict) -> ModelConnection:
@@ -190,6 +214,7 @@ class ModelConnection:
             expires_at=data.get("expires_at"),
             default_model=data.get("default_model"),
             resolved_default_model=data.get("resolved_default_model"),
+            accounts=[ModelConnectionAccount.from_dict(a) for a in data.get("accounts") or []],
         )
 
 

@@ -311,6 +311,26 @@ class TestModelConnections:
         assert b"pasted-google-code" in (responses.calls[3].request.body or b"")
 
     @responses.activate
+    def test_disconnect_account_targets_one_account_and_parses_siblings(self, http):
+        responses.add(
+            responses.DELETE,
+            f"{BASE}/model-connections/claude/accounts/7",
+            json={
+                "provider": "claude",
+                "display_name": "Claude",
+                "connected": True,
+                "accounts": [
+                    {"id": 9, "status": "active", "account_email": "b@example.com"},
+                ],
+            },
+        )
+
+        connection = ModelConnections(http).disconnect_account("claude", 7)
+
+        assert connection.connected is True
+        assert [(a.id, a.account_email) for a in connection.accounts] == [(9, "b@example.com")]
+
+    @responses.activate
     @pytest.mark.parametrize("model", ["sonnet", None])
     def test_set_provider_default_model(self, http, model):
         responses.add(

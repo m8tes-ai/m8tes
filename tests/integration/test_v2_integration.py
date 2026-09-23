@@ -193,6 +193,12 @@ class TestModelConnections:
         finally:
             v2_client.model_connections.cancel_authorization("gemini", authorization.state)
 
+    def test_disconnect_unknown_account_is_not_found(self, v2_client):
+        listed = {item.provider: item for item in v2_client.model_connections.list().data}
+        assert listed["openai"].accounts == []
+        with pytest.raises(NotFoundError):
+            v2_client.model_connections.disconnect_account("openai", 999_999_999)
+
 
 @pytest.mark.integration
 class TestTeammatesCRUD:

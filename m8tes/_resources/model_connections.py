@@ -115,5 +115,15 @@ class ModelConnections:
         )
 
     def disconnect(self, provider: ModelConnectionProvider) -> ModelConnection:
+        """Disconnect every account connected for ``provider``."""
         body = self._http.request("DELETE", f"/model-connections/{seg(provider)}").json()
+        return ModelConnection.from_dict(body)
+
+    def disconnect_account(
+        self, provider: ModelConnectionProvider, account_id: int
+    ) -> ModelConnection:
+        """Disconnect one account (``ModelConnection.accounts[i].id``); siblings stay."""
+        body = self._http.request(
+            "DELETE", f"/model-connections/{seg(provider)}/accounts/{seg(account_id)}"
+        ).json()
         return ModelConnection.from_dict(body)
