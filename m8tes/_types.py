@@ -1159,6 +1159,33 @@ class AgentRepo:
 
 
 @dataclass
+class AgentRepoEnvKey:
+    """One stored secret's name and when it was last set. The value is write-only."""
+
+    key: str
+    updated_at: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> AgentRepoEnvKey:
+        return cls(key=data["key"], updated_at=data.get("updated_at", ""))
+
+
+@dataclass
+class AgentRepoEnv:
+    """The secrets a coding run on one repo may read — names only, never values."""
+
+    repo_id: int
+    keys: list[AgentRepoEnvKey] = field(default_factory=list)
+
+    @classmethod
+    def from_dict(cls, data: dict) -> AgentRepoEnv:
+        return cls(
+            repo_id=data["repo_id"],
+            keys=[AgentRepoEnvKey.from_dict(k) for k in data.get("keys") or []],
+        )
+
+
+@dataclass
 class GitHubAppStatus:
     """Account GitHub App connection state."""
 

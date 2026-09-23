@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from .._http import seg
 from .._types import (
     AgentRepo,
+    AgentRepoEnv,
     AgentSystemPrompt,
     EmailInbox,
     FetchmailInbox,
@@ -414,6 +415,48 @@ class Agents:
         self._http.request(
             "DELETE",
             f"/agents/{seg(agent_id)}/repos/{seg(repo_id)}",
+            params=_build_params(user_id=user_id),
+        )
+
+    def set_repo_env(
+        self,
+        agent_id: int,
+        repo_id: int,
+        *,
+        env: dict[str, str],
+        user_id: str | None = None,
+    ) -> AgentRepoEnv:
+        """Replace the secrets a coding run on this repo may read (its ``.env``).
+
+        Values are write-only: the response and every later read return key names and
+        rotation times only. A key omitted from ``env`` is removed.
+        """
+        resp = self._http.request(
+            "PUT",
+            f"/agents/{seg(agent_id)}/repos/{seg(repo_id)}/env",
+            params=_build_params(user_id=user_id),
+            json={"env": env},
+        )
+        return AgentRepoEnv.from_dict(resp.json())
+
+    def get_repo_env(
+        self, agent_id: int, repo_id: int, *, user_id: str | None = None
+    ) -> AgentRepoEnv:
+        """Key names stored for this repo and when each was last set. Never the values."""
+        resp = self._http.request(
+            "GET",
+            f"/agents/{seg(agent_id)}/repos/{seg(repo_id)}/env",
+            params=_build_params(user_id=user_id),
+        )
+        return AgentRepoEnv.from_dict(resp.json())
+
+    def delete_repo_env_key(
+        self, agent_id: int, repo_id: int, key: str, *, user_id: str | None = None
+    ) -> None:
+        """Remove one stored secret by name."""
+        self._http.request(
+            "DELETE",
+            f"/agents/{seg(agent_id)}/repos/{seg(repo_id)}/env/{seg(key)}",
             params=_build_params(user_id=user_id),
         )
 

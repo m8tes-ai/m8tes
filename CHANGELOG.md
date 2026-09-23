@@ -12,6 +12,15 @@ All notable changes to the m8tes Python SDK will be documented in this file.
   `subtype="success"` and `is_error=true` are treated as failures even when the
   wire event is not named `sdk_success`.
 
+## [4.39.0] - 2026-09-23
+
+### Added
+
+- Per-repo secrets for coding runs: `agents.set_repo_env(agent_id, repo_id, env={...})`
+  stores the repository's `.env` (values write-only, encrypted at rest);
+  `agents.get_repo_env` lists key names and rotation times; `agents.delete_repo_env_key`
+  removes one. The sandbox runner materializes the set as a file the agent sources before
+  the repo's setup/test commands.
 ## [4.40.0] - 2026-09-23
 
 ### Added
