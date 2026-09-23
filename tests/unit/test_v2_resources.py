@@ -2375,6 +2375,62 @@ class TestApps:
         assert responses.calls[0].request.params.get("user_id") == "cust_1"
 
     @responses.activate
+    def test_add_account_reaches_every_connect_payload(self, http):
+        import json as _json
+
+        responses.add(
+            responses.POST,
+            f"{BASE}/apps/gmail/connect",
+            json={"authorization_url": "https://x", "connection_id": "c"},
+        )
+        responses.add(
+            responses.POST,
+            f"{BASE}/apps/gmail/connect/complete",
+            json={"status": "connected", "app": "gmail"},
+        )
+        responses.add(
+            responses.POST,
+            f"{BASE}/apps/linear/connect/api-key",
+            json={"status": "connected", "app": "linear"},
+        )
+        apps = Apps(http)
+        apps.connect_oauth("gmail", "https://www.m8tes.ai/apps", add_account=True)
+        apps.connect_complete("gmail", claim_ticket="t", add_account=True)
+        apps.connect_api_key("linear", "k", add_account=True)
+        apps.connect_api_key("linear", "k")
+
+        bodies = [_json.loads(call.request.body) for call in responses.calls]
+        assert [b.get("add_account") for b in bodies] == [True, True, True, None]
+
+    @responses.activate
+    def test_update_and_delete_one_connection_forward_user_id(self, http):
+        import json as _json
+
+        responses.add(
+            responses.PATCH,
+            f"{BASE}/apps/connections/42",
+            json={
+                "connection_id": None,
+                "id": 42,
+                "name": "ops@acme.com",
+                "label": "ops@acme.com",
+                "notes": "support",
+                "status": "active",
+                "account_label": None,
+                "scopes": [],
+                "updated_at": "2026-09-22T00:00:00Z",
+            },
+        )
+        responses.add(responses.DELETE, f"{BASE}/apps/connections/42", status=204)
+
+        conn = Apps(http).connections.update(42, label="ops@acme.com", user_id="cust_1")
+        Apps(http).connections.delete(42, user_id="cust_1")
+
+        assert (conn.id, conn.name, conn.notes) == (42, "ops@acme.com", "support")
+        assert _json.loads(responses.calls[0].request.body) == {"label": "ops@acme.com"}
+        assert all(c.request.params.get("user_id") == "cust_1" for c in responses.calls)
+
+    @responses.activate
     def test_every_2_7_1_call_shape_still_works(self, http):
         """Backwards-compatibility matrix for the 2.7.2 apps.list() change.
 

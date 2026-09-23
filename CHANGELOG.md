@@ -11,6 +11,23 @@ All notable changes to the m8tes Python SDK will be documented in this file.
   `RunFailedError`, instead of the raw provider body in `result`. Frames with
   `subtype="success"` and `is_error=true` are treated as failures even when the
   wire event is not named `sdk_success`.
+## [4.38.0] - 2026-09-23
+
+### Added
+
+- Several accounts per app (two Gmail inboxes, two Linear workspaces). Pass
+  `add_account=True` to `apps.connect_oauth` + `apps.connect_complete`, or to
+  `apps.connect_api_key`, to connect another account next to the existing one.
+- `apps.connections.update(id, label=..., notes=...)` names an account and says what it
+  is for; `apps.connections.delete(id)` disconnects exactly one account.
+- `AppConnectionDetails` gains `id`, `name` (what agents call the account), `label`, and
+  `notes`.
+
+### Changed
+
+- `apps.disconnect(app)` is refused with 409 when the app has several accounts; use
+  `apps.connections.delete(id)`.
+
 ## [4.37.0] - 2026-09-22
 
 ### Added

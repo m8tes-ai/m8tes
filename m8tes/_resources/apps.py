@@ -93,11 +93,18 @@ class Apps:
         redirect_uri: str,
         *,
         user_id: str | None = None,
+        add_account: bool = False,
     ) -> AppConnectionInitiation:
-        """Start an OAuth connection flow for an app."""
+        """Start an OAuth connection flow for an app.
+
+        ``add_account=True`` connects another account of the app (a second Gmail inbox) next
+        to the existing one; pass it to ``connect_complete`` too.
+        """
         payload: dict = {"redirect_uri": redirect_uri}
         if user_id:
             payload["user_id"] = user_id
+        if add_account:
+            payload["add_account"] = True
         resp = self._http.request("POST", f"/apps/{seg(app_name)}/connect", json=payload)
         return AppConnectionInitiation.from_dict(resp.json())
 
@@ -109,8 +116,13 @@ class Apps:
         user_id: str | None = None,
         options: dict | None = None,
         agent_id: int | None = None,
+        add_account: bool = False,
     ) -> AppConnectionResult:
-        """Connect an API key-based app immediately."""
+        """Connect an API key-based app immediately.
+
+        ``add_account=True`` stores the key as another account of the app instead of
+        replacing the existing one.
+        """
         payload: dict = {"api_key": api_key}
         if user_id:
             payload["user_id"] = user_id
@@ -118,6 +130,8 @@ class Apps:
             payload["options"] = options
         if agent_id is not None:
             payload["agent_id"] = agent_id
+        if add_account:
+            payload["add_account"] = True
         resp = self._http.request("POST", f"/apps/{seg(app_name)}/connect/api-key", json=payload)
         return AppConnectionResult.from_dict(resp.json())
 
@@ -158,8 +172,12 @@ class Apps:
         agent_id: int | None = None,
         code: str | None = None,
         redirect_uri: str | None = None,
+        add_account: bool = False,
     ) -> AppConnectionResult:
         """Complete OAuth after user authorization. Returns status confirming connection.
+
+        ``add_account=True`` binds the new authorization as another account of the app
+        instead of replacing the existing connection.
 
         Account-level connections (no ``user_id``) require ``claim_ticket``: the connect
         step must send the user to a m8tes URL, that page comes back carrying a
@@ -187,6 +205,8 @@ class Apps:
             payload["code"] = code
         if redirect_uri is not None:
             payload["redirect_uri"] = redirect_uri
+        if add_account:
+            payload["add_account"] = True
         resp = self._http.request("POST", f"/apps/{seg(app_name)}/connect/complete", json=payload)
         return AppConnectionResult.from_dict(resp.json())
 
@@ -331,7 +351,11 @@ class Apps:
         )
 
     def disconnect(self, app_name: str, *, user_id: str | None = None) -> None:
-        """Disconnect an app, optionally scoped to an end-user."""
+        """Disconnect an app, optionally scoped to an end-user.
+
+        Refused (409) when the app has several connected accounts — disconnect one with
+        ``apps.connections.delete(connection.id)``.
+        """
         params = {}
         if user_id:
             params["user_id"] = user_id
@@ -360,4 +384,35 @@ class AppConnections:
         return SyncPage(
             data=[AppConnectionDetails.from_dict(item) for item in body["data"]],
             has_more=body["has_more"],
+        )
+
+    def update(
+        self,
+        connection_id: int,
+        *,
+        label: str | None = None,
+        notes: str | None = None,
+        user_id: str | None = None,
+    ) -> AppConnectionDetails:
+        """Name one connected account, or say what it is for. Agents read both when an app
+        has several accounts and pick one per tool call. An empty string clears a field."""
+        payload: dict = {}
+        if label is not None:
+            payload["label"] = label
+        if notes is not None:
+            payload["notes"] = notes
+        resp = self._http.request(
+            "PATCH",
+            f"/apps/connections/{seg(str(connection_id))}",
+            json=payload,
+            params=_build_params(user_id=user_id),
+        )
+        return AppConnectionDetails.from_dict(resp.json())
+
+    def delete(self, connection_id: int, *, user_id: str | None = None) -> None:
+        """Disconnect exactly one account of an app; its other accounts stay connected."""
+        self._http.request(
+            "DELETE",
+            f"/apps/connections/{seg(str(connection_id))}",
+            params=_build_params(user_id=user_id),
         )

@@ -1541,7 +1541,7 @@ class BuiltInTool:
 
 @dataclass
 class AppConnectionDetails:
-    """A saved app connection without internal database identifiers."""
+    """A saved app connection. ``id`` addresses this one account (rename, disconnect)."""
 
     connection_id: str | None
     status: Literal["active", "expired", "revoked"]
@@ -1554,6 +1554,10 @@ class AppConnectionDetails:
     kind: str = ""
     account_id: str | None = None
     accessible_customers: list[str] = field(default_factory=list)
+    id: int | None = None
+    name: str = ""
+    label: str | None = None
+    notes: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> AppConnectionDetails:
@@ -1568,6 +1572,10 @@ class AppConnectionDetails:
             kind=data.get("kind", ""),
             account_id=data.get("account_id"),
             accessible_customers=data.get("accessible_customers", []),
+            id=data.get("id"),
+            name=data.get("name", ""),
+            label=data.get("label"),
+            notes=data.get("notes"),
         )
 
 
