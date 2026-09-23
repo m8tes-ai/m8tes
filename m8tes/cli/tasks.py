@@ -324,7 +324,7 @@ class TaskCLI:
                 for error in errors:
                     print(f"   {error}")
                 raise RunFailedError("Run finished with errors", details={"errors": errors})
-            print("\n✅ Task completed")
+            # No "✅ Task completed" receipt — the streamed mate output is the signal.
 
         except KeyboardInterrupt:
             display.finish()

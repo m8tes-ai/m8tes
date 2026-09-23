@@ -300,7 +300,7 @@ class TestTaskInteractive:
         assert "All done" in out
         assert "run_gaql_query" in out
         assert "Tokens: 1,234" in out
-        assert "✅ Task completed" in out
+        assert "✅ Task completed" not in out
 
     def test_error_events_raise_run_failed(self, client, capsys):
         with pytest.raises(RunFailedError):

@@ -512,15 +512,10 @@ class MateCLI:
             # Show run summary with results
             self._show_run_summary(stream.run_id, output_format, debug=debug)
 
-            # Show completion (unless json mode)
-            if output_format != "json":
-                print()
-                if has_errors:
-                    print("❌ Task failed")
-                else:
-                    print("✅ Task completed")
-
             if has_errors:
+                if output_format != "json":
+                    print()
+                    print("❌ Task failed")
                 raise RunFailedError("Run finished with errors")
 
         except KeyboardInterrupt:

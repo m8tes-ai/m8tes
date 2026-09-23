@@ -11,6 +11,14 @@ All notable changes to the m8tes Python SDK will be documented in this file.
   `RunFailedError`, instead of the raw provider body in `result`. Frames with
   `subtype="success"` and `is_error=true` are treated as failures even when the
   wire event is not named `sdk_success`.
+## [4.39.0] - 2026-09-23
+
+### Removed
+
+- CLI no longer prints `✅ Task completed` after a successful streamed mate/task
+  run. The mate's own closing message is the completion signal; failure still
+  prints `❌ Task failed` / `❌ Task execution failed`.
+
 ## [4.38.0] - 2026-09-23
 
 ### Added

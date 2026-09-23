@@ -207,7 +207,7 @@ class TestExecute:
         assert display.on_event.call_count == 2
         out = capsys.readouterr().out
         assert "🎯 Executing task: weekly recap" in out
-        assert "✅ Task completed" in out
+        assert "✅ Task completed" not in out
 
     def test_execute_raises_when_the_run_emitted_errors(self, monkeypatch, capsys):
         self._display(monkeypatch, has_errors=True, errors=["credential expired"])
