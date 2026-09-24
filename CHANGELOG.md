@@ -4,6 +4,11 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- Tool listing docs call this permission mode Auto mode. Callers still send
+  ``permission_mode="approval"``.
+
 ### Fixed
 
 - A failed provider result frame now surfaces the platform's safe `message`

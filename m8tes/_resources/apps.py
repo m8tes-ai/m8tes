@@ -340,7 +340,7 @@ class Apps:
         """List an app's tools with side-effect and approval metadata.
 
         ``read_only`` says whether the tool changes external state. ``approval_mode``
-        says whether approval/plan mode asks: never, always, or only for some inputs.
+        says whether Auto or Plan mode asks: never, always, or only for some inputs.
         """
         resp = self._http.request("GET", f"/apps/{seg(app_name)}/tools")
         body = resp.json()
