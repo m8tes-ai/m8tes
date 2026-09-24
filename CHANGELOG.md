@@ -2,7 +2,12 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
-## [Unreleased]
+## [4.40.0] - 2026-09-23
+
+### Added
+
+- `skills.list_invokable()` — platform commands (e.g. `skillify`) plus custom skills for slash-invoke.
+- `runs.create(..., skill=)` and `runs.reply(..., skill=)` force an invokable skill (same as a leading `/slug` in the message).
 
 ### Changed
 

@@ -5587,6 +5587,28 @@ class TestSkillsCRUD:
         finally:
             v2_client.skills.delete(skill.id)
 
+    def test_list_invokable_includes_skillify_and_custom(self, v2_client):
+        """Live coverage for client.skills.list_invokable (picker + skill= force list)."""
+        from m8tes._resources.skills import InvokableSkill
+
+        skill = v2_client.skills.create(
+            name="gate invokable playbook",
+            description="Exercise list_invokable custom row.",
+            body="# Steps\n1. Pass",
+        )
+        try:
+            items = v2_client.skills.list_invokable()
+            assert any(isinstance(i, InvokableSkill) and i.slug == "skillify" for i in items)
+            assert any(i.slug == skill.slug and i.kind == "custom" for i in items)
+            mate = v2_client.teammates.create(name="InvokablePickerBot")
+            try:
+                mate_items = v2_client.skills.list_invokable(teammate_id=mate.id)
+                assert any(i.slug == "skillify" for i in mate_items)
+            finally:
+                v2_client.teammates.delete(mate.id)
+        finally:
+            v2_client.skills.delete(skill.id)
+
 
 @pytest.mark.integration
 class TestKeysCRUD:

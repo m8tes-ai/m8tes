@@ -197,6 +197,7 @@ class Runs:
         email_notifications: bool = False,
         output_schema: dict | None = None,
         max_turns: int | None = None,
+        skill: str | None = None,
         files: _list | None = None,
         raise_on_error: bool = False,
         idempotency_key: str | None = None,
@@ -279,6 +280,8 @@ class Runs:
             body["output_schema"] = output_schema
         if max_turns is not None:
             body["max_turns"] = max_turns
+        if skill is not None:
+            body["skill"] = skill
 
         headers = idempotency_headers(idempotency_key)
 
@@ -687,6 +690,7 @@ class Runs:
         email_notifications: bool = False,
         output_schema: dict | None = None,
         max_turns: int | None = None,
+        skill: str | None = None,
         on_approval: Callable[[PermissionRequest], str] | None = None,
         on_question: Callable[[PermissionRequest], dict[str, str]] | None = None,
         poll_interval: float = 2.0,
@@ -729,6 +733,7 @@ class Runs:
                 email_notifications=email_notifications,
                 output_schema=output_schema,
                 max_turns=max_turns,
+                skill=skill,
             ),
         )
         # Preserve email_address from initial response — GET /runs/{id} doesn't return it
@@ -1047,6 +1052,7 @@ class Runs:
         task_setup_tools: bool | None = None,
         feedback: bool | None = None,
         human_in_the_loop: bool | None = None,
+        skill: str | None = None,
         reset_auto_recovery: bool = False,
         idempotency_key: str | None = None,
     ) -> RunStream | Run:
@@ -1100,6 +1106,8 @@ class Runs:
             body["feedback"] = feedback
         if human_in_the_loop is not None:
             body["human_in_the_loop"] = human_in_the_loop
+        if skill is not None:
+            body["skill"] = skill
         if reset_auto_recovery:
             body["reset_auto_recovery"] = True
         headers = idempotency_headers(idempotency_key)

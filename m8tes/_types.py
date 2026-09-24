@@ -2816,6 +2816,29 @@ class Skill:
 
 
 @dataclass
+class InvokableSkill:
+    """A skill the operator can slash-invoke (``/slug`` or ``skill=`` on a run).
+
+    ``kind`` is ``platform`` for curated built-ins (e.g. skillify) or ``custom``
+    for account/teammate skills. Bodies are never included.
+    """
+
+    slug: str
+    name: str
+    description: str
+    kind: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> InvokableSkill:
+        return cls(
+            slug=data["slug"],
+            name=data["name"],
+            description=data["description"],
+            kind=data["kind"],
+        )
+
+
+@dataclass
 class ValueUseCase:
     """A business responsibility inferred from actual agent work."""
 

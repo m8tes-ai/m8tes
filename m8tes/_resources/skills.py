@@ -17,7 +17,7 @@ import builtins
 from typing import TYPE_CHECKING, Any
 
 from .._http import seg
-from .._types import Skill
+from .._types import InvokableSkill, Skill
 from ._utils import _resolve_agent_id
 
 if TYPE_CHECKING:
@@ -94,3 +94,24 @@ class Skills:
     def delete(self, skill_id: int, *, user_id: str | None = None) -> None:
         params = {"user_id": user_id} if user_id else None
         self._http.request("DELETE", f"/skills/{seg(skill_id)}", params=params)
+
+    def list_invokable(
+        self,
+        *,
+        teammate_id: int | None = None,
+        agent_id: int | None = None,
+        user_id: str | None = None,
+    ) -> builtins.list[InvokableSkill]:
+        """Skills the operator can force via ``/slug`` or ``skill=`` on a run/reply.
+
+        Returns curated platform commands (e.g. ``skillify``) plus active custom
+        skills. Does not list the baked snapshot catalog.
+        """
+        params: dict[str, Any] = {}
+        teammate_id = _resolve_agent_id(teammate_id, agent_id)
+        if teammate_id is not None:
+            params["teammate_id"] = teammate_id
+        if user_id is not None:
+            params["user_id"] = user_id
+        resp = self._http.request("GET", "/skills/invokable", params=params or None)
+        return [InvokableSkill.from_dict(d) for d in resp.json()["data"]]
