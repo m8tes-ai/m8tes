@@ -5588,18 +5588,25 @@ class TestSkillsCRUD:
             v2_client.skills.delete(skill.id)
 
     def test_list_invokable_includes_skillify_and_custom(self, v2_client):
-        """Live coverage for client.skills.list_invokable (picker + skill= force list)."""
-        from m8tes._resources.skills import InvokableSkill
+        """list_invokable is the picker surface — platform skillify + authored skills."""
+        from m8tes._types import InvokableSkill
 
         skill = v2_client.skills.create(
-            name="gate invokable playbook",
-            description="Exercise list_invokable custom row.",
-            body="# Steps\n1. Pass",
+            name="weekly spend check",
+            description="Flag wasted Search terms",
+            body="# Steps\n1. Pull search terms",
         )
         try:
             items = v2_client.skills.list_invokable()
-            assert any(isinstance(i, InvokableSkill) and i.slug == "skillify" for i in items)
-            assert any(i.slug == skill.slug and i.kind == "custom" for i in items)
+            assert all(isinstance(i, InvokableSkill) for i in items)
+            by_slug = {i.slug: i for i in items}
+            assert "skillify" in by_slug
+            assert by_slug["skillify"].kind == "platform"
+            assert "weekly-spend-check" in by_slug
+            assert by_slug["weekly-spend-check"].kind == "custom"
+            # End-user scope hides skillify (create_skill is account-only).
+            eu = v2_client.skills.list_invokable(user_id=_uid())
+            assert "skillify" not in {i.slug for i in eu}
             mate = v2_client.teammates.create(name="InvokablePickerBot")
             try:
                 mate_items = v2_client.skills.list_invokable(teammate_id=mate.id)

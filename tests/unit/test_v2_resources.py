@@ -1093,6 +1093,15 @@ class TestRuns:
         assert "model" not in json.loads(responses.calls[1].request.body)
 
     @responses.activate
+    def test_create_and_reply_forward_skill(self, http):
+        responses.add(responses.POST, f"{BASE}/runs/", json={"id": 1, "status": "running"})
+        responses.add(responses.POST, f"{BASE}/runs/1/reply", json={"id": 1})
+        Runs(http).create(message="Go", stream=False, skill="skillify")
+        assert json.loads(responses.calls[0].request.body)["skill"] == "skillify"
+        Runs(http).reply(1, message="Again", stream=False, skill="cut-wasted-spend")
+        assert json.loads(responses.calls[1].request.body)["skill"] == "cut-wasted-spend"
+
+    @responses.activate
     def test_create_accepts_permission_mode_enum(self, http):
         responses.add(responses.POST, f"{BASE}/runs/", json={"id": 1, "status": "running"})
         Runs(http).create(
@@ -3821,3 +3830,75 @@ class TestMcpServersOAuth:
         assert json.loads(responses.calls[0].request.body) == {"code": "c", "state": "s"}
         assert server.has_secret is True
         assert server.sign_in_host == "mcp.beehiiv.com"
+
+
+class TestSkills:
+    """client.skills — custom skill CRUD + slash-invokable listing."""
+
+    _INVOKABLE: ClassVar[dict] = {
+        "slug": "skillify",
+        "name": "Skillify",
+        "description": "Turn this conversation's workflow into a reusable skill",
+        "kind": "platform",
+    }
+
+    @responses.activate
+    def test_list_invokable(self, http):
+        from m8tes._resources.skills import Skills
+        from m8tes._types import InvokableSkill
+
+        responses.get(
+            f"{BASE}/skills/invokable",
+            json={"data": [self._INVOKABLE], "has_more": False},
+        )
+        items = Skills(http).list_invokable()
+        assert len(items) == 1
+        assert isinstance(items[0], InvokableSkill)
+        assert items[0].slug == "skillify" and items[0].kind == "platform"
+        assert responses.calls[0].request.params == {}
+
+    @responses.activate
+    def test_list_invokable_forwards_teammate_and_user_id(self, http):
+        from m8tes._resources.skills import Skills
+
+        responses.get(
+            f"{BASE}/skills/invokable",
+            json={"data": [], "has_more": False},
+        )
+        Skills(http).list_invokable(teammate_id=9, user_id="eu_1")
+        assert responses.calls[0].request.params == {
+            "teammate_id": "9",
+            "user_id": "eu_1",
+        }
+
+    @responses.activate
+    def test_create_sends_skill_fields(self, http):
+        from m8tes._resources.skills import Skills
+        from m8tes._types import Skill
+
+        responses.post(
+            f"{BASE}/skills",
+            json={
+                "id": 1,
+                "slug": "acme-refund",
+                "name": "acme refund",
+                "description": "d",
+                "body": "b",
+                "scope": "account",
+                "status": "active",
+                "source": "user",
+                "teammate_id": None,
+                "user_id": None,
+                "created_at": "2026-01-01T00:00:00Z",
+                "updated_at": "2026-01-01T00:00:00Z",
+            },
+            status=201,
+        )
+        skill = Skills(http).create(name="acme refund", description="d", body="b")
+        assert isinstance(skill, Skill) and skill.slug == "acme-refund"
+        assert json.loads(responses.calls[0].request.body) == {
+            "name": "acme refund",
+            "description": "d",
+            "body": "b",
+            "scope": "account",
+        }
