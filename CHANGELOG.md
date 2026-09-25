@@ -2,6 +2,12 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [4.41.0] - 2026-09-24
+
+### Added
+- `client.teammates.create_slack_channel(agent_id)` gives an agent its own private Slack
+  channel (the account owner is invited). Idempotent: a second call returns the same channel.
+
 ## [4.40.0] - 2026-09-23
 
 ### Added

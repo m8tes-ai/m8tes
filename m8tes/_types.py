@@ -1491,6 +1491,25 @@ class EmailInbox:
 
 
 @dataclass
+class SlackHomeChannel:
+    """A teammate's own private Slack channel (returned by create_slack_channel)."""
+
+    team_id: str
+    channel_id: str
+    created: bool
+    name: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> SlackHomeChannel:
+        return cls(
+            team_id=data["team_id"],
+            channel_id=data["channel_id"],
+            created=data["created"],
+            name=data.get("name"),
+        )
+
+
+@dataclass
 class FetchmailInbox:
     """Teammate fetchmail (read-only) inbox status."""
 

@@ -753,6 +753,21 @@ class TestTeammates:
         assert result.address == "abc123@notifications.m8tes.ai"
 
     @responses.activate
+    def test_create_slack_channel(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/agents/1/slack-channel",
+            json={"team_id": "T1", "channel_id": "G1", "name": "m8tes-ppc", "created": True},
+            status=201,
+        )
+        from m8tes._types import SlackHomeChannel
+
+        result = Teammates(http).create_slack_channel(1)
+        assert result == SlackHomeChannel(
+            team_id="T1", channel_id="G1", created=True, name="m8tes-ppc"
+        )
+
+    @responses.activate
     def test_disable_email_inbox(self, http):
         responses.add(responses.DELETE, f"{BASE}/agents/1/email-inbox", status=204)
         Teammates(http).disable_email_inbox(1)

@@ -11,6 +11,7 @@ from .._types import (
     AgentSystemPrompt,
     EmailInbox,
     FetchmailInbox,
+    SlackHomeChannel,
     SyncPage,
     Teammate,
     TeammateDocument,
@@ -557,6 +558,11 @@ class Agents:
             f"/agents/{seg(agent_id)}/email-inbox",
             params=_build_params(user_id=user_id),
         )
+
+    def create_slack_channel(self, agent_id: int) -> SlackHomeChannel:
+        """Give a teammate its own private Slack channel (owner invited). Idempotent."""
+        resp = self._http.request("POST", f"/agents/{seg(agent_id)}/slack-channel")
+        return SlackHomeChannel.from_dict(resp.json())
 
     def enable_fetchmail(self, agent_id: int, *, user_id: str | None = None) -> FetchmailInbox:
         """Enable read-only email inbox on a teammate. Returns the email address."""
