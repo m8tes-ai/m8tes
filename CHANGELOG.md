@@ -2,6 +2,15 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [4.42.0] - 2026-09-25
+
+### Added
+- `client.runs.desktop(run_id)` and `client.runs.desktop_ticket(run_id)` for the
+  view-only computer follow-along (live status / short-lived websocket ticket).
+
+
+All notable changes to the m8tes Python SDK will be documented in this file.
+
 ## [4.41.0] - 2026-09-24
 
 ### Added

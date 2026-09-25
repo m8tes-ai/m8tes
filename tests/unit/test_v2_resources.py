@@ -997,6 +997,45 @@ class TestRuns:
         assert responses.calls[0].request.params.get("user_id") == "alice"
 
     @responses.activate
+    def test_desktop_live(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/42/desktop",
+            body="live",
+            content_type="text/plain",
+        )
+        assert Runs(http).desktop(42) == "live"
+
+    @responses.activate
+    def test_desktop_ended(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/42/desktop",
+            body="This computer session has ended.",
+            content_type="text/plain",
+        )
+        assert Runs(http).desktop(42) == "This computer session has ended."
+
+    @responses.activate
+    def test_desktop_ticket_live(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/42/desktop-ticket",
+            json={"ticket": "1.2.abc"},
+        )
+        assert Runs(http).desktop_ticket(42) == {"ticket": "1.2.abc"}
+
+    @responses.activate
+    def test_desktop_ticket_ended(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/42/desktop-ticket",
+            body="This computer session has ended.",
+            content_type="text/plain",
+        )
+        assert Runs(http).desktop_ticket(42) == "This computer session has ended."
+
+    @responses.activate
     def test_create_streaming(self, http):
         responses.add(
             responses.POST,

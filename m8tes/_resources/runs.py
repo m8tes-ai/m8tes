@@ -1191,6 +1191,31 @@ class Runs:
         )
         return Run.from_dict(resp.json())
 
+    def desktop(self, run_id: int) -> str:
+        """Whether the run's computer view is live.
+
+        Returns the word ``"live"`` while the sandbox desktop is reachable, or the
+        ended sentence when the session is gone. Never returns a preview host or
+        signed URL — those stay server-side for the view-only websocket relay.
+        """
+        resp = self._http.request("GET", f"/runs/{seg(run_id)}/desktop")
+        return (resp.text or "").strip()
+
+    def desktop_ticket(self, run_id: int) -> dict[str, str] | str:
+        """Mint a short-lived ticket for the view-only desktop websocket.
+
+        Returns ``{"ticket": "..."}`` while the desktop is live, or the same ended
+        sentence as :meth:`desktop` when it is not. The ticket is only useful with
+        the same-origin ``/runs/{id}/desktop/ws`` relay — it is not a Daytona URL.
+        """
+        resp = self._http.request("POST", f"/runs/{seg(run_id)}/desktop-ticket")
+        content_type = (resp.headers.get("content-type") or "").lower()
+        if "json" in content_type:
+            data = resp.json()
+            if isinstance(data, dict):
+                return {str(k): str(v) for k, v in data.items()}
+        return (resp.text or "").strip()
+
     def retry(self, run_id: int, *, confirm: bool = False, use_credits: bool = False) -> Run:
         """Retry a failed or cancelled run.
 
