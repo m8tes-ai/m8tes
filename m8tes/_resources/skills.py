@@ -104,7 +104,7 @@ class Skills:
     ) -> builtins.list[InvokableSkill]:
         """Skills the operator can force via ``/slug`` or ``skill=`` on a run/reply.
 
-        Returns curated platform commands (e.g. ``skillify``) plus active custom
+        Returns curated platform commands (e.g. ``make-skill``, ``own-task``) plus active custom
         skills. Does not list the baked snapshot catalog.
         """
         params: dict[str, Any] = {}

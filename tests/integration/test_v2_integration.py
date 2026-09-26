@@ -5587,8 +5587,8 @@ class TestSkillsCRUD:
         finally:
             v2_client.skills.delete(skill.id)
 
-    def test_list_invokable_includes_skillify_and_custom(self, v2_client):
-        """list_invokable is the picker surface — platform skillify + authored skills."""
+    def test_list_invokable_includes_make_skill_and_custom(self, v2_client):
+        """list_invokable is the picker surface — platform make-skill + authored skills."""
         from m8tes._types import InvokableSkill
 
         skill = v2_client.skills.create(
@@ -5600,17 +5600,20 @@ class TestSkillsCRUD:
             items = v2_client.skills.list_invokable()
             assert all(isinstance(i, InvokableSkill) for i in items)
             by_slug = {i.slug: i for i in items}
-            assert "skillify" in by_slug
-            assert by_slug["skillify"].kind == "platform"
+            assert "make-skill" in by_slug
+            assert by_slug["make-skill"].kind == "platform"
+            assert "own-task" in by_slug
+            assert "skillify" not in by_slug  # legacy alias is not listed
             assert "weekly-spend-check" in by_slug
             assert by_slug["weekly-spend-check"].kind == "custom"
-            # End-user scope hides skillify (create_skill is account-only).
+            # End-user scope hides make-skill (create_skill is account-only).
             eu = v2_client.skills.list_invokable(user_id=_uid())
-            assert "skillify" not in {i.slug for i in eu}
+            assert "make-skill" not in {i.slug for i in eu}
+            assert "own-task" not in {i.slug for i in eu}
             mate = v2_client.teammates.create(name="InvokablePickerBot")
             try:
                 mate_items = v2_client.skills.list_invokable(teammate_id=mate.id)
-                assert any(i.slug == "skillify" for i in mate_items)
+                assert any(i.slug == "make-skill" for i in mate_items)
             finally:
                 v2_client.teammates.delete(mate.id)
         finally:

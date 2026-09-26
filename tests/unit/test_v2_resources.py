@@ -1150,8 +1150,8 @@ class TestRuns:
     def test_create_and_reply_forward_skill(self, http):
         responses.add(responses.POST, f"{BASE}/runs/", json={"id": 1, "status": "running"})
         responses.add(responses.POST, f"{BASE}/runs/1/reply", json={"id": 1})
-        Runs(http).create(message="Go", stream=False, skill="skillify")
-        assert json.loads(responses.calls[0].request.body)["skill"] == "skillify"
+        Runs(http).create(message="Go", stream=False, skill="make-skill")
+        assert json.loads(responses.calls[0].request.body)["skill"] == "make-skill"
         Runs(http).reply(1, message="Again", stream=False, skill="cut-wasted-spend")
         assert json.loads(responses.calls[1].request.body)["skill"] == "cut-wasted-spend"
 
@@ -3935,9 +3935,9 @@ class TestSkills:
     """client.skills — custom skill CRUD + slash-invokable listing."""
 
     _INVOKABLE: ClassVar[dict] = {
-        "slug": "skillify",
-        "name": "Skillify",
-        "description": "Turn this conversation's workflow into a reusable skill",
+        "slug": "make-skill",
+        "name": "Make skill",
+        "description": "Make a reusable skill from this run",
         "kind": "platform",
     }
 
@@ -3953,7 +3953,7 @@ class TestSkills:
         items = Skills(http).list_invokable()
         assert len(items) == 1
         assert isinstance(items[0], InvokableSkill)
-        assert items[0].slug == "skillify" and items[0].kind == "platform"
+        assert items[0].slug == "make-skill" and items[0].kind == "platform"
         assert responses.calls[0].request.params == {}
 
     @responses.activate

@@ -24,6 +24,13 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 
 All notable changes to the m8tes Python SDK will be documented in this file.
+## [Unreleased]
+
+### Changed
+
+- Platform slash commands in docs/`list_invokable` examples: `make-skill` (and
+  `own-task`) instead of `skillify`. Legacy `/skillify` still works as an alias
+  on the API.
 
 ## [4.41.0] - 2026-09-24
 
