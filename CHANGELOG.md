@@ -5,6 +5,8 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 ## [4.43.0] - 2026-09-26
 
 ### Added
+- `Run.needs_me` and `Run.needs_me_message_ids` — caller-private marks on a run or
+  individual messages. Viewing, replying, or archiving does not clear them.
 - `client.runs.messages(..., tail=True)` returns the newest page; `before_sequence=`
   walks older pages the same way as the V2 HTTP cursors.
 

@@ -827,6 +827,13 @@ class Run:
     closing_preview: str | None = None
     latest_message_preview: str | None = None
     needs_reply: bool = False
+    # This caller marked the run or one of its messages (private to the caller).
+    # Other people do not see the mark; it stays until this caller clears it.
+    # A reply, view, or archive does not clear it.
+    needs_me: bool = False
+    # Message ids this caller marked, oldest in the transcript first. Empty when
+    # only the run is marked, or when nothing is marked.
+    needs_me_message_ids: list[int] | None = None
     # Populated on runs.reply() and on GET while an inbound message is still
     # pending/dispatching: "resumed" — the message became the run's next turn
     # immediately; "queued" — parked for delivery as the next turn. None when
@@ -897,6 +904,8 @@ class Run:
             closing_preview=data.get("closing_preview"),
             latest_message_preview=data.get("latest_message_preview"),
             needs_reply=data.get("needs_reply", False),
+            needs_me=data.get("needs_me", False),
+            needs_me_message_ids=data.get("needs_me_message_ids") or [],
             delivery=data.get("delivery"),
             queued_message_id=data.get("queued_message_id"),
             pending_queued_message_ids=data.get("pending_queued_message_ids") or [],
