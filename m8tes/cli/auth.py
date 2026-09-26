@@ -361,15 +361,22 @@ class AuthCLI:
         # JWT-only, so probing it with an m8_ API key always read as "invalid" —
         # and used to wipe the saved keychain token on that false positive. A
         # status command must never mutate credentials.
-        active_api_key = saved_api_key or env_api_key or getattr(self.client, "api_key", None)
+        # Same precedence as every other command (create_client: args → env → saved),
+        # so status describes the account those commands will actually use.
+        active_api_key = getattr(self.client, "api_key", None) or env_api_key or saved_api_key
         if active_api_key:
             print("\n🔄 Checking API key...")
             try:
                 verified = self._probe_v2_key(active_api_key)
                 print("\n✅ API key is valid")
-                email = self.credentials.get_profile_info().get("email")
-                if email:
-                    print(f"   Email: {email}")
+                # The profile email belongs to the saved key only; never attach it to
+                # an explicit or env key from a different account.
+                if active_api_key == saved_api_key:
+                    email = self.credentials.get_profile_info().get("email")
+                    if email:
+                        print(f"   Email: {email}")
+                else:
+                    print("   Using: --api-key or M8TES_API_KEY (not the saved login)")
                 if verified:
                     print("   Email verified: yes")
                 else:

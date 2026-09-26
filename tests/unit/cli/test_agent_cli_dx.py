@@ -48,6 +48,12 @@ class TestSuggestCommands:
         matches = suggest_commands("show", choices)
         assert "get" in matches
 
+    def test_unrelated_word_gets_no_suggestion(self) -> None:
+        """DX audit 2026-09-26: `m8tes frobnicate` suggested `mate` — noise, not help."""
+        choices = ["auth", "a", "apps", "app", "agent", "mate", "task", "tasks", "run", "r"]
+        assert suggest_commands("frobnicate", choices) == []
+        assert suggest_commands("agnet", choices)[0] == "agent"
+
     def test_enhance_argparse_invalid_choice(self) -> None:
         msg = (
             "argument agent_command: invalid choice: 'show' (choose from 'create', 'c', 'get', 'g')"

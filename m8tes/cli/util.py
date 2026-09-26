@@ -54,9 +54,10 @@ _COMMAND_SYNONYMS: dict[str, tuple[str, ...]] = {
 
 
 def suggest_commands(
-    unknown: str, choices: list[str], *, n: int = 3, cutoff: float = 0.4
+    unknown: str, choices: list[str], *, n: int = 3, cutoff: float = 0.6
 ) -> list[str]:
     """Return close matches for an unknown command name (deduped, primary names preferred)."""
+    # cutoff 0.6: at 0.4, `m8tes frobnicate` suggested `mate`. Real typos (agnet, tsak) score 0.75+.
     choice_set = set(choices)
     ordered: list[str] = []
 

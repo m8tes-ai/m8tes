@@ -402,3 +402,34 @@ class TestSessionTransportRefreshBinding:
             auth_cli.return_value.get_valid_api_key.return_value = "jwt_saved"
             GoogleIntegrationCLI(None)._session_http()
         assert http_cls.call_args.kwargs["profile_bound"] is True
+
+
+class TestShowStatusReportsTheActiveKey:
+    """`auth status` must describe the key every other command uses (args → env → saved).
+
+    DX audit 2026-09-26: with M8TES_API_KEY set to a fresh account's key, status probed
+    the SAVED key and printed the saved profile's email, so it reported a different
+    account than the one `run` / `agent task` were about to bill.
+    """
+
+    def _cli(self, client_key):
+        cli, creds = _auth_cli_with_creds(api_key="m8_saved", expired=False)
+        creds.get_profile_info.return_value = {"email": "saved@example.com"}
+        cli.client = Mock(api_key=client_key)
+        return cli
+
+    def test_explicit_key_is_probed_and_saved_email_is_not_shown(self, capsys):
+        cli = self._cli("m8_explicit")
+        with patch.object(AuthCLI, "_probe_v2_key", return_value=True) as probe:
+            cli.show_status()
+        probe.assert_called_once_with("m8_explicit")
+        out = capsys.readouterr().out
+        assert "saved@example.com" not in out
+        assert "Using: --api-key or M8TES_API_KEY" in out
+
+    def test_saved_key_shows_its_profile_email(self, capsys):
+        cli = self._cli("m8_saved")
+        with patch.object(AuthCLI, "_probe_v2_key", return_value=True) as probe:
+            cli.show_status()
+        probe.assert_called_once_with("m8_saved")
+        assert "saved@example.com" in capsys.readouterr().out

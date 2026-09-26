@@ -32,6 +32,21 @@ def test_changelog_has_entry_for_current_version():
     )
 
 
+def test_changelog_has_one_header_and_one_section_per_version():
+    """`.gitattributes` merges every CHANGELOG.md with `merge=union`, which never
+    conflicts: two PRs that both bump to the same version keep BOTH sections, and a
+    re-applied file keeps its header twice. The 2026-09-26 DX audit found the public
+    changelog with a repeated header, a mid-file `[Unreleased]`, and 4.39/4.40/4.41 each
+    listed twice. Make that loud instead of silent."""
+    changelog = (SDK_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    assert changelog.count("All notable changes to the m8tes Python SDK") == 1
+    headings = re.findall(r"^## \[([^\]]+)\]", changelog, re.MULTILINE)
+    dupes = sorted({h for h in headings if headings.count(h) > 1})
+    assert not dupes, f"CHANGELOG.md repeats section(s) {dupes}; merge them into one each."
+    if "Unreleased" in headings:
+        assert headings[0] == "Unreleased", "`## [Unreleased]` must be the first section."
+
+
 # Calls whose string arguments are shown to a human running the CLI.
 _DISPLAY_CALLS = {"print", "prompt", "confirm_prompt"}
 # argparse (and friends) keywords whose values render in --help.
@@ -211,11 +226,16 @@ _BANNED_LITERALS = tuple(
 
 def _tracked_files():
     """Exactly the set of files sync-sdk.yml publishes: git-tracked, this dir."""
+    import os
     import subprocess
 
+    # A git hook exports GIT_DIR/GIT_INDEX_FILE; with them set, `ls-files` lists the
+    # whole repo relative to its root, not this dir, and every path resolves wrong.
+    env = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
     out = subprocess.run(
         ["git", "ls-files", "-z"],
         cwd=SDK_ROOT,
+        env=env,
         capture_output=True,
         check=True,
     ).stdout

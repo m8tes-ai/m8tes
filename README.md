@@ -28,6 +28,7 @@ export M8TES_API_KEY=m8_your_key_here
 from m8tes import M8tes
 
 client = M8tes()
+print("Starting your agent (the first reply can take up to a minute)...")
 for text in client.runs.stream_text(
     message="Draft a warm reply to a customer asking to cancel.",
     user_id="hello_world",
@@ -37,7 +38,7 @@ for text in client.runs.stream_text(
     print(text, end="", flush=True)
 ```
 
-The test credit covers `deepseek-v4-1-flash`, with one run in flight at a time. Keep strict mode on and pass a distinct `user_id` for each customer. [Top up](https://m8tes.ai/docs/billing-usage#prepaid-balance) for the full model catalog and sustained traffic. Platform/web signups start with a $0 prepaid balance.
+The first reply can take up to a minute while the agent's sandbox starts. The test credit covers `deepseek-v4-1-flash`, with one run in flight at a time. Keep strict mode on and pass a distinct `user_id` for each customer. [Top up](https://m8tes.ai/docs/billing-usage#prepaid-balance) for the full model catalog and sustained traffic. Platform/web signups start with a $0 prepaid balance.
 
 For personal development on your own model subscription, follow the optional [provider setup guide](https://m8tes.ai/docs/quickstart#develop-on-your-model-subscription). That flow connects a provider and explicitly disables strict scope checks account-wide; customer-facing apps should keep strict mode enabled.
 
