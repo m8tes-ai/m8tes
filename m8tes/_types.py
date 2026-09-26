@@ -790,6 +790,8 @@ class Run:
     description: str | None = None
     retention_mode: str | None = None
     started_at: str | None = None
+    # When this turn started. A reply on the same run resets it; created_at does not.
+    turn_started_at: str | None = None
     last_activity_at: str | None = None
     # The server's own verdict on the run (2026-08-03). `stop_reason` distinguishes a
     # refused or truncated run from a clean one — without it a UI renders both the same.
@@ -882,6 +884,7 @@ class Run:
             description=data.get("description"),
             retention_mode=data.get("retention_mode"),
             started_at=data.get("started_at"),
+            turn_started_at=data.get("turn_started_at"),
             last_activity_at=data.get("last_activity_at"),
             stop_reason=data.get("stop_reason"),
             is_expired=data.get("is_expired", False),

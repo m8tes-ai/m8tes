@@ -187,6 +187,19 @@ class TestRunAcknowledgementAndRetryFields:
     leaves that suite passing.
     """
 
+    def test_turn_started_at_round_trips(self):
+        """A follow-up resets the turn clock. Dropping it here leaves clients on created_at."""
+        run = Run.from_dict(
+            {
+                "id": 1,
+                "status": "running",
+                "created_at": "2026-09-01T09:00:00Z",
+                "turn_started_at": "2026-09-20T09:00:00Z",
+            }
+        )
+        assert run.turn_started_at == "2026-09-20T09:00:00Z"
+        assert Run.from_dict({"id": 1, "status": "running"}).turn_started_at is None
+
     def test_notified_at_round_trips(self):
         """With only `last_viewed_at`, an emailed run looks unread forever."""
         run = Run.from_dict(

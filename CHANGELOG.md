@@ -2,6 +2,11 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [4.41.0] - 2026-09-25
+
+### Added
+
+- `Run.turn_started_at` is when the current turn started. A reply on the same run resets it. `created_at` stays the original queue time.
 ## [4.42.0] - 2026-09-25
 
 ### Added
