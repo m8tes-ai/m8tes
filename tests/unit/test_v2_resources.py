@@ -1560,6 +1560,51 @@ class TestRuns:
         assert outcome.cost_usd == "0.4831"
 
     @responses.activate
+    def test_messages_sends_tail_and_before_sequence(self, http):
+        """New V2 cursors must reach the wire; SDK customers cannot be left behind."""
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/42/messages",
+            json=[
+                {
+                    "id": 1,
+                    "run_id": 42,
+                    "role": "assistant",
+                    "content": "newest",
+                    "sequence": 9,
+                    "created_at": "2026-09-25T00:00:00Z",
+                }
+            ],
+        )
+        msgs = Runs(http).messages(42, tail=True, limit=50)
+        assert len(msgs) == 1
+        assert msgs[0].sequence == 9
+        params = responses.calls[0].request.params
+        assert params.get("tail") == "true"
+        assert params.get("limit") == "50"
+        assert "after_sequence" not in params
+        assert "before_sequence" not in params
+
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/42/messages",
+            json=[],
+        )
+        Runs(http).messages(42, before_sequence=9, limit=50)
+        params = responses.calls[1].request.params
+        assert params.get("before_sequence") == "9"
+        assert "tail" not in params
+
+    @responses.activate
+    def test_messages_omits_tail_when_false(self, http):
+        responses.add(responses.GET, f"{BASE}/runs/42/messages", json=[])
+        Runs(http).messages(42, after_sequence=3)
+        params = responses.calls[0].request.params
+        assert params.get("after_sequence") == "3"
+        assert "tail" not in params
+        assert "before_sequence" not in params
+
+    @responses.activate
     def test_list_files(self, http):
         responses.add(
             responses.GET,

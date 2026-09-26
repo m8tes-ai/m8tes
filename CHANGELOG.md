@@ -2,16 +2,23 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
-## [4.41.0] - 2026-09-25
+## [4.43.0] - 2026-09-26
 
 ### Added
+- `client.runs.messages(..., tail=True)` returns the newest page; `before_sequence=`
+  walks older pages the same way as the V2 HTTP cursors.
 
-- `Run.turn_started_at` is when the current turn started. A reply on the same run resets it. `created_at` stays the original queue time.
 ## [4.42.0] - 2026-09-25
 
 ### Added
 - `client.runs.desktop(run_id)` and `client.runs.desktop_ticket(run_id)` for the
   view-only computer follow-along (live status / short-lived websocket ticket).
+
+## [4.41.0] - 2026-09-25
+
+### Added
+
+- `Run.turn_started_at` is when the current turn started. A reply on the same run resets it. `created_at` stays the original queue time.
 
 
 All notable changes to the m8tes Python SDK will be documented in this file.

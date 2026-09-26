@@ -1029,14 +1029,25 @@ class Runs:
         run_id: int,
         *,
         after_sequence: int | None = None,
+        before_sequence: int | None = None,
+        tail: bool = False,
         limit: int = 500,
     ) -> _list[RunMessage]:
         """Full run transcript ordered by sequence (UI reload / reconnect).
 
         Prefer :meth:`outcome` when you only need the closing summary. Use
         ``after_sequence`` to fetch only messages newer than a known sequence.
+        ``tail=True`` returns the newest page (oldest of that page first).
+        ``before_sequence`` walks older pages the same way. Combining ``tail``
+        with a cursor, or the two cursors with each other, is a 422.
         """
-        params = _build_params(after_sequence=after_sequence, limit=limit)
+        params = _build_params(
+            after_sequence=after_sequence,
+            before_sequence=before_sequence,
+            limit=limit,
+        )
+        if tail:
+            params["tail"] = "true"
         resp = self._http.request("GET", f"/runs/{seg(run_id)}/messages", params=params or None)
         return [RunMessage.from_dict(m) for m in resp.json()]
 
