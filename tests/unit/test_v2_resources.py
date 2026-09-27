@@ -343,6 +343,7 @@ class TestModelConnections:
                 "is_default": False,
                 "default_model": "claude-sonnet-4-6" if model else None,
                 "resolved_default_model": "claude-sonnet-4-6" if model else "claude-opus-5-5",
+                "provider_default_model": "claude-opus-5-5",
             },
         )
         result = ModelConnections(http).set_default_model("claude", model=model)
@@ -351,6 +352,7 @@ class TestModelConnections:
         assert result.resolved_default_model == (
             "claude-sonnet-4-6" if model else "claude-opus-5-5"
         )
+        assert result.provider_default_model == "claude-opus-5-5"
         assert not result.is_default
 
     @responses.activate

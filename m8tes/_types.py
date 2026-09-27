@@ -200,6 +200,7 @@ class ModelConnection:
     expires_at: str | None = None
     default_model: str | None = None
     resolved_default_model: str | None = None
+    provider_default_model: str | None = None
     accounts: list[ModelConnectionAccount] = field(default_factory=list)
 
     @classmethod
@@ -214,6 +215,7 @@ class ModelConnection:
             expires_at=data.get("expires_at"),
             default_model=data.get("default_model"),
             resolved_default_model=data.get("resolved_default_model"),
+            provider_default_model=data.get("provider_default_model"),
             accounts=[ModelConnectionAccount.from_dict(a) for a in data.get("accounts") or []],
         )
 
