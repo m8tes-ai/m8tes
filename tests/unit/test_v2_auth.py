@@ -91,6 +91,32 @@ def test_get_usage():
     assert usage.runs_used == 1
     assert usage.free_path_available is True
     assert usage.unlimited_runs is False
+    assert usage.concurrent_runs == 0  # older server: field absent
+    assert usage.concurrent_runs_limit is None
+
+
+@responses.activate
+def test_get_usage_concurrency():
+    responses.add(
+        responses.GET,
+        f"{BASE}/usage/",
+        json={
+            "plan": "pro",
+            "runs_used": 1,
+            "runs_limit": 500,
+            "cost_used": "0.25",
+            "cost_limit": "5.00",
+            "period_end": "2026-03-31T00:00:00Z",
+            "subscription_status": "active",
+            "concurrent_runs": 3,
+            "concurrent_runs_limit": 50,
+        },
+        status=200,
+    )
+
+    usage = Auth(_http()).get_usage()
+    assert usage.concurrent_runs == 3
+    assert usage.concurrent_runs_limit == 50
 
 
 @responses.activate

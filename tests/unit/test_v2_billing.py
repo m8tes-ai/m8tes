@@ -54,6 +54,7 @@ class TestSubscriptionBilling:
                     "overage_available": False,
                     "overage_rate_cents": 1000,
                     "fair_use_cost_limit_cents": 0,
+                    "max_concurrent_runs": 25,
                 },
             ],
         )
@@ -67,6 +68,8 @@ class TestSubscriptionBilling:
         assert individual.monthly_price_cents == 2000
         assert individual.overage_available is False
         assert individual.inference_mode == "own_subscription"
+        assert individual.max_concurrent_runs == 25
+        assert hobby.max_concurrent_runs == 0  # field absent → 0
         assert responses.calls[0].request.url.endswith("/billing/plans?include_free=true")
 
     @responses.activate

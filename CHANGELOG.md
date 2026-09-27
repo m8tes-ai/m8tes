@@ -2,6 +2,13 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [4.44.0] - 2026-09-26
+
+### Added
+- `Plan.max_concurrent_runs` — how many runs each plan may execute at once.
+- `Usage.concurrent_runs` and `Usage.concurrent_runs_limit` — runs executing now and
+  the account's effective cap (`None` = no cap). Past it, a new run gets a 429
+  `SANDBOX_CONCURRENCY_LIMIT`.
 ## [4.43.1] - 2026-09-26
 
 ### Fixed

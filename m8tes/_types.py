@@ -2413,6 +2413,11 @@ class Usage:
     trial_ends_at: str | None = None
     # True when the account bypasses run/cost gates (internal/test accounts).
     unlimited_runs: bool = False
+    # Runs executing right now, and how many may run at once (plan, prepaid-wallet
+    # lane, or per-account override). None = no cap. A new run past the cap gets a
+    # 429 SANDBOX_CONCURRENCY_LIMIT.
+    concurrent_runs: int = 0
+    concurrent_runs_limit: int | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> Usage:
@@ -2432,6 +2437,8 @@ class Usage:
             overage_rate_cents=data.get("overage_rate_cents", 0),
             trial_ends_at=data.get("trial_ends_at"),
             unlimited_runs=bool(data.get("unlimited_runs", False)),
+            concurrent_runs=data.get("concurrent_runs", 0),
+            concurrent_runs_limit=data.get("concurrent_runs_limit"),
         )
 
 
@@ -2449,6 +2456,8 @@ class Plan:
     overage_available: bool = False
     # Per-period model-spend fair-use cap; 0 when the server predates the field.
     fair_use_cost_limit_cents: int = 0
+    # Runs this plan may execute at once; 0 when the server predates the field.
+    max_concurrent_runs: int = 0
 
     @classmethod
     def from_dict(cls, data: dict) -> Plan:
@@ -2462,6 +2471,7 @@ class Plan:
             inference_mode=data.get("inference_mode", "platform"),
             overage_available=bool(data.get("overage_available", False)),
             fair_use_cost_limit_cents=data.get("fair_use_cost_limit_cents", 0),
+            max_concurrent_runs=data.get("max_concurrent_runs", 0),
         )
 
 
