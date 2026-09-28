@@ -81,13 +81,21 @@ class ModelConnections:
         return ModelAuthorization.from_dict(body)
 
     def complete_authorization(
-        self, provider: CodeModelConnectionProvider, state: str, *, code: str
+        self,
+        provider: CodeModelConnectionProvider,
+        state: str,
+        *,
+        code: str,
+        project_id: str | None = None,
     ) -> ModelAuthorization:
         """Exchange a pasted authorization code and store the connection."""
+        payload: dict = {"code": code}
+        if project_id is not None:
+            payload["project_id"] = project_id
         body = self._http.request(
             "POST",
             f"/model-connections/{seg(provider)}/authorizations/{seg(state)}",
-            json={"code": code},
+            json=payload,
         ).json()
         return ModelAuthorization.from_dict(body)
 
