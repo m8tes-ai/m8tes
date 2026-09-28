@@ -2,6 +2,11 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [4.44.1] - 2026-09-27
+
+### Added
+- `RunFile.label` — optional human chip label from report frontmatter `title:`
+  (download basename stays `name`).
 ## [4.46.0] - 2026-09-28
 
 ### Added

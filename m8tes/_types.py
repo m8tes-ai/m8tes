@@ -1400,10 +1400,15 @@ class RunFile:
 
     name: str
     size: int
+    label: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> RunFile:
-        return cls(name=data["name"], size=data["size"])
+        return cls(
+            name=data["name"],
+            size=data["size"],
+            label=data.get("label"),
+        )
 
 
 @dataclass
