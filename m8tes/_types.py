@@ -828,6 +828,10 @@ class Run:
     # NO-REPLY opt-outs and mid-run narration without a stamped closing included.
     closing_preview: str | None = None
     latest_message_preview: str | None = None
+    # Completion-time output files (name + size) when the server stamped a
+    # manifest. None = unknown (call runs.files()); [] = run produced no files.
+    # Bytes still come from runs.download_file / the download endpoint.
+    files: list[RunFile] | None = None
     needs_reply: bool = False
     # This caller marked the run or one of its messages (private to the caller).
     # Other people do not see the mark; it stays until this caller clears it.
@@ -905,6 +909,9 @@ class Run:
             last_viewed_at=data.get("last_viewed_at"),
             closing_preview=data.get("closing_preview"),
             latest_message_preview=data.get("latest_message_preview"),
+            files=(
+                None if data.get("files") is None else [RunFile.from_dict(f) for f in data["files"]]
+            ),
             needs_reply=data.get("needs_reply", False),
             needs_me=data.get("needs_me", False),
             needs_me_message_ids=data.get("needs_me_message_ids") or [],

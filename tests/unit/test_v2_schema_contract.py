@@ -209,6 +209,8 @@ def _probe_value(field: dataclasses.Field):
         return [1, 2]
     if base == "list[GroupPathItem]":
         return _UNSUPPORTED
+    if base == "list[RunFile]":
+        return _UNSUPPORTED
     if base == "list" or base.startswith("list["):
         return ["probe"]
     if base == "JudgmentUsage":
@@ -266,6 +268,10 @@ def test_from_dict_parses_every_declared_field(sdk_type):
 # every `bool`.
 _NESTED_OBJECT_FIELDS = {
     ("Run", "usage"),  # RunUsage — covered by test_v2_billing.py
+    (
+        "Run",
+        "files",
+    ),  # list[RunFile] — covered by test_v2_types.TestRun.test_from_dict_files_manifest
     ("ChannelInstallLinks", "slack"),  # SlackInstallLink — covered by test_v2_resources.py
     ("ChannelInstallLinks", "github"),  # GitHubInstallLink — same
     ("Group", "path"),  # GroupPathItem — covered by test_v2_resources.py

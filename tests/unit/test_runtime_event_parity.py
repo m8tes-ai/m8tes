@@ -281,6 +281,9 @@ _ACKNOWLEDGED_SYSTEM_SUBTYPES = frozenset(
         "turn_preempted",
         # Informational only — a queued feedback draft, not a failure signal.
         "feedback_draft_queued",
+        # Claude Agent SDK 0.2.160 — informational per-turn/session metadata.
+        "per_turn_effort_changed",
+        "session_metadata",
     }
 )
 

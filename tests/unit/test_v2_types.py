@@ -82,6 +82,15 @@ class TestRun:
         assert r.delivery == "queued"
         assert r.queued_message_id == 7
 
+    def test_from_dict_files_manifest(self):
+        r = Run.from_dict(
+            {"id": 1, "files": [{"name": "out.csv", "size": 3}, {"name": "a.png", "size": 9}]}
+        )
+        assert r.files is not None
+        assert [(f.name, f.size) for f in r.files] == [("out.csv", 3), ("a.png", 9)]
+        assert Run.from_dict({"id": 1}).files is None
+        assert Run.from_dict({"id": 1, "files": []}).files == []
+
 
 class TestTask:
     def test_from_dict(self):

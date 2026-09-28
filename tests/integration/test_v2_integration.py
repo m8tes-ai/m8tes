@@ -4901,7 +4901,9 @@ class TestAuthEndpoints:
         # strict-by-default should not be discoverable only from a unit test.
         unscoped = requests.get(f"{backend_url}/api/v2/agents", headers=headers)
         assert unscoped.status_code == 422
-        assert "require_end_user_id=False" in unscoped.json()["error"]["message"]
+        msg = unscoped.json()["error"]["message"]
+        assert "require_end_user_id" in msg
+        assert "false" in msg.lower()  # "False" or "false" — copy may use either
 
     def test_signup_duplicate_email_returns_409(self, backend_url):
         """Second signup with the same email returns 409 Conflict."""

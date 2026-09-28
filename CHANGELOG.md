@@ -2,6 +2,13 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [4.46.0] - 2026-09-28
+
+### Added
+
+- `Run.files` exposes the completion-time output manifest when available, avoiding
+  a separate files request when listing or loading runs.
+
 ## [4.44.0] - 2026-09-26
 
 ### Added
