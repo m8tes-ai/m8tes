@@ -1613,6 +1613,16 @@ class TestRuns:
         assert params.get("after_sequence") == "3"
         assert "tail" not in params
         assert "before_sequence" not in params
+        assert "include_trace" not in params
+
+    @responses.activate
+    def test_messages_sends_include_trace_only_when_asked(self, http):
+        """The raw trace is opt-in on the wire; the default page stays lean."""
+        responses.add(responses.GET, f"{BASE}/runs/42/messages", json=[])
+        Runs(http).messages(42, tail=True, include_trace=True)
+        params = responses.calls[0].request.params
+        assert params.get("include_trace") == "true"
+        assert params.get("tail") == "true"
 
     @responses.activate
     def test_list_files(self, http):

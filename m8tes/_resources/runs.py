@@ -1032,6 +1032,7 @@ class Runs:
         before_sequence: int | None = None,
         tail: bool = False,
         limit: int = 500,
+        include_trace: bool = False,
     ) -> _list[RunMessage]:
         """Full run transcript ordered by sequence (UI reload / reconnect).
 
@@ -1040,6 +1041,8 @@ class Runs:
         ``tail=True`` returns the newest page (oldest of that page first).
         ``before_sequence`` walks older pages the same way. Combining ``tail``
         with a cursor, or the two cursors with each other, is a 422.
+        ``include_trace=True`` adds each turn's raw stream events as
+        ``event_metadata["event_trace"]`` (debugging only; large).
         """
         params = _build_params(
             after_sequence=after_sequence,
@@ -1048,6 +1051,8 @@ class Runs:
         )
         if tail:
             params["tail"] = "true"
+        if include_trace:
+            params["include_trace"] = "true"
         resp = self._http.request("GET", f"/runs/{seg(run_id)}/messages", params=params or None)
         return [RunMessage.from_dict(m) for m in resp.json()]
 

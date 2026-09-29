@@ -12,6 +12,11 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [4.47.0] - 2026-09-28
 
+### Changed
+
+- `runs.messages()` no longer returns each turn's raw stream-event trace inside
+  `event_metadata`; pass `include_trace=True` to get it back as
+  `event_metadata["event_trace"]`. Transcript pages are about three quarters smaller.
 ### Added
 
 - `Model.runnable` on `models.list()` — true when the current catalog viewer can pin
