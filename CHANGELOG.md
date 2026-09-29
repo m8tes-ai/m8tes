@@ -9,16 +9,6 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 - `client.feedback.create(message=..., run_id=...)` — send product feedback to
   the m8tes team (same chokepoint as `/feedback` in chat). Optionally attach a
   run.
-
-## [4.47.0] - 2026-09-28
-
-### Changed
-
-- `runs.messages()` no longer returns each turn's raw stream-event trace inside
-  `event_metadata`; pass `include_trace=True` to get it back as
-  `event_metadata["event_trace"]`. Transcript pages are about three quarters smaller.
-### Added
-
 - `Model.runnable` on `models.list()` — true when the current catalog viewer can pin
   and fund the model. Prefer runnable rows for account-scoped pins; the list is
   account-scoped, so an end-user-scoped write may still accept a row that is false
@@ -28,6 +18,13 @@ All notable changes to the m8tes Python SDK will be documented in this file.
   zero-data-retention metadata the API already returned but the dataclass dropped.
   `Model.zdr` is a deprecated alias of `zdr_supported`. A mark means the provider
   supports zero data retention, not that it is on for every route.
+
+### Changed
+
+- `runs.messages()` no longer returns each turn's raw stream-event trace inside
+  `event_metadata`; pass `include_trace=True` to get it back as
+  `event_metadata["event_trace"]`. Transcript pages are about three quarters smaller.
+
 ## [4.46.1] - 2026-09-29
 
 ### Added
