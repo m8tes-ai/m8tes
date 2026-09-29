@@ -148,6 +148,12 @@ class Model:
     max_effort: str = "max"
     pricing: ModelPricing | None = None
     concrete_id: str | None = None
+    # True when this account can pin and fund runs on this model right now.
+    runnable: bool = True
+    zdr_supported: bool | None = None
+    zdr: bool | None = None  # deprecated alias of zdr_supported
+    zdr_providers: list[str] | None = None
+    retention_note: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> Model:
@@ -161,6 +167,11 @@ class Model:
             max_effort=data.get("max_effort", "max"),
             pricing=ModelPricing.from_dict(pricing) if pricing else None,
             concrete_id=data.get("concrete_id"),
+            runnable=bool(data["runnable"]) if "runnable" in data else True,
+            zdr_supported=data.get("zdr_supported"),
+            zdr=data.get("zdr"),
+            zdr_providers=data.get("zdr_providers"),
+            retention_note=data.get("retention_note"),
         )
 
 

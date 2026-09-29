@@ -2,6 +2,19 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [4.47.0] - 2026-09-28
+
+### Added
+
+- `Model.runnable` on `models.list()` — true when the current catalog viewer can pin
+  and fund the model. Prefer runnable rows for account-scoped pins; the list is
+  account-scoped, so an end-user-scoped write may still accept a row that is false
+  here when that tenant's prepaid/gateway lane can fund it. Pinning an unrunnable
+  model on an agent, task, or run now returns `MODEL_NOT_RUNNABLE`.
+- `Model.zdr_supported`, `Model.zdr_providers`, and `Model.retention_note` — the
+  zero-data-retention metadata the API already returned but the dataclass dropped.
+  `Model.zdr` is a deprecated alias of `zdr_supported`. A mark means the provider
+  supports zero data retention, not that it is on for every route.
 ## [4.46.1] - 2026-09-29
 
 ### Added

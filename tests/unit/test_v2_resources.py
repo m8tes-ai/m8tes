@@ -63,10 +63,18 @@ def test_model_preserves_authoritative_alias_resolution():
             "description": "",
             "provider": "anthropic",
             "default": False,
+            "runnable": False,
+            "zdr_supported": True,
+            "zdr": True,
+            "zdr_providers": ["anthropic"],
+            "retention_note": "no retention",
         }
     )
     assert model.id == "sonnet"
     assert model.concrete_id == "claude-sonnet-5"
+    assert model.runnable is False
+    assert model.zdr_supported is True
+    assert model.zdr_providers == ["anthropic"]
 
 
 @pytest.fixture

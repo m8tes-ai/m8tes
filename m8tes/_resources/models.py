@@ -24,7 +24,9 @@ class Models:
         """List selectable models with USD price per million tokens.
 
         Pass a returned ``id`` as ``model`` on an agent or run; omit ``model`` to use the
-        one with ``default=True``.
+        one with ``default=True``. Prefer ``runnable=True`` for account-scoped pins;
+        the list is account-scoped, so an end-user-scoped write may still accept a
+        row that is false here when that tenant's prepaid/gateway lane can fund it.
         """
         body = self._http.request("GET", "/models/").json()
         return SyncPage(
