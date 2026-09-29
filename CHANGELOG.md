@@ -2,7 +2,7 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
-## [Unreleased]
+## [4.46.1] - 2026-09-29
 
 ### Added
 
