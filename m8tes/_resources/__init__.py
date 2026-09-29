@@ -10,6 +10,7 @@ from .bridges import Bridges
 from .built_in_tools import BuiltInTools
 from .channels import Channels
 from .documents import Documents
+from .feedback import FeedbackResource
 from .github_app import GitHubApp
 from .groups import Groups
 from .judgments import Judgments
@@ -44,6 +45,7 @@ __all__ = [
     "BuiltInTools",
     "Channels",
     "Documents",
+    "FeedbackResource",
     "GitHubApp",
     "Groups",
     "Judgments",

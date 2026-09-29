@@ -1866,6 +1866,25 @@ AppConnection = AppConnectionInitiation
 
 
 @dataclass
+class Feedback:
+    """Operator product feedback submitted to the m8tes team."""
+
+    id: int
+    title: str
+    run_id: int | None
+    created_at: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> Feedback:
+        return cls(
+            id=data["id"],
+            title=data["title"],
+            run_id=data.get("run_id"),
+            created_at=data.get("created_at", ""),
+        )
+
+
+@dataclass
 class Memory:
     """A saved memory for an end-user."""
 

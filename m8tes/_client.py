@@ -19,6 +19,7 @@ from ._resources import (
     BuiltInTools,
     Channels,
     Documents,
+    FeedbackResource,
     GitHubApp,
     Groups,
     Judgments,
@@ -92,6 +93,7 @@ class M8tes:
         self.apps = Apps(self._http)
         self.built_in_tools = BuiltInTools(self._http)
         self.mcp_servers = McpServers(self._http)
+        self.feedback = FeedbackResource(self._http)
         self.memories = Memories(self._http)
         self.models = Models(self._http)
         self.model_connections = ModelConnections(self._http)

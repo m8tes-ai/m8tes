@@ -4,7 +4,7 @@ Covers all V2 resources: teammates (CRUD, webhooks, email inbox), tasks
 (CRUD, triggers, run edge cases), runs (create, get, cancel, reply, files,
 HITL validation, answer, approve, SDK convenience methods like poll,
 create_and_wait, reply_and_wait, stream_text, streaming), documents, memories,
-permissions, webhooks, users, settings, apps. Plus pagination, error
+permissions, webhooks, feedback, users, settings, apps. Plus pagination, error
 handling, validation edge cases, multi-tenancy isolation, parameter combos,
 trigger error paths, and context manager usage.
 
@@ -37,6 +37,7 @@ from m8tes._types import (
     BuiltInTool,
     EmailInbox,
     EndUser,
+    Feedback,
     FetchmailInbox,
     Group,
     GroupInvite,
@@ -1902,6 +1903,69 @@ class TestPermissionsCRUD:
             assert any(p.id == p2.id for p in listed.data)
         finally:
             v2_client.permissions.delete(p2.id, user_id=uid)
+
+
+# ── Feedback ─────────────────────────────────────────────────────────
+
+
+@pytest.mark.integration
+class TestFeedback:
+    def test_create_without_run(self, v2_client):
+        fb = v2_client.feedback.create(message=f"sdk integ note {_uid()}")
+        assert isinstance(fb, Feedback)
+        assert fb.id > 0
+        assert fb.run_id is None
+        assert fb.title
+
+    def test_create_with_run_and_user_id(self, v2_client):
+        t = v2_client.teammates.create(name=f"FbBot-{_uid()[:8]}")
+        run = None
+        try:
+            run = v2_client.runs.create(
+                teammate_id=t.id,
+                message="seed for feedback attach",
+                user_id="fb_customer",
+                stream=False,
+            )
+            fb = v2_client.feedback.create(
+                message="stalled on connect during integ",
+                run_id=run.id,
+                user_id="fb_customer",
+            )
+            assert isinstance(fb, Feedback)
+            assert fb.run_id == run.id
+        finally:
+            if run is not None:
+                with contextlib.suppress(Exception):
+                    v2_client.runs.cancel(run.id)
+            with contextlib.suppress(Exception):
+                v2_client.teammates.delete(t.id)
+
+    def test_scoped_run_requires_matching_user_id(self, v2_client):
+        t = v2_client.teammates.create(name=f"FbScope-{_uid()[:8]}")
+        run = None
+        try:
+            run = v2_client.runs.create(
+                teammate_id=t.id,
+                message="scoped seed",
+                user_id="eu_alpha",
+                stream=False,
+            )
+            # Opaque 404 — same as V2 _scoped_get when account-level attaches a scoped run.
+            with pytest.raises(NotFoundError):
+                v2_client.feedback.create(message="no scope", run_id=run.id)
+            with pytest.raises(NotFoundError):
+                v2_client.feedback.create(
+                    message="wrong scope",
+                    run_id=run.id,
+                    user_id="eu_beta",
+                )
+        finally:
+            if run is not None:
+                with contextlib.suppress(Exception):
+                    v2_client.runs.cancel(run.id)
+            with contextlib.suppress(Exception):
+                v2_client.teammates.delete(t.id)
 
 
 # ── Webhooks ─────────────────────────────────────────────────────────
@@ -4902,7 +4966,11 @@ class TestAuthEndpoints:
         unscoped = requests.get(f"{backend_url}/api/v2/agents", headers=headers)
         assert unscoped.status_code == 422
         msg = unscoped.json()["error"]["message"]
+        # Language-neutral escape hatch (no Python-only `=False`); matches
+        # fastapi/tests/unit/routers/v2/test_strict_end_user_mode.py.
         assert "require_end_user_id" in msg
+        assert "PATCH /api/v2/settings" in msg
+        assert "require_end_user_id=False" not in msg
         assert "false" in msg.lower()  # "False" or "false" — copy may use either
 
     def test_signup_duplicate_email_returns_409(self, backend_url):

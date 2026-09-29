@@ -2,6 +2,14 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [4.47.0] - 2026-09-29
+
+### Added
+
+- `client.feedback.create(message=..., run_id=...)` — send product feedback to
+  the m8tes team (same chokepoint as `/feedback` in chat). Optionally attach a
+  run.
+
 ## [4.47.0] - 2026-09-28
 
 ### Added
