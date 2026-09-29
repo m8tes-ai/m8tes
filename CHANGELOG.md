@@ -2,6 +2,13 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- `ModelConnections.complete_authorization(..., project_id=)` — optional Google
+  Cloud project for Gemini accounts that require one.
+
 ## [4.44.1] - 2026-09-27
 
 ### Added
