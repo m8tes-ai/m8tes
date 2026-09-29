@@ -650,14 +650,14 @@ class TestDocUrl:
                     "message": "Invalid API key.",
                     "code": 401,
                     "request_id": "req_x",
-                    "doc_url": "https://m8tes.ai/docs/api-introduction#authentication",
+                    "doc_url": "https://www.m8tes.ai/docs/api-introduction#authentication",
                 }
             },
             status=401,
         )
         with pytest.raises(AuthenticationError) as exc_info:
             http.request("GET", "/agents")
-        assert exc_info.value.doc_url == "https://m8tes.ai/docs/api-introduction#authentication"
+        assert exc_info.value.doc_url == "https://www.m8tes.ai/docs/api-introduction#authentication"
 
     @responses.activate
     def test_missing_doc_url_is_none(self, http):

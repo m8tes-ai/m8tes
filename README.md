@@ -10,7 +10,7 @@ Run agents from Python with 190+ integrations, memory, streaming, and per-user i
 ## Install
 
 ```bash
-pip install -U "m8tes>=4.32.1"
+pip install -U "m8tes>=4.47.0"
 ```
 
 ## Quick start

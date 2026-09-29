@@ -161,8 +161,8 @@ def _declared_floor() -> tuple[int, ...]:
     return tuple(int(p) for p in floors.pop().split("."))
 
 
-#: The lowest m8tes version that can run all documented entry flows: 4.32.1 for scoped
-#: CLI execution, following 3.2 for stream errors and 4.8 for offline testing.
+#: The lowest m8tes version that can run all documented entry flows: 4.47.0 is the
+#: documented install floor (was 4.32.1 for scoped CLI; raised with the DX launch pin).
 #:
 #: A plain constant, deliberately. The first attempt asserted only `floor <= current
 #: version`, which codex showed was worthless for the bug it was written for: reverting
@@ -181,8 +181,8 @@ def _declared_floor() -> tuple[int, ...]:
 #: cost is a manual step; the benefit is a guard that actually fails. `test_…_kwarg_exists`
 #: above covers the related and more likely error (documenting an argument that does not
 #: exist at all), which is what this constant cannot see.
-# Scoped CLI execution requires 4.32.1; keep the shared install command current.
-_REQUIRED_FLOOR = (4, 32, 1)
+# Keep the shared install command current with the documented floor.
+_REQUIRED_FLOOR = (4, 47, 0)
 
 
 @requires_frontend
