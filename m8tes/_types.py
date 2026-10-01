@@ -848,6 +848,9 @@ class Run:
     # Other people do not see the mark; it stays until this caller clears it.
     # A reply, view, or archive does not clear it.
     needs_me: bool = False
+    # This caller marked the run itself, not only one of its messages. needs_me is
+    # true when this is true or needs_me_message_ids is not empty.
+    needs_me_run: bool = False
     # Message ids this caller marked, oldest in the transcript first. Empty when
     # only the run is marked, or when nothing is marked.
     needs_me_message_ids: list[int] | None = None
@@ -925,6 +928,7 @@ class Run:
             ),
             needs_reply=data.get("needs_reply", False),
             needs_me=data.get("needs_me", False),
+            needs_me_run=data.get("needs_me_run", False),
             needs_me_message_ids=data.get("needs_me_message_ids") or [],
             delivery=data.get("delivery"),
             queued_message_id=data.get("queued_message_id"),

@@ -2,6 +2,14 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- `Run.needs_me_run` — true when the caller marked the run itself, not only one
+  of its messages. `Run.needs_me` is true when this is true or
+  `Run.needs_me_message_ids` is not empty.
+
 ## [4.47.0] - 2026-09-29
 
 ### Added
