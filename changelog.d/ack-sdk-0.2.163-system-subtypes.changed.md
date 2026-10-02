@@ -1,0 +1,1 @@
+- Acknowledged Claude Agent SDK 0.2.163 `system_message` subtypes (`session_title_changed`, `ui_*`) as inert host-CLI telemetry so the SDK parity guard no longer blocks deploy.

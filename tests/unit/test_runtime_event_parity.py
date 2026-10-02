@@ -282,6 +282,16 @@ _ACKNOWLEDGED_SYSTEM_SUBTYPES = frozenset(
         # Claude Agent SDK 0.2.160 — per-turn effort + session metadata telemetry. Inert.
         "per_turn_effort_changed",
         "session_metadata",
+        # Claude Agent SDK 0.2.163 — host CLI UI + session-title telemetry. Inert for an
+        # API consumer (describes the CLI's own panes/toasts/title, not the caller's run).
+        "session_title_changed",
+        "ui_focus",
+        "ui_invalidate",
+        "ui_log",
+        "ui_panes",
+        "ui_scroll",
+        "ui_status",
+        "ui_toast",
         # Informational only — a queued feedback draft, not a failure signal.
         "feedback_draft_queued",
     }
