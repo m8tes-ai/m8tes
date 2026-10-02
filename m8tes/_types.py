@@ -737,6 +737,26 @@ class RunUsage:
 
 
 @dataclass
+class RunStartedBy:
+    """The agent run that started a run: an agent handed work over from inside one of its
+    own runs (create_task with run_immediately, or start_task_run). The run's first
+    message is the brief that agent wrote, not something a person typed."""
+
+    run_id: int
+    teammate_id: int
+    # The agent's current name. None when the agent no longer exists.
+    teammate_name: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> RunStartedBy:
+        return cls(
+            run_id=data["run_id"],
+            teammate_id=data["teammate_id"],
+            teammate_name=data.get("teammate_name"),
+        )
+
+
+@dataclass
 class Run:
     """A run (execution) of an agent."""
 
@@ -796,6 +816,9 @@ class Run:
     # DevRunResponse by tests/unit/test_v2_schema_contract.py.
     task_name: str | None = None
     trigger_source: str | None = None
+    # Set when an agent started this run from inside one of its own runs: that run and
+    # its agent. None when a person, a schedule or an event started it.
+    started_by: RunStartedBy | None = None
     run_mode: str | None = None
     archived: bool = False
     share_token: str | None = None
@@ -902,6 +925,9 @@ class Run:
             usage=RunUsage.from_dict(data["usage"]) if data.get("usage") else None,
             task_name=data.get("task_name"),
             trigger_source=data.get("trigger_source"),
+            started_by=(
+                RunStartedBy.from_dict(data["started_by"]) if data.get("started_by") else None
+            ),
             channel=data.get("channel"),
             billing_surface=data.get("billing_surface") or "platform",
             run_mode=data.get("run_mode"),

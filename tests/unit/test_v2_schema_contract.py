@@ -31,6 +31,7 @@ from m8tes._types import (
     Run,
     RunFile,
     RunMessage,
+    RunStartedBy,
     Task,
     Teammate,
     TeammateWebhook,
@@ -74,6 +75,7 @@ PermissionRequestResponse = _schemas.PermissionRequestResponse
 PermissionPolicyResponse = _schemas.PermissionPolicyResponse
 RunFileResponse = _schemas.RunFileResponse
 RunMessageResponse = _schemas.RunMessageResponse
+RunStartedByResponse = _schemas.RunStartedBy
 TeammateWebhookResponse = _schemas.TeammateWebhookResponse
 AppTriggerTypeSchemaResponse = _schemas.AppTriggerTypeResponse
 AppToolSchemaResponse = _schemas.AppToolResponse
@@ -110,6 +112,7 @@ SCHEMA_PAIRS = [
     (PermissionPolicyResponse, PermissionPolicy, set()),
     (RunFileResponse, RunFile, set()),
     (RunMessageResponse, RunMessage, set()),
+    (RunStartedByResponse, RunStartedBy, set()),
     (TeammateWebhookResponse, TeammateWebhook, set()),
     (AppTriggerTypeSchemaResponse, AppTriggerType, set()),
     (AppToolSchemaResponse, AppTool, set()),
@@ -268,6 +271,7 @@ def test_from_dict_parses_every_declared_field(sdk_type):
 # every `bool`.
 _NESTED_OBJECT_FIELDS = {
     ("Run", "usage"),  # RunUsage — covered by test_v2_billing.py
+    ("Run", "started_by"),  # RunStartedBy — covered by test_v2_types.TestRun
     (
         "Run",
         "files",

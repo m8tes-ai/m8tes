@@ -1,7 +1,16 @@
 """Tests for v2 SDK dataclass types."""
 
 import m8tes
-from m8tes._types import App, AuditLog, PermissionMode, Run, Task, Teammate, Trigger
+from m8tes._types import (
+    App,
+    AuditLog,
+    PermissionMode,
+    Run,
+    RunStartedBy,
+    Task,
+    Teammate,
+    Trigger,
+)
 
 
 def test_team_types_are_public_exports():
@@ -90,6 +99,20 @@ class TestRun:
         assert [(f.name, f.size) for f in r.files] == [("out.csv", 3), ("a.png", 9)]
         assert Run.from_dict({"id": 1}).files is None
         assert Run.from_dict({"id": 1, "files": []}).files == []
+
+    def test_from_dict_started_by(self):
+        """A hand-off run names the agent run that started it; a person's run names none."""
+        r = Run.from_dict(
+            {
+                "id": 2,
+                "started_by": {"run_id": 1, "teammate_id": 7, "teammate_name": "Lead Mate"},
+            }
+        )
+        assert r.started_by == RunStartedBy(run_id=1, teammate_id=7, teammate_name="Lead Mate")
+        gone = Run.from_dict({"id": 2, "started_by": {"run_id": 1, "teammate_id": 7}})
+        assert gone.started_by == RunStartedBy(run_id=1, teammate_id=7, teammate_name=None)
+        assert Run.from_dict({"id": 2}).started_by is None
+        assert Run.from_dict({"id": 2, "started_by": None}).started_by is None
 
 
 class TestTask:

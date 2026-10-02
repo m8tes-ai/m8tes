@@ -2,7 +2,7 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
-## [Unreleased]
+## [4.48.0] - 2026-10-02
 
 ### Added
 
@@ -14,6 +14,11 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 - `Run.needs_me_run` — true when the caller marked the run itself, not only one
   of its messages. `Run.needs_me` is true when this is true or
   `Run.needs_me_message_ids` is not empty.
+- `Run.started_by` (`RunStartedBy`: `run_id`, `teammate_id`, `teammate_name`): set when
+  an agent started the run from inside one of its own runs (`create_task` with
+  `run_immediately`, or `start_task_run`), so the run's first message is that agent's
+  brief rather than something a person typed. `None` when a person, a schedule or an
+  event started the run. A retry keeps its parent's.
 
 ## [4.47.0] - 2026-09-29
 
