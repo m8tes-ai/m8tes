@@ -3951,6 +3951,71 @@ class TestMcpServersOAuth:
         assert server.sign_in_host == "mcp.beehiiv.com"
 
 
+class TestCustomAuthorship:
+    """Who made a skill or tool rides on the resource, so a client can name the agent."""
+
+    _SKILL: ClassVar[dict] = {
+        "id": 1,
+        "slug": "shared",
+        "name": "shared",
+        "description": "d",
+        "body": "b",
+        "scope": "account",
+        "status": "active",
+        "source": "agent",
+        "teammate_id": None,
+        "created_by_teammate_id": 7,
+        "user_id": None,
+        "created_at": "2026-01-01T00:00:00Z",
+        "updated_at": "2026-01-01T00:00:00Z",
+    }
+    _TOOL: ClassVar[dict] = {
+        "id": 2,
+        "slug": "daytona-api",
+        "name": "daytona-api",
+        "url": "https://app.daytona.io/api",
+        "kind": "rest_api",
+        "auth_type": "bearer",
+        "status": "active",
+        "created_by_teammate_id": 7,
+        "teammate_ids": [7, 9],
+    }
+
+    @responses.activate
+    def test_skill_names_the_agent_that_wrote_it_even_when_shared(self, http):
+        from m8tes._resources.skills import Skills
+
+        responses.get(f"{BASE}/skills", json={"data": [self._SKILL], "has_more": False})
+        (skill,) = Skills(http).list()
+        assert skill.teammate_id is None  # visible to every agent
+        assert skill.created_by_teammate_id == 7  # yet the author is known
+
+    @responses.activate
+    def test_tool_carries_its_author_and_the_agents_that_use_it(self, http):
+        from m8tes._resources.mcp_servers import McpServers
+
+        responses.get(f"{BASE}/mcp-servers", json={"data": [self._TOOL], "has_more": False})
+        (tool,) = McpServers(http).list()
+        assert tool.created_by_teammate_id == 7
+        assert tool.teammate_ids == [7, 9]
+
+    def test_older_payloads_without_the_fields_still_parse(self):
+        from m8tes._types import McpServer, Skill
+
+        skill = Skill.from_dict(
+            {k: v for k, v in self._SKILL.items() if k != "created_by_teammate_id"}
+        )
+        tool = McpServer.from_dict(
+            {
+                k: v
+                for k, v in self._TOOL.items()
+                if k not in {"created_by_teammate_id", "teammate_ids"}
+            }
+        )
+        assert skill.created_by_teammate_id is None
+        assert tool.created_by_teammate_id is None and tool.teammate_ids == []
+
+
 class TestSkills:
     """client.skills — custom skill CRUD + slash-invokable listing."""
 

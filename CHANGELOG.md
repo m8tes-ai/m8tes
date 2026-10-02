@@ -6,6 +6,11 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ### Added
 
+- `Skill.created_by_teammate_id` — the agent that wrote an agent-authored skill, even
+  one shared with every agent (whose `teammate_id` is None). None for a skill a person
+  wrote.
+- `McpServer.created_by_teammate_id` and `McpServer.teammate_ids` — the agent that set a
+  custom tool up (None when a person did), and the agents it is attached to.
 - `Run.needs_me_run` — true when the caller marked the run itself, not only one
   of its messages. `Run.needs_me` is true when this is true or
   `Run.needs_me_message_ids` is not empty.

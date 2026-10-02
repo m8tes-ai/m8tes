@@ -2843,6 +2843,10 @@ class McpServer:
     script_allowlist: list[str] = field(default_factory=list)
     # auth_type="oauth2": the host the owner signs in at; has_secret is True once they have.
     sign_in_host: str | None = None
+    # The agent that set this tool up; None when a person did (or it predates the record).
+    created_by_teammate_id: int | None = None
+    # Agents this tool is attached to (archived agents left out).
+    teammate_ids: list[int] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: dict) -> McpServer:
@@ -2864,6 +2868,8 @@ class McpServer:
             script_sha256=data.get("script_sha256"),
             script_allowlist=data.get("script_allowlist") or [],
             sign_in_host=data.get("sign_in_host"),
+            created_by_teammate_id=data.get("created_by_teammate_id"),
+            teammate_ids=data.get("teammate_ids") or [],
         )
 
 
@@ -2871,7 +2877,9 @@ class McpServer:
 class Skill:
     """A user/agent-authored Agent Skill (a markdown SKILL.md playbook the agent loads
     on demand). ``scope`` is "account" (all Mates) or "teammate" (one Mate, ``teammate_id``).
-    ``source`` is "user" or "agent". Skills the agent loads at run start guide its work."""
+    ``source`` is "user" or "agent"; for an agent's skill, ``created_by_teammate_id`` names
+    the agent that wrote it, whatever its scope. Skills the agent loads at run start guide
+    its work."""
 
     id: int
     slug: str
@@ -2885,6 +2893,7 @@ class Skill:
     user_id: str | None = None
     created_at: str = ""
     updated_at: str = ""
+    created_by_teammate_id: int | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> Skill:
@@ -2901,6 +2910,7 @@ class Skill:
             user_id=data.get("user_id"),
             created_at=data.get("created_at", ""),
             updated_at=data.get("updated_at", ""),
+            created_by_teammate_id=data.get("created_by_teammate_id"),
         )
 
 
