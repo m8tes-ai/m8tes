@@ -746,6 +746,9 @@ class RunStartedBy:
     teammate_id: int
     # The agent's current name. None when the agent no longer exists.
     teammate_name: str | None = None
+    # That agent's template (company-agent for the Lead Mate). None for a custom
+    # agent, when the agent no longer exists, or when it is outside the run's account.
+    teammate_template_slug: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> RunStartedBy:
@@ -753,6 +756,7 @@ class RunStartedBy:
             run_id=data["run_id"],
             teammate_id=data["teammate_id"],
             teammate_name=data.get("teammate_name"),
+            teammate_template_slug=data.get("teammate_template_slug"),
         )
 
 

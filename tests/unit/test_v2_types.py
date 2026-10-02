@@ -105,12 +105,24 @@ class TestRun:
         r = Run.from_dict(
             {
                 "id": 2,
-                "started_by": {"run_id": 1, "teammate_id": 7, "teammate_name": "Lead Mate"},
+                "started_by": {
+                    "run_id": 1,
+                    "teammate_id": 7,
+                    "teammate_name": "Lead Mate",
+                    "teammate_template_slug": "company-agent",
+                },
             }
         )
-        assert r.started_by == RunStartedBy(run_id=1, teammate_id=7, teammate_name="Lead Mate")
+        assert r.started_by == RunStartedBy(
+            run_id=1,
+            teammate_id=7,
+            teammate_name="Lead Mate",
+            teammate_template_slug="company-agent",
+        )
         gone = Run.from_dict({"id": 2, "started_by": {"run_id": 1, "teammate_id": 7}})
-        assert gone.started_by == RunStartedBy(run_id=1, teammate_id=7, teammate_name=None)
+        assert gone.started_by == RunStartedBy(
+            run_id=1, teammate_id=7, teammate_name=None, teammate_template_slug=None
+        )
         assert Run.from_dict({"id": 2}).started_by is None
         assert Run.from_dict({"id": 2, "started_by": None}).started_by is None
 
