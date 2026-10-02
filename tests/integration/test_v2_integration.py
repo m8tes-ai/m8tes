@@ -4335,6 +4335,16 @@ class TestSettingsCRUD:
         # Restore.
         assert v2_client.settings.update(retention_mode="standard").retention_mode == "standard"
 
+    def test_approval_ping_switches(self, v2_client):
+        """Turn the approval email and Slack DM off, read them back, then restore."""
+        settings = v2_client.settings.get()
+        assert (settings.approval_email_enabled, settings.approval_slack_enabled) == (True, True)
+        updated = v2_client.settings.update(approval_email_enabled=False)
+        assert (updated.approval_email_enabled, updated.approval_slack_enabled) == (False, True)
+        assert v2_client.settings.get().approval_email_enabled is False
+        # Restore.
+        assert v2_client.settings.update(approval_email_enabled=True).approval_email_enabled
+
 
 # ── Runs: SDK Convenience Methods ────────────────────────────────────
 

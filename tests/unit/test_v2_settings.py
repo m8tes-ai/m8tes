@@ -151,3 +151,27 @@ def test_update_require_end_user_id():
     settings = Settings(http).update(require_end_user_id=True)
     assert settings.require_end_user_id is True
     assert json.loads(responses.calls[0].request.body) == {"require_end_user_id": True}
+
+
+@responses.activate
+def test_update_approval_ping_switches_sends_false():
+    """False is the whole point of these switches, so it must reach the wire (not be dropped
+    as falsy) and come back on the parsed settings."""
+    responses.add(
+        responses.PATCH,
+        f"{BASE}/settings/",
+        json={"approval_email_enabled": False, "approval_slack_enabled": False},
+    )
+    settings = Settings(_http()).update(approval_email_enabled=False, approval_slack_enabled=False)
+    assert json.loads(responses.calls[0].request.body) == {
+        "approval_email_enabled": False,
+        "approval_slack_enabled": False,
+    }
+    assert settings.approval_email_enabled is False
+    assert settings.approval_slack_enabled is False
+
+
+def test_approval_ping_switches_default_on_for_older_servers():
+    settings = AccountSettings.from_dict({"retention_mode": "standard"})
+    assert settings.approval_email_enabled is True
+    assert settings.approval_slack_enabled is True

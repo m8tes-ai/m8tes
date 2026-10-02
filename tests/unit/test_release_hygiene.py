@@ -27,8 +27,8 @@ def test_changelog_has_entry_for_current_version():
     changelog = (SDK_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
     assert f"## [{version}]" in changelog, (
         f"CHANGELOG.md has no `## [{version}]` entry. Every release needs a changelog "
-        f"entry — add one describing what changed (see sdk/py/CLAUDE.md 'After Every "
-        f"SDK Change')."
+        f"entry — fold sdk/py/changelog.d/ into this version (see sdk/py/CLAUDE.md "
+        f"'Release Checklist')."
     )
 
 

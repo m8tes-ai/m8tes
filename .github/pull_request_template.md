@@ -17,5 +17,5 @@ make check
 
 - [ ] `make check` passes
 - [ ] Tests added or updated
-- [ ] `CHANGELOG.md` entry added
-- [ ] Version bumped in `pyproject.toml`
+- [ ] `changelog.d/` fragment added (do not edit `## [Unreleased]` in `CHANGELOG.md`)
+- [ ] Version bump left for the SDK release

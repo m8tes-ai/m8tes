@@ -2339,6 +2339,9 @@ class AccountSettings:
     retention_mode: str = "standard"
     # Strict multi-tenant mode: user_id required on every scoped request.
     require_end_user_id: bool = False
+    # Whether a run waiting on your approval emails you / DMs you on Slack.
+    approval_email_enabled: bool = True
+    approval_slack_enabled: bool = True
 
     @classmethod
     def from_dict(cls, data: dict) -> AccountSettings:
@@ -2348,6 +2351,8 @@ class AccountSettings:
             per_end_user_rate_per_minute=data.get("per_end_user_rate_per_minute"),
             retention_mode=data.get("retention_mode", "standard"),
             require_end_user_id=data.get("require_end_user_id", False),
+            approval_email_enabled=data.get("approval_email_enabled", True),
+            approval_slack_enabled=data.get("approval_slack_enabled", True),
         )
 
 

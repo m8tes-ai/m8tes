@@ -32,6 +32,8 @@ class Settings:
         per_end_user_rate_per_minute: int | None = _UNSET,
         retention_mode: str | None = None,
         require_end_user_id: bool | None = None,
+        approval_email_enabled: bool | None = None,
+        approval_slack_enabled: bool | None = None,
     ) -> AccountSettings:
         """Update account settings.
 
@@ -44,6 +46,9 @@ class Settings:
         ``require_end_user_id=True`` turns on strict multi-tenant mode: any request
         that would land in the account-level scope because ``user_id`` was omitted
         is rejected (422) instead of silently assuming the global account scope.
+        ``approval_email_enabled=False`` / ``approval_slack_enabled=False`` stop the
+        email / Slack DM you get when a run waits on your approval; the run waits in
+        the dashboard and ``runs.permissions()`` instead.
         """
         body: dict = {}
         if per_end_user_run_limit is not _UNSET:
@@ -56,5 +61,9 @@ class Settings:
             body["retention_mode"] = retention_mode
         if require_end_user_id is not None:
             body["require_end_user_id"] = require_end_user_id
+        if approval_email_enabled is not None:
+            body["approval_email_enabled"] = approval_email_enabled
+        if approval_slack_enabled is not None:
+            body["approval_slack_enabled"] = approval_slack_enabled
         resp = self._http.request("PATCH", "/settings/", json=body)
         return AccountSettings.from_dict(resp.json())

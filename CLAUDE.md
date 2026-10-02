@@ -119,15 +119,20 @@ make test-integration         # requires backend running at localhost:8000
 
 **Always do these after any change to SDK behavior, API surface, or bug fixes:**
 
-1. Add a changelog entry in `CHANGELOG.md` describing what changed and why.
-2. Bump the version in `pyproject.toml` following semver (`patch` for fixes, `minor` for new features, `major` for breaking changes).
+1. Drop a fragment at `changelog.d/<slug>.<category>.md` (this package) describing
+   what changed and why. Do not edit `## [Unreleased]` in `CHANGELOG.md` — two
+   PRs inserting there conflict on GitHub, and that conflict is what marks the
+   PR dirty. See `changelog.d/README.md`.
+2. Do not bump `pyproject.toml` on the product PR. The version and the dated
+   changelog section land together on the SDK release.
 
-Skipping these makes it impossible for users to know what version they need or what changed.
+Skipping the fragment makes it impossible for users to know what changed.
 
 ## Release Checklist
 
 - Version bump in `pyproject.toml`.
-- `CHANGELOG.md` updated with a clear entry for this release.
+- From the applications repo root, fold `changelog.d/` into that version:
+  `python scripts/assemble_changelog.py --version X.Y.Z --changelog sdk/py/CHANGELOG.md --fragment-dir sdk/py/changelog.d --date YYYY-MM-DD`
 - `make check` clean, integration suite green.
 - CLI help (`m8tes --help`) reflects new commands/flags.
 
