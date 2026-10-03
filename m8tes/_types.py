@@ -808,6 +808,11 @@ class Run:
     # None means an older server; fall back to auto_retry_count when displaying a budget.
     auto_recovery_attempt_count: int | None = None
     next_retry_at: str | None = None
+    # Set when this run's work was started again as a new run: that run's id, and
+    # when it started. None while an automatic retry is only queued, and none when
+    # nothing has retried this run. The child still points back via retry_of_run_id.
+    retried_by_run_id: int | None = None
+    retried_at: str | None = None
     # Structured result matching the `output_schema` the run was created with. None when no schema
     # was requested — and also None when the model produced no structured result (a run cut short
     # by truncation, a pause, or a spend limit still completes, with its text `output` intact).
@@ -925,6 +930,8 @@ class Run:
             auto_retry_count=data.get("auto_retry_count", 0),
             auto_recovery_attempt_count=data.get("auto_recovery_attempt_count"),
             next_retry_at=data.get("next_retry_at"),
+            retried_by_run_id=data.get("retried_by_run_id"),
+            retried_at=data.get("retried_at"),
             output_data=data.get("output_data"),
             usage=RunUsage.from_dict(data["usage"]) if data.get("usage") else None,
             task_name=data.get("task_name"),
