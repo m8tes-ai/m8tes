@@ -235,6 +235,12 @@ class Runs:
         fallback Continue) inherits the remaining turns rather than a fresh allotment;
         a new message you send re-arms the cap.
 
+        Pass email_notifications=True on a run of your own (no user_id) to have its result
+        sent to you when nobody has viewed it (``runs.mark_viewed``) 5 minutes after it
+        finished: a Slack DM when Slack is connected, else email. The agent can keep a
+        result that is not worth it in the dashboard. Turn it off for yourself with
+        ``settings.update(result_email_enabled=False, result_slack_enabled=False)``.
+
         Every call sends an ``Idempotency-Key``, minted per call unless you pass
         ``idempotency_key=``. That is what makes this POST safe to retry: a request
         that times out may already have started a billable run, and re-sending the

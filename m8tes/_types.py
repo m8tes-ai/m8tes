@@ -851,6 +851,9 @@ class Run:
     # up?", and either alone answers it wrong — an emailed run that was never opened
     # in-app is read, not unread.
     notified_at: str | None = None
+    # Where that delivery went: "email" or "slack". None when nothing was sent (a
+    # scheduled all-clear stamps `notified_at` alone), so "Emailed" is never a guess.
+    notified_channel: str | None = None
     # Did this run already take an action? Only `get()` computes the whole-run verdict.
     repeats_actions: bool | None = None
     # Would the offered recovery repeat an action? Chat covers only the latest user
@@ -955,6 +958,7 @@ class Run:
             retry_blocked_reason=data.get("retry_blocked_reason"),
             retry_blocked_message=data.get("retry_blocked_message"),
             notified_at=data.get("notified_at"),
+            notified_channel=data.get("notified_channel"),
             repeats_actions=data.get("repeats_actions"),
             recovery_repeats_actions=data.get("recovery_repeats_actions"),
             last_viewed_at=data.get("last_viewed_at"),
@@ -2353,6 +2357,9 @@ class AccountSettings:
     # Whether a run waiting on your approval emails you / DMs you on Slack.
     approval_email_enabled: bool = True
     approval_slack_enabled: bool = True
+    # Whether a finished run you started and have not viewed is emailed / Slack-DMed to you.
+    result_email_enabled: bool = True
+    result_slack_enabled: bool = True
 
     @classmethod
     def from_dict(cls, data: dict) -> AccountSettings:
@@ -2364,6 +2371,8 @@ class AccountSettings:
             require_end_user_id=data.get("require_end_user_id", False),
             approval_email_enabled=data.get("approval_email_enabled", True),
             approval_slack_enabled=data.get("approval_slack_enabled", True),
+            result_email_enabled=data.get("result_email_enabled", True),
+            result_slack_enabled=data.get("result_slack_enabled", True),
         )
 
 

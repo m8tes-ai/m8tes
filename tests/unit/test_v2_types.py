@@ -256,6 +256,19 @@ class TestRunAcknowledgementAndRetryFields:
         )
         assert run.notified_at == "2026-08-01T09:00:00Z"
 
+    def test_notified_channel_round_trips(self):
+        """Where an emailed or Slacked result went; None when nothing was sent."""
+        run = Run.from_dict(
+            {
+                "id": 1,
+                "status": "completed",
+                "notified_at": "2026-10-02T09:00:00Z",
+                "notified_channel": "email",
+            }
+        )
+        assert run.notified_channel == "email"
+        assert Run.from_dict({"id": 1, "status": "completed"}).notified_channel is None
+
     def test_repeats_actions_round_trips_and_distinguishes_false_from_none(self):
         """`False` ("safe to retry") and `None` ("not computed") must not collapse."""
         assert Run.from_dict({"id": 1, "status": "failed", "repeats_actions": True}).repeats_actions

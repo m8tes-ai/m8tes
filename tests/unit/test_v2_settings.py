@@ -175,3 +175,26 @@ def test_approval_ping_switches_default_on_for_older_servers():
     settings = AccountSettings.from_dict({"retention_mode": "standard"})
     assert settings.approval_email_enabled is True
     assert settings.approval_slack_enabled is True
+
+
+@responses.activate
+def test_update_result_switches_sends_false():
+    """Same rule as the approval switches: False must reach the wire, not be dropped as falsy."""
+    responses.add(
+        responses.PATCH,
+        f"{BASE}/settings/",
+        json={"result_email_enabled": False, "result_slack_enabled": False},
+    )
+    settings = Settings(_http()).update(result_email_enabled=False, result_slack_enabled=False)
+    assert json.loads(responses.calls[0].request.body) == {
+        "result_email_enabled": False,
+        "result_slack_enabled": False,
+    }
+    assert settings.result_email_enabled is False
+    assert settings.result_slack_enabled is False
+
+
+def test_result_switches_default_on_for_older_servers():
+    settings = AccountSettings.from_dict({"retention_mode": "standard"})
+    assert settings.result_email_enabled is True
+    assert settings.result_slack_enabled is True
