@@ -4,12 +4,84 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.49.0] - 2026-10-04
+
 ### Added
 
+- `RunStartedBy.teammate_template_slug` — `company-agent` when the Lead Mate started
+  the run (so UIs can wear its company face); `None` for a custom agent, a gone agent,
+  or one outside the run's account.
 - `GitHubAppStatus.mention_handle` — the GitHub login a comment on this account's
   connected install can mention, or `None` when there is nothing to teach. This is not
   `app_slug`: an own App can exist while the install a comment hits is still the
   platform App.
+- `client.settings.update(approval_email_enabled=False, approval_slack_enabled=False)`
+  turns off the email / Slack DM you get when a run waits on your approval. Both
+  default `True` and come back on `AccountSettings`.
+- `Run.notified_channel` — where the run's result was delivered out of band: `"email"`
+  or `"slack"`, next to `Run.notified_at`. None when nothing was sent. A run created
+  with `client.runs.create(..., email_notifications=True)` now sends its result to the
+  account owner when nobody has viewed it (`client.runs.mark_viewed(...)`) 5 minutes
+  after it finished: a Slack DM when Slack is connected, else email.
+- `client.settings.update(result_email_enabled=False, result_slack_enabled=False)` turns
+  those sends off for you. Both default `True` and come back on `AccountSettings`.
+- `skills.list_invokable(teammate_id=...)` also returns the skills committed in the
+  repository the teammate is bound to, as `InvokableSkill(kind="repo")`. `skill=` on
+  `runs.create` / `runs.reply` accepts one of them, like a saved skill. An unknown slug
+  is still a 422; when the repository cannot be read from GitHub an explicit `skill=`
+  raises the 503 error. An idempotent request is retried on this client's own
+  backoff; it does not wait out the `Retry-After` on that 503.
+- `Run.retried_by_run_id` and `Run.retried_at` name the run that started this
+  one's work again, and when that run started. Both stay unset while an
+  automatic retry is only queued, and when nothing has retried the run.
+- `StreamInterruptedError` (`from m8tes import StreamInterruptedError`): the stream
+  stopped before the run did. `run_id` and `reason` say which run and why; the
+  underlying transport error is its `__cause__`.
+
+### Changed
+
+- Acknowledged Claude Agent SDK 0.2.163 `system_message` subtypes (`session_title_changed`, `ui_*`) as inert host-CLI telemetry so the SDK parity guard no longer blocks deploy.
+
+### Fixed
+
+- A recovered run no longer raises `RunFailedError`. `error_cleared` clears
+  `stream.errors` after the attempt that finished, so `raise_on_error=True` does
+  not raise. The failed attempt's own `done`, a snapshot, or any other frame does
+  not clear the error.
+- The wait after a dropped stream reports how the run really stands. `m8tes agent task`
+  and `m8tes task execute` exit non-zero on a run that ended `cancelled` or `closed`,
+  and `m8tes agent chat` says the turn did not answer instead of going back to the
+  prompt. A run that pauses on an approval or a question is put to you when you are at
+  the terminal. In json output, or with stdin piped, the wait stops there and decides
+  nothing: the task commands exit non-zero saying the run is paused and has not
+  finished, and chat says so and goes on. A reply queued behind a turn that was still
+  running waits for its own turn (`RunStream.await_queued_message_id`), not the one in
+  front of it. The README wait example uses a timeout long enough for a long run.
+- A second attempt on the same stream is no longer read as finished. A run that fails
+  on one model provider is started again on the next, on the same response. A cut during
+  that second attempt now raises `StreamInterruptedError`.
+- An idempotent replay whose body stalls or is cut raises `StreamInterruptedError` with
+  the run id (from the call, the `X-Run-Id` header, or the body once its id has arrived
+  whole) instead of a raw `requests` error that names no run.
+- A cut stream is no longer read as a finished run. When a stream ended without a
+  terminal event, iteration finished normally and `stream.text` was half an answer
+  that looked whole; when the connection broke, a raw `requests` exception escaped
+  with no run id. Both now raise `StreamInterruptedError`, which carries `run_id` and
+  says the run may still be working: wait for it with `client.runs.wait(run_id)` or
+  rejoin it with `client.runs.stream(run_id)`. A stream still ends quietly on a
+  terminal event, and on a run paused for an approval or a question. **Behaviour
+  change:** code that read a quiet end as success now has to catch this error, and a
+  test stream built with `m8tes.testing.StreamBuilder` has to end with `.done()`.
+- `RunStream.run_id` is known before the metadata event: at once for `runs.stream()`
+  and `runs.reply()`, and from the `X-Run-Id` response header for `runs.create()` and
+  `tasks.run()`. The metadata event waits for the sandbox to boot, so a stream cut
+  during boot could not say which run it was.
+- `m8tes agent task`, `m8tes agent chat` and `m8tes task execute` no longer end as if
+  the run were done when their stream drops. They say the connection was lost, wait
+  for the run (up to 30 minutes; Ctrl+C stops waiting, not the run), then show its
+  result and exit with its outcome. Before, a dropped stream printed a summary of
+  half the work and exited 0, or exited 1 with "Command execution failed" while the
+  run carried on.
 
 ## [4.48.0] - 2026-10-02
 
@@ -23,14 +95,11 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 - `Run.needs_me_run` — true when the caller marked the run itself, not only one
   of its messages. `Run.needs_me` is true when this is true or
   `Run.needs_me_message_ids` is not empty.
-- `Run.started_by` (`RunStartedBy`: `run_id`, `teammate_id`, `teammate_name`,
-  `teammate_template_slug`): set when an agent started the run from inside one of
-  its own runs (`create_task` with `run_immediately`, or `start_task_run`), so the
-  run's first message is that agent's brief rather than something a person typed.
-  `teammate_template_slug` is `company-agent` for the Lead Mate (so UIs can wear its
-  company face); `None` for a custom agent, a gone agent, or one outside the run's
-  account. `started_by` itself is `None` when a person, a schedule or an event
-  started the run. A retry keeps its parent's.
+- `Run.started_by` (`RunStartedBy`: `run_id`, `teammate_id`, `teammate_name`): set
+  when an agent started the run from inside one of its own runs (`create_task` with
+  `run_immediately`, or `start_task_run`), so the run's first message is that agent's
+  brief rather than something a person typed. `started_by` itself is `None` when a
+  person, a schedule or an event started the run. A retry keeps its parent's.
 
 ## [4.47.0] - 2026-09-29
 
