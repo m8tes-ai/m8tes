@@ -5,7 +5,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from m8tes import RunFailedError
+from m8tes import RunFailedError, StreamInterruptedError
 from m8tes._streaming import RunStream
 from m8tes.streaming import StreamEvent
 
@@ -14,6 +14,12 @@ def _sse_frame(data: dict | str) -> list[str]:
     """Build SSE frame lines (data line + empty separator)."""
     payload = data if isinstance(data, str) else json.dumps(data)
     return [f"data: {payload}", ""]
+
+
+# How a finished run ends its stream. A body with no terminal frame is a CUT stream,
+# which RunStream reports instead of ending quietly (tests/unit/test_v2_stream_drop.py),
+# so it cannot stand in for "the run is done" in the tests below.
+_DONE = _sse_frame({"type": "done", "completion_state": "complete"})
 
 
 class TestRunStream:
@@ -25,22 +31,24 @@ class TestRunStream:
         return resp
 
     def test_iteration_yields_events(self):
-        lines = _sse_frame({"type": "text-delta", "delta": "Hello"})
+        lines = _sse_frame({"type": "text-delta", "delta": "Hello"}) + _DONE
         resp = self._make_response(lines)
         stream = RunStream(resp)
         events = list(stream)
-        assert len(events) == 1
+        assert len(events) == 2
         assert isinstance(events[0], StreamEvent)
 
     def test_context_manager_closes_response(self):
-        resp = self._make_response([])
+        resp = self._make_response(_DONE)
         with RunStream(resp) as stream:
             list(stream)
         resp.close.assert_called_once()
 
     def test_text_accumulation(self):
-        lines = _sse_frame({"type": "text-delta", "delta": "Hello"}) + _sse_frame(
-            {"type": "text-delta", "delta": " world"}
+        lines = (
+            _sse_frame({"type": "text-delta", "delta": "Hello"})
+            + _sse_frame({"type": "text-delta", "delta": " world"})
+            + _DONE
         )
         resp = self._make_response(lines)
         stream = RunStream(resp)
@@ -48,7 +56,7 @@ class TestRunStream:
         assert stream.text == "Hello world"
 
     def test_output_is_alias_for_text(self):
-        lines = _sse_frame({"type": "text-delta", "delta": "Test"})
+        lines = _sse_frame({"type": "text-delta", "delta": "Test"}) + _DONE
         resp = self._make_response(lines)
         stream = RunStream(resp)
         list(stream)
@@ -63,7 +71,8 @@ class TestRunStream:
         assert events[0].type.value == "done"
 
     def test_stream_break_mid_iteration(self):
-        """If iter_lines raises mid-stream, response is still closed."""
+        """If iter_lines raises mid-stream, the response is still closed, and the
+        caller gets a StreamInterruptedError that keeps the transport error."""
         resp = MagicMock()
         resp.iter_lines.return_value = iter(
             [*_sse_frame({"type": "text-delta", "delta": "Hi"}), Exception("connection reset")]
@@ -84,11 +93,10 @@ class TestRunStream:
         stream = RunStream(resp)
         with stream:
             events = []
-            try:
+            with pytest.raises(StreamInterruptedError) as exc:
                 for event in stream:
                     events.append(event)
-            except ConnectionError:
-                pass
+        assert isinstance(exc.value.__cause__, ConnectionError)
         assert len(events) == 1
         resp.close.assert_called_once()
 
@@ -112,7 +120,7 @@ class TestRunStream:
         assert "Something went wrong" in stream.errors
 
     def test_no_errors_on_clean_stream(self):
-        lines = _sse_frame({"type": "text-delta", "delta": "ok"})
+        lines = _sse_frame({"type": "text-delta", "delta": "ok"}) + _DONE
         resp = self._make_response(lines)
         stream = RunStream(resp)
         list(stream)
@@ -131,7 +139,7 @@ class TestRunStream:
         resp.close.assert_called_once()
 
     def test_raise_on_error_silent_when_no_errors(self):
-        lines = _sse_frame({"type": "text-delta", "delta": "ok"})
+        lines = _sse_frame({"type": "text-delta", "delta": "ok"}) + _DONE
         resp = self._make_response(lines)
         stream = RunStream(resp, raise_on_error=True)
         list(stream)  # no raise
@@ -169,29 +177,37 @@ class TestRunStream:
         assert exc.value.details["errors"] == ["The model provider returned an error."]
 
     def test_clean_sdk_success_is_still_internal(self):
-        lines = _sse_frame(
-            {"type": "sdk_success", "subtype": "success", "is_error": False, "result": "done"}
+        lines = (
+            _sse_frame(
+                {"type": "sdk_success", "subtype": "success", "is_error": False, "result": "done"}
+            )
+            + _DONE
         )
         resp = self._make_response(lines)
         stream = RunStream(resp)
 
-        assert list(stream) == []
+        assert [event.type.value for event in stream] == ["done"]
         assert stream.has_errors is False
 
-    def test_empty_stream_yields_nothing(self):
-        """Empty response yields no events."""
+    def test_empty_stream_is_an_interruption(self):
+        """An empty body is a cut stream, not a run with nothing to say."""
         resp = self._make_response([])
         stream = RunStream(resp)
-        events = list(stream)
-        assert events == []
+        with pytest.raises(StreamInterruptedError):
+            list(stream)
         assert stream.text == ""
 
     def test_malformed_json_skipped(self):
         """Invalid JSON in SSE frame should be skipped, not raise."""
-        lines = ["data: {invalid json", "", *_sse_frame({"type": "text-delta", "delta": "ok"})]
+        lines = [
+            "data: {invalid json",
+            "",
+            *_sse_frame({"type": "text-delta", "delta": "ok"}),
+            *_DONE,
+        ]
         resp = self._make_response(lines)
         stream = RunStream(resp)
         events = list(stream)
-        # Only the valid event should come through
-        assert len(events) == 1
+        # Only the valid events should come through
+        assert [event.type.value for event in events] == ["text-delta", "done"]
         assert stream.text == "ok"

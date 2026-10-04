@@ -67,8 +67,12 @@ class StreamDisplay(ABC):
         pass
 
     @abstractmethod
-    def finish(self) -> None:
-        """Finish the display (called after last event or on error)."""
+    def finish(self, *, show_response: bool = True) -> None:
+        """Finish the display (called after last event or on error).
+
+        Pass ``show_response=False`` when the stream dropped and the run is still
+        being waited for — the partial text is not the finished answer.
+        """
         pass
 
     def get_final_text(self) -> str:
@@ -123,9 +127,9 @@ class CompactDisplay(StreamDisplay):
             # Show errors
             self.console.print(f"\n[red]❌ Error: {event.error}[/red]")
 
-    def finish(self) -> None:
+    def finish(self, *, show_response: bool = True) -> None:
         """Finish with newline."""
-        if self.accumulator.get_text():
+        if show_response and self.accumulator.get_text():
             print()  # Final newline after text
 
 
@@ -438,13 +442,18 @@ class VerboseDisplay(StreamDisplay):
 
         self._printed_todo_updates += 1
 
-    def finish(self) -> None:
+    def finish(self, *, show_response: bool = True) -> None:
         """Cleanup verbose display."""
         self._stop_progress()
 
         if self.thinking_active:
             self.console.print()
             self.thinking_active = False
+
+        if not show_response:
+            # Stream dropped; the run is still going. Do not present partial text
+            # as a finished Response panel.
+            return
 
         plan_text = self.accumulator.get_plan()
         if plan_text and self.plan_chars_emitted < len(plan_text):
@@ -531,7 +540,7 @@ class JsonDisplay(StreamDisplay):
         }
         print(json.dumps(output), flush=True)
 
-    def finish(self) -> None:
+    def finish(self, *, show_response: bool = True) -> None:
         """Finish JSON display (no-op)."""
         pass
 

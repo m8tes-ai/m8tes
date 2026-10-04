@@ -15,9 +15,155 @@ import re
 import shlex
 import signal
 import sys
-from typing import Any, TypedDict
+from typing import TYPE_CHECKING, Any, TextIO, TypedDict
+
+from .._exceptions import M8tesError
+
+if TYPE_CHECKING:
+    from .._client import M8tes
+    from .._exceptions import StreamInterruptedError
+    from .._types import PermissionRequest, Run
 
 CANCELLED_EXIT = 130  # POSIX: 128 + SIGINT (2)
+
+# How long the CLI waits for a run whose stream dropped. Runs of ten minutes and more
+# are ordinary. Ctrl+C stops the wait, never the run.
+DROPPED_RUN_WAIT_SECONDS = 1800.0
+
+
+def _cli_on_approval(req: Any) -> str:
+    """Prompt for a tool-approval gate reached while waiting out a dropped stream."""
+    from .prompt import confirm_prompt
+
+    print(f"\n🔐 Approval needed for tool: {req.tool_name}")
+    return "allow" if confirm_prompt("Allow this tool?", default=False) else "deny"
+
+
+def _cli_on_question(req: Any) -> dict[str, str]:
+    """Prompt for an AskUserQuestion / plan gate reached while waiting out a drop."""
+    from .prompt import prompt
+
+    answers: dict[str, str] = {}
+    questions = (req.tool_input or {}).get("questions") or []
+    if not questions:
+        return answers
+    for q in questions:
+        question = q.get("question") or q.get("header") or "Answer"
+        options = [o.get("label") for o in (q.get("options") or []) if o.get("label")]
+        hint = f" [{'/'.join(options)}]" if options else ""
+        answers[question] = prompt(f"{question}{hint}: ", allow_empty=True)
+    return answers
+
+
+class _GateReachedError(Exception):
+    """Raised from a gate callback to end the wait without answering the gate."""
+
+
+class RunPausedError(M8tesError):
+    """A run that was waited for after a dropped stream is parked on a person.
+
+    The run did not fail, and it did not finish either. It is raised, not returned
+    as a run to read: a command that streams a task must exit non-zero on it, or a
+    script takes the pause for completed work. And the run cannot be read again
+    here for an answer, because once the gate is resolved a read returns whichever
+    turn finished last, which for a queued reply is the turn in front of it.
+    """
+
+    def __init__(self, run_id: int, needs: str):
+        super().__init__(
+            f"Run {run_id} is paused and has not finished: it needs {needs}. "
+            "Answer it in the m8tes app and the run carries on.",
+            code="run_paused",
+            error_code="run_paused",
+            details={"run_id": run_id, "needs": needs},
+        )
+        self.run_id = run_id
+
+
+def _stop_at_approval(req: PermissionRequest) -> str:
+    """Decide nothing: with nobody at the terminal, an answer would be the CLI's own."""
+    raise _GateReachedError(f"your approval to use {req.tool_name}")
+
+
+def _stop_at_question(req: PermissionRequest) -> dict[str, str]:
+    raise _GateReachedError("your answer to a question")
+
+
+def can_ask(output_format: str = "verbose") -> bool:
+    """Is there a person at this terminal to put a gate to?
+
+    Not in json mode, where stdout is the event stream and stdin carries the chat
+    messages, and not when stdin is a pipe. A prompt there prints into the JSON and
+    reads the next chat message, or nothing, as the person's answer: an empty line
+    denies the tool.
+    """
+    return output_format != "json" and sys.stdin.isatty()
+
+
+#: Run statuses that mean the waited-out drop was not a successful outcome.
+DROPPED_RUN_FAILURE_STATUSES = frozenset({"failed", "cancelled", "closed"})
+
+
+def dropped_run_problem(run: Run) -> str | None:
+    """Why a run that was waited for did not finish its work, or None when it did.
+
+    A run that was stopped reports the reason the server kept, never its partial
+    output, which would print half an answer as the error.
+    """
+    if run.status not in DROPPED_RUN_FAILURE_STATUSES:
+        return None
+    if run.status == "failed":
+        return run.error or run.output or "the run failed"
+    return run.error or f"the run was {run.status}"
+
+
+def wait_for_dropped_run(
+    client: M8tes,
+    exc: StreamInterruptedError,
+    *,
+    out: TextIO,
+    user_id: str | None = None,
+    await_queued_message_id: int | None = None,
+    ask: bool = False,
+) -> Run:
+    """The stream dropped; the run did not. Wait for it, and return how it ended.
+
+    The API detaches a run from the connection that started it, so a dropped stream
+    used to end a command as if the run were done: a summary of half the work and
+    exit 0. Every command that streams a run comes through here instead.
+
+    With no run id there is nothing to go back to, so the interruption propagates
+    and the command exits non-zero.
+
+    Pass ``await_queued_message_id`` when the dropped stream was a queued reply's
+    join of the prior turn — otherwise wait returns that turn's result as if it
+    answered the new message.
+
+    ``runs.wait`` raises at an approval or a question unless it is given callbacks.
+    With ``ask`` (a person is at the terminal, see ``can_ask``) the CLI prompts so
+    the run can finish. Without it nothing is decided: the wait ends at the gate
+    and ``RunPausedError`` is raised. Read a run that is returned with
+    ``dropped_run_problem``.
+    """
+    if exc.run_id is None:
+        raise exc
+    print(
+        f"\n⚠️  Connection lost. Run {exc.run_id} is still going; waiting for it to finish.",
+        file=out,
+    )
+    print("   Ctrl+C stops waiting, not the run.", file=out)
+    try:
+        return client.runs.wait(
+            exc.run_id,
+            timeout=DROPPED_RUN_WAIT_SECONDS,
+            user_id=user_id,
+            on_approval=_cli_on_approval if ask else _stop_at_approval,
+            on_question=_cli_on_question if ask else _stop_at_question,
+            await_queued_message_id=await_queued_message_id,
+        )
+    except _GateReachedError as gate:
+        raise RunPausedError(exc.run_id, str(gate)) from None
+
 
 # argparse: invalid choice: 'show' (choose from 'create', 'c', 'list', ...)
 _INVALID_CHOICE_RE = re.compile(

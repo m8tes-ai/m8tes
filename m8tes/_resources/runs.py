@@ -5,11 +5,13 @@ from __future__ import annotations
 from collections.abc import Callable, Generator
 import json
 import logging
+import re
 from typing import TYPE_CHECKING, Any, Literal, cast
 import uuid
 
+from .._exceptions import StreamInterruptedError
 from .._http import IDEMPOTENCY_HEADER, REPLAY_HEADER, seg
-from .._streaming import RunStream
+from .._streaming import RunStream, _run_id_from
 from .._types import (
     NeedsYou,
     PermissionMode,
@@ -131,6 +133,47 @@ def _raise_if_failed(run: Run) -> None:
         f"Run {run.id} failed: {detail}",
         details={"run_id": run.id, "error_code": code, "error": getattr(run, "error", None)},
     )
+
+
+# The id that opens a replay body, and only once the `,` or `}` after its digits is
+# here. A body cut at `{"id":4` may be run 42, and naming run 4 sends the caller to a
+# run that is not theirs. Mirrors `replayRunId` in `@m8tes/sdk`.
+_REPLAY_ID = re.compile(rb'\s*\{\s*"id"\s*:\s*(\d+)\s*[,}]')
+
+# How much of a replay body is read one byte at a time. Enough for `{"id": ` and any
+# run id, and no more: byte reads cost about 4 microseconds each.
+_REPLAY_HEAD_BYTES = 64
+
+
+def _read_replay(resp: Any, run_id: int | None) -> dict[str, Any]:
+    """The run an idempotent replay answers with.
+
+    Read in pieces, because ``resp.json()`` throws away a body that stalls or is cut
+    off: the caller got a raw ``requests`` error naming no run, on a request that had
+    already created one. What arrived is kept, so the interruption can still say
+    which run: the one the caller named (a reply), else the ``X-Run-Id`` header, else
+    the id that opens the body.
+
+    The head is read one byte at a time. A larger read blocks until it is full, so a
+    body that stalls or is cut before then is lost whole, its id included.
+    """
+    raw = b""
+    try:
+        try:
+            for chunk in resp.iter_content(chunk_size=1):
+                raw += chunk
+                if len(raw) >= _REPLAY_HEAD_BYTES:
+                    raw += b"".join(resp.iter_content(chunk_size=None))
+                    break
+            return cast("dict[str, Any]", json.loads(raw))
+        except (OSError, ValueError) as exc:
+            named = _REPLAY_ID.match(raw)
+            raise StreamInterruptedError(
+                run_id or _run_id_from(resp) or (int(named.group(1)) if named else None) or None,
+                f"the connection was lost ({exc})",
+            ) from exc
+    finally:
+        resp.close()
 
 
 if TYPE_CHECKING:
@@ -343,7 +386,9 @@ class Runs:
         resp = self._http.request("POST", "/runs/first-session", json=body, headers=headers)
         return Run.from_dict(resp.json())
 
-    def _stream_or_replay(self, resp: Any, *, raise_on_error: bool) -> RunStream:
+    def _stream_or_replay(
+        self, resp: Any, *, raise_on_error: bool, run_id: int | None = None
+    ) -> RunStream:
         """Turn a streaming POST's response into a stream, following a replay.
 
         A replayed create/reply answers with JSON (the run), not SSE — a run that
@@ -358,11 +403,13 @@ class Runs:
         the error names the run so the caller can fetch its result — which is still
         strictly better than the pre-idempotency outcome, where a timed-out create
         left them unable to learn the run existed at all.
+
+        ``run_id`` is the run the caller already named (a reply). A new run is named
+        by the response's ``X-Run-Id`` header, which RunStream reads itself.
         """
         if not resp.headers.get(REPLAY_HEADER):
-            return RunStream(resp, raise_on_error=raise_on_error)
-        run = Run.from_dict(resp.json())
-        resp.close()
+            return RunStream(resp, raise_on_error=raise_on_error, run_id=run_id)
+        run = Run.from_dict(_read_replay(resp, run_id))
         logger.debug("Idempotent replay of run %s; joining its stream", run.id)
         if run.status in TERMINAL_STATUSES:
             from .._exceptions import ConflictError
@@ -376,22 +423,27 @@ class Runs:
                 code="idempotent_replay_terminal",
                 details={"run_id": run.id, "status": run.status},
             )
-        return self.stream(run.id, raise_on_error=raise_on_error)
+        joined = self.stream(run.id, raise_on_error=raise_on_error)
+        # A queued reply's stream join is the PRIOR turn's live SSE. Name the inbound
+        # message so wait/poll do not hand back that turn's result as this reply's.
+        if run.delivery == "queued" and run.queued_message_id is not None:
+            joined.await_queued_message_id = run.queued_message_id
+        return joined
 
     def stream(self, run_id: int, *, raise_on_error: bool = False) -> RunStream:
         """Join an in-progress run's live SSE stream (reconnect / resume).
 
-        Use this to re-attach after a dropped connection: capture ``run_id`` from a
-        ``create(...)`` stream's metadata event, then call ``stream(run_id)`` to rejoin.
-        It replays the run's full history (metadata, prior text/tool events) and then
-        streams live deltas, so reset any local accumulation when you reconnect.
+        Use this to re-attach after a dropped connection: a stream that stops before
+        the run does raises ``StreamInterruptedError``, whose ``run_id`` is the run to
+        rejoin. It replays the run's full history (metadata, prior text/tool events) and
+        then streams live deltas, so reset any local accumulation when you reconnect.
 
         Raises NotFoundError (404) if the run isn't yours, or a 409 if it is no longer
         executing — fetch the final result with ``get(run_id)`` instead. GET is safe to
         retry, so transient network errors are retried automatically.
         """
         resp = self._http.stream("GET", f"/runs/{seg(run_id)}/stream")
-        return RunStream(resp, raise_on_error=raise_on_error)
+        return RunStream(resp, raise_on_error=raise_on_error, run_id=run_id)
 
     def poll(
         self,
@@ -1144,7 +1196,7 @@ class Runs:
                     files=file_parts,
                     headers=headers,
                 )
-                return self._stream_or_replay(resp, raise_on_error=False)
+                return self._stream_or_replay(resp, raise_on_error=False, run_id=run_id)
             resp = self._http.request(
                 "POST",
                 f"/runs/{seg(run_id)}/reply/with-files",
@@ -1157,7 +1209,7 @@ class Runs:
             resp = self._http.stream(
                 "POST", f"/runs/{seg(run_id)}/reply", json=body, headers=headers
             )
-            return self._stream_or_replay(resp, raise_on_error=False)
+            return self._stream_or_replay(resp, raise_on_error=False, run_id=run_id)
         resp = self._http.request("POST", f"/runs/{seg(run_id)}/reply", json=body, headers=headers)
         return Run.from_dict(resp.json())
 

@@ -231,25 +231,33 @@ with a completion frame. `raise_on_error=True` raises `RunFailedError` for these
 
 ### Resume a dropped stream
 
-If the connection drops mid-run (proxy idle-timeout, network blip), rejoin with the
-`run_id` captured from the metadata event. `runs.stream(run_id)` replays the run's full
-history then live deltas, so reset any local accumulation on reconnect:
+A stream can stop before the run does: a dropped connection, or a proxy that cuts a long
+response. That does not stop the run, which keeps working on the server. The SDK raises
+`StreamInterruptedError` rather than ending as if the run were done. It carries `run_id`,
+so wait for the result:
 
 ```python
+from m8tes import StreamInterruptedError
+
 stream = client.runs.create(message="long autonomous task")
-run_id = None
 try:
-    for event in stream:
-        run_id = stream.run_id
-        ...
-except Exception:  # connection dropped mid-run
-    if run_id:
-        for event in client.runs.stream(run_id):  # re-attach and replay
-            ...
+    for chunk in stream.iter_text():
+        print(chunk, end="", flush=True)
+except StreamInterruptedError as exc:
+    if exc.run_id is None:
+        raise
+    # Still running. Never send the request again: that starts a second run.
+    # Long autonomous tasks need a wait budget past the 300s default.
+    run = client.runs.wait(exc.run_id, timeout=1800)
+    print(run.output)
 ```
 
-The server emits a 15s keepalive on the streaming path so a long-silent tool call doesn't
-trip the read timeout; raise it for very long runs with `M8tes(timeout=...)`.
+To keep streaming instead, call `client.runs.stream(exc.run_id)`. It replays the run from
+its start, so reset what you accumulated first. It raises `ConflictError` (409) once the
+run has finished; read the result with `client.runs.get(run_id)`.
+
+`timeout` (300 seconds by default) never limits how long a stream may run. On a stream it
+is the longest silence tolerated, and the server sends a keepalive every 15 seconds.
 
 ## Human-in-the-loop
 

@@ -82,6 +82,45 @@ class RunFailedError(M8tesError):
     holds the raw error messages from the stream."""
 
 
+class StreamInterruptedError(M8tesError):
+    """The STREAM stopped before the run did: a dropped connection, a proxy that cut
+    a long response, a read timeout.
+
+    It says nothing about the run. The API detaches a run from the response that
+    started it, so the run was not stopped by this and is very likely still working.
+    `.run_id` is the run to go back to: wait for the result with
+    `client.runs.wait(run_id)`, or rejoin the stream with `client.runs.stream(run_id)`.
+    Never send the request again; that starts a second run.
+
+    `.run_id` is None only when the connection died before the server named a run.
+    `.reason` is the plain cause, and `__cause__` is the underlying error when there
+    was one. Mirrors `StreamInterruptedError` in `@m8tes/sdk`.
+    """
+
+    def __init__(self, run_id: int | None, reason: str):
+        if run_id is None:
+            message = (
+                f"The stream was interrupted before the server named the run: {reason}. "
+                "A run may have started. Check client.runs.list() before sending the "
+                "request again, or you may start a second one."
+            )
+        else:
+            message = (
+                f"The stream for run {run_id} was interrupted: {reason}. The run was not "
+                f"stopped and may still be working. Wait for the result with "
+                f"client.runs.wait({run_id}), or rejoin it with client.runs.stream({run_id}). "
+                "Do not send the request again: that starts a second run."
+            )
+        super().__init__(
+            message,
+            code="stream_interrupted",
+            error_code="stream_interrupted",
+            details={"run_id": run_id, "reason": reason},
+        )
+        self.run_id = run_id
+        self.reason = reason
+
+
 # Map HTTP status codes to exception classes.
 STATUS_MAP: dict[int, type[M8tesError]] = {
     400: ValidationError,

@@ -16,10 +16,18 @@ Known v2 gap, surfaced rather than worked around:
 
 from __future__ import annotations
 
+import sys
 from typing import TYPE_CHECKING, cast
 
-from .._exceptions import RunFailedError
-from .util import UserScope, parse_id as _parse_id, scope_cli_suffix
+from .._exceptions import RunFailedError, StreamInterruptedError
+from .util import (
+    UserScope,
+    can_ask,
+    dropped_run_problem,
+    parse_id as _parse_id,
+    scope_cli_suffix,
+    wait_for_dropped_run,
+)
 
 if TYPE_CHECKING:
     from .._client import M8tes
@@ -312,14 +320,33 @@ class TaskCLI:
         # Stream the run (RunStream closes the response when iteration ends)
         stream = cast("RunStream", self.client.tasks.run(parsed_id, stream=True, **self.scope))
         try:
-            for event in stream:
-                display.on_event(event)
-
-            display.finish()
+            errors = []
+            try:
+                for event in stream:
+                    display.on_event(event)
+            except StreamInterruptedError as exc:
+                display.finish(show_response=False)
+                dropped = wait_for_dropped_run(
+                    self.client,
+                    exc,
+                    out=sys.stdout,
+                    await_queued_message_id=getattr(stream, "await_queued_message_id", None),
+                    ask=can_ask(),
+                    **self.scope,
+                )
+                problem = dropped_run_problem(dropped)
+                if problem is not None:
+                    errors.append(problem)
+                elif dropped.output:
+                    if display.get_final_text():
+                        print("\n↩️  The text above was cut off. In full:")
+                    print(dropped.output)
+            else:
+                display.finish()
 
             # Check for errors
-            if display.accumulator.has_errors():
-                errors = display.accumulator.get_errors()
+            errors = [*display.accumulator.get_errors(), *errors]
+            if errors:
                 print("\n❌ Task execution failed:")
                 for error in errors:
                     print(f"   {error}")

@@ -1810,7 +1810,9 @@ class TestRunConvenienceHelpers:
             'data: {"type": "text-delta", "delta": "Hello"}\n\n'
             'data: {"type": "tool-call-begin", "toolName": "gmail"}\n\n'
             'data: {"type": "text-delta", "delta": " world"}\n\n'
-            'data: {"type": "finish", "finishReason": "end_turn"}\n\n'
+            # The API ends a finished run's stream with `done`. A body that just
+            # stops is a cut stream (tests/unit/test_v2_stream_drop.py).
+            'data: {"type": "done", "stop_reason": "end_turn"}\n\n'
         )
         responses.add(
             responses.POST,

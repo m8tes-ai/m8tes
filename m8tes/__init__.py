@@ -24,6 +24,7 @@ from ._exceptions import (
     PermissionDeniedError,
     RateLimitError,
     RunFailedError,
+    StreamInterruptedError,
     ValidationError,
 )
 from ._resources.auth import Auth
@@ -327,6 +328,7 @@ __all__ = [
     "SlackWorkspaces",
     "StreamEvent",
     "StreamEventType",
+    "StreamInterruptedError",
     "SubscriptionCheckout",
     "SyncPage",
     "Task",

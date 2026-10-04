@@ -20,10 +20,19 @@ from .._exceptions import (
     NotFoundError,
     PermissionDeniedError,
     RunFailedError,
+    StreamInterruptedError,
     ValidationError,
 )
 from .prompt import confirm_prompt, prompt
-from .util import UserScope, parse_id, scope_cli_suffix
+from .util import (
+    RunPausedError,
+    UserScope,
+    can_ask,
+    dropped_run_problem,
+    parse_id,
+    scope_cli_suffix,
+    wait_for_dropped_run,
+)
 
 if TYPE_CHECKING:
     from .._client import M8tes
@@ -477,14 +486,27 @@ class MateCLI:
         )
 
         event_count = 0
+        # Set only when the stream dropped and the run was waited out instead.
+        dropped = None
         try:
-            for event in stream:
-                event_count += 1
-                if debug and output_format != "json":
-                    print(f"[DEBUG] Event #{event_count}: {event.type}", file=diagnostics)
-                display.on_event(event)
-
-            display.finish()
+            try:
+                for event in stream:
+                    event_count += 1
+                    if debug and output_format != "json":
+                        print(f"[DEBUG] Event #{event_count}: {event.type}", file=diagnostics)
+                    display.on_event(event)
+            except StreamInterruptedError as exc:
+                display.finish(show_response=False)
+                dropped = wait_for_dropped_run(
+                    self.client,
+                    exc,
+                    out=diagnostics,
+                    await_queued_message_id=getattr(stream, "await_queued_message_id", None),
+                    ask=can_ask(output_format),
+                    **scope,
+                )
+            else:
+                display.finish()
 
             if debug:
                 print(f"\n[DEBUG] Received {event_count} events", file=diagnostics)
@@ -494,15 +516,22 @@ class MateCLI:
                 )
                 print(f"[DEBUG] Errors: {len(display.accumulator.get_errors())}", file=diagnostics)
 
-            # Check for errors or empty response
-            has_errors = display.accumulator.has_errors()
+            # Check for errors or empty response. A dropped stream never saw how the
+            # run ended, so its outcome comes from the run that was waited for.
+            errors = list(display.accumulator.get_errors())
+            problem = dropped_run_problem(dropped) if dropped is not None else None
+            if problem is not None:
+                errors.append(problem)
+            has_errors = bool(errors)
             has_text = bool(display.get_final_text())
             has_tool_calls = bool(display.accumulator.get_tool_calls())
 
             if has_errors and output_format != "json":
                 print("\n❌ Agent encountered errors:")
-                for error in display.accumulator.get_errors():
+                for error in errors:
                     print(f"   {error}")
+            elif dropped is not None:
+                pass  # what streamed before the drop says nothing about the output
             elif not has_text and not has_tool_calls and output_format != "json":
                 print("\n⚠️  Warning: Agent produced no output")
                 if not debug:
@@ -606,8 +635,6 @@ class MateCLI:
                         message = input("> ")
                     else:
                         # In JSON mode, read from stdin
-                        import sys
-
                         message = sys.stdin.readline().strip()
                         if not message:
                             break
@@ -673,10 +700,39 @@ class MateCLI:
                         else:
                             stream = self.client.runs.reply(run_id, message=message, stream=True)
 
-                        for event in stream:
-                            display.on_event(event)
-
-                        display.finish()
+                        try:
+                            for event in stream:
+                                display.on_event(event)
+                        except StreamInterruptedError as exc:
+                            display.finish(show_response=False)
+                            notices = sys.stderr if output_format == "json" else sys.stdout
+                            try:
+                                dropped = wait_for_dropped_run(
+                                    self.client,
+                                    exc,
+                                    out=notices,
+                                    await_queued_message_id=getattr(
+                                        stream, "await_queued_message_id", None
+                                    ),
+                                    ask=can_ask(output_format),
+                                    **scope,
+                                )
+                            except RunPausedError as paused:
+                                # No answer to show yet. The chat goes on: the next
+                                # message replies to the same run.
+                                print(f"\n⏸️  {paused.message}", file=notices)
+                            else:
+                                problem = dropped_run_problem(dropped)
+                                if problem is not None:
+                                    # On stderr in json mode: stdout there is events only,
+                                    # and saying nothing read as a reply that went through.
+                                    print(f"❌ Turn {dropped.status}: {problem}", file=notices)
+                                elif output_format != "json" and dropped.output:
+                                    if display.get_final_text():
+                                        print("\n↩️  The text above was cut off. In full:")
+                                    print(dropped.output)
+                        else:
+                            display.finish()
 
                         if is_first and stream.run_id:
                             run_id = stream.run_id
