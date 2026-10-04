@@ -105,7 +105,9 @@ class Skills:
         """Skills the operator can force via ``/slug`` or ``skill=`` on a run/reply.
 
         Returns curated platform commands (e.g. ``make-skill``, ``own-task``) plus active custom
-        skills. Does not list the baked snapshot catalog.
+        skills. With ``teammate_id`` of a teammate bound to a repository, also that
+        repository's committed skills (``kind="repo"``), the ones its coding run mounts.
+        Does not list the baked snapshot catalog.
         """
         params: dict[str, Any] = {}
         teammate_id = _resolve_agent_id(teammate_id, agent_id)

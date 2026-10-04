@@ -2974,8 +2974,9 @@ class Skill:
 class InvokableSkill:
     """A skill the operator can slash-invoke (``/slug`` or ``skill=`` on a run).
 
-    ``kind`` is ``platform`` for curated built-ins (e.g. make-skill) or ``custom``
-    for account/teammate skills. Bodies are never included.
+    ``kind`` is ``platform`` for curated built-ins (e.g. make-skill), ``custom`` for
+    account/teammate skills, or ``repo`` for a skill committed in the repository the
+    teammate is bound to. Bodies are never included.
     """
 
     slug: str

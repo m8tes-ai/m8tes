@@ -4046,6 +4046,32 @@ class TestSkills:
         assert responses.calls[0].request.params == {}
 
     @responses.activate
+    def test_list_invokable_keeps_a_repo_skills_kind(self, http):
+        """A teammate bound to a repository lists that repository's committed skills."""
+        from m8tes._resources.skills import Skills
+
+        responses.get(
+            f"{BASE}/skills/invokable",
+            json={
+                "data": [
+                    self._INVOKABLE,
+                    {
+                        "slug": "investigate",
+                        "name": "investigate",
+                        "description": "Reproduce first.",
+                        "kind": "repo",
+                    },
+                ],
+                "has_more": False,
+            },
+        )
+        items = Skills(http).list_invokable(teammate_id=9)
+        assert [(item.slug, item.kind) for item in items] == [
+            ("make-skill", "platform"),
+            ("investigate", "repo"),
+        ]
+
+    @responses.activate
     def test_list_invokable_forwards_teammate_and_user_id(self, http):
         from m8tes._resources.skills import Skills
 
