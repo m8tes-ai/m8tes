@@ -427,12 +427,45 @@ class TestATerminalFrameIsNotAlwaysTheLastWord:
     def test_a_second_attempt_that_finishes_ends_the_stream(self):
         cleared = frame({"type": "error_cleared", "reason": "provider_fallback"})
         stream = stream_of(
-            metadata(7), FAILED_RESULT, FAILED_DONE, text("the answer"), DONE, cleared
+            metadata(7),
+            FAILED_RESULT,
+            FAILED_DONE,
+            text("the answer"),
+            DONE,
+            cleared,
+            raise_on_error=True,
         )
 
         list(stream)
 
         assert stream.text == "the answer"
+        assert stream.errors == []
+
+    def test_the_failed_attempts_own_done_does_not_retract_the_error(self):
+        # A `done` follows a real failure too. Clearing on it would hide that failure.
+        # The retraction is `error_cleared`, which this stream never sends.
+        stream = stream_of(
+            metadata(7),
+            FAILED_RESULT,
+            FAILED_DONE,
+            text("the answer"),
+            DONE,
+            raise_on_error=True,
+        )
+
+        with pytest.raises(RunFailedError):
+            list(stream)
+
+    def test_a_trailing_snapshot_does_not_retract_the_error(self):
+        stream = stream_of(
+            metadata(7),
+            ERROR,
+            frame({"type": "message_snapshot", "message_id": None}),
+            raise_on_error=True,
+        )
+
+        with pytest.raises(RunFailedError):
+            list(stream)
 
     @pytest.mark.parametrize(
         "tail",

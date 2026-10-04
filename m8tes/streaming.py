@@ -975,6 +975,13 @@ class StreamAccumulator:
 
     def process(self, event: StreamEvent) -> None:
         """Process a stream event and accumulate data."""
+        # The server retracts a superseded error only after the attempt that
+        # recovered has finished. A `done` follows a real failure too, so this
+        # frame is the retraction and nothing else is.
+        if event.raw.get("type") == "error_cleared":
+            self.errors.clear()
+            return
+
         if isinstance(event, TextDeltaEvent):
             self.text_parts.append(event.delta)
 
