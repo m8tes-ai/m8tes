@@ -3575,6 +3575,7 @@ class TestGitHubApp:
                 "app_slug": "acme-code",
                 "setup_pending": False,
                 "manifest_epoch": 3,
+                "mention_handle": "m8tes-ai",
             },
         )
         responses.add(
@@ -3593,6 +3594,7 @@ class TestGitHubApp:
         assert status.branded is True
         assert status.app_slug == "acme-code"
         assert status.manifest_epoch == 3
+        assert status.mention_handle == "m8tes-ai"
 
 
 class TestSubresourceScopeForwarding:

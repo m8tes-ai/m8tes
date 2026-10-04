@@ -1275,6 +1275,10 @@ class GitHubAppStatus:
     setup_pending: bool = False
     # Pass back as setup_url(cancel_epoch=…) so Use m8tes App races refuse cleanly.
     manifest_epoch: int = 0
+    # Login the connected install answers to, or None when there is nothing to teach.
+    # Not app_slug: an own App can exist while the install a comment hits is still
+    # the platform App.
+    mention_handle: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> GitHubAppStatus:
@@ -1287,6 +1291,7 @@ class GitHubAppStatus:
             app_slug=data.get("app_slug"),
             setup_pending=bool(data.get("setup_pending", False)),
             manifest_epoch=int(data.get("manifest_epoch", 0) or 0),
+            mention_handle=data.get("mention_handle"),
         )
 
 

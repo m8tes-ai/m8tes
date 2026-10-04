@@ -2,6 +2,15 @@
 
 All notable changes to the m8tes Python SDK will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- `GitHubAppStatus.mention_handle` — the GitHub login a comment on this account's
+  connected install can mention, or `None` when there is nothing to teach. This is not
+  `app_slug`: an own App can exist while the install a comment hits is still the
+  platform App.
+
 ## [4.48.0] - 2026-10-02
 
 ### Added
