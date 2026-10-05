@@ -198,3 +198,23 @@ def test_result_switches_default_on_for_older_servers():
     settings = AccountSettings.from_dict({"retention_mode": "standard"})
     assert settings.result_email_enabled is True
     assert settings.result_slack_enabled is True
+    assert settings.preferred_approval_channel is None
+    assert settings.result_notify_channel is None
+
+
+@responses.activate
+def test_update_sends_the_place_to_try_first():
+    responses.add(
+        responses.PATCH,
+        f"{BASE}/settings/",
+        json={"preferred_approval_channel": "slack", "result_notify_channel": "slack"},
+    )
+    settings = Settings(_http()).update(
+        preferred_approval_channel="slack", result_notify_channel="slack"
+    )
+    assert json.loads(responses.calls[0].request.body) == {
+        "preferred_approval_channel": "slack",
+        "result_notify_channel": "slack",
+    }
+    assert settings.preferred_approval_channel == "slack"
+    assert settings.result_notify_channel == "slack"

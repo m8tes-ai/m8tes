@@ -2365,6 +2365,10 @@ class AccountSettings:
     # Whether a finished run you started and have not viewed is emailed / Slack-DMed to you.
     result_email_enabled: bool = True
     result_slack_enabled: bool = True
+    # Where to try first when a run waits on you. None = the default order.
+    preferred_approval_channel: str | None = None
+    # Which finished-run place the preferences page shows. None = no explicit choice.
+    result_notify_channel: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> AccountSettings:
@@ -2378,6 +2382,8 @@ class AccountSettings:
             approval_slack_enabled=data.get("approval_slack_enabled", True),
             result_email_enabled=data.get("result_email_enabled", True),
             result_slack_enabled=data.get("result_slack_enabled", True),
+            preferred_approval_channel=data.get("preferred_approval_channel"),
+            result_notify_channel=data.get("result_notify_channel"),
         )
 
 

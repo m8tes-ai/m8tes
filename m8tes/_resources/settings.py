@@ -36,6 +36,8 @@ class Settings:
         approval_slack_enabled: bool | None = None,
         result_email_enabled: bool | None = None,
         result_slack_enabled: bool | None = None,
+        preferred_approval_channel: str | None = None,
+        result_notify_channel: str | None = None,
     ) -> AccountSettings:
         """Update account settings.
 
@@ -54,6 +56,10 @@ class Settings:
         ``result_email_enabled=False`` / ``result_slack_enabled=False`` stop the email /
         Slack DM that brings you the result of a run you started and have not viewed
         5 minutes after it finished; the result waits in the dashboard instead.
+        ``preferred_approval_channel`` (``email``, ``slack``, or ``imessage``) is tried
+        first when a run waits on you. The other places still follow unless their
+        switch is off. ``result_notify_channel`` (``email`` or ``slack``) is the
+        finished-run place the preferences page shows. Omit either to leave it.
         """
         body: dict = {}
         if per_end_user_run_limit is not _UNSET:
@@ -74,5 +80,9 @@ class Settings:
             body["result_email_enabled"] = result_email_enabled
         if result_slack_enabled is not None:
             body["result_slack_enabled"] = result_slack_enabled
+        if preferred_approval_channel is not None:
+            body["preferred_approval_channel"] = preferred_approval_channel
+        if result_notify_channel is not None:
+            body["result_notify_channel"] = result_notify_channel
         resp = self._http.request("PATCH", "/settings/", json=body)
         return AccountSettings.from_dict(resp.json())
