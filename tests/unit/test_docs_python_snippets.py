@@ -138,31 +138,93 @@ def test_every_documented_kwarg_exists_on_the_real_method(name):
             )
 
 
-#: Every checked-in file that declares an `m8tes>=` install floor. `llms-full.txt` is a
-#: GENERATED but COMMITTED corpus, and it is in this list on purpose: it is what coding
-#: agents read, it shipped contradicting the hand-written docs, and "the build regenerates
-#: it" does not help a guard that runs before the build.
-_FLOOR_FILES = (
-    "vite-frontend/src/constants/docs/quickstart.ts",
-    "vite-frontend/src/constants/docs/cli.ts",
+# The page a reader opens is the exported markdown, not the TypeScript around it.
+# A `// m8tes>=…` comment, or an HTML comment inside the page, must not count:
+# grepping the raw file is how a comment satisfies a drift guard.
+_DOC_EXPORTS = (
+    ("vite-frontend/src/constants/docs/quickstart.ts", "quickstartContent"),
+    ("vite-frontend/src/constants/docs/cli.ts", "cliContent"),
+    ("vite-frontend/src/constants/docs/build-with-agents.ts", "buildWithAgentsContent"),
+    ("vite-frontend/src/constants/docs/going-live.ts", "goingLiveContent"),
+)
+# README is the file a reader opens. `llms-full.txt` is generated and committed
+# on purpose: coding agents read that file, and it has shipped a different floor
+# from the pages. "The build regenerates it" does not help a guard that runs first.
+_GUIDANCE_FILES = (
     "sdk/py/README.md",
     "vite-frontend/public/llms-full.txt",
 )
+_FLOOR_SOURCES = tuple(rel for rel, _name in _DOC_EXPORTS) + _GUIDANCE_FILES
+_FLOOR_RE = re.compile(r"m8tes>=([0-9]+\.[0-9]+(?:\.[0-9]+)?)")
+_HTML_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
+
+
+def _exported_template(text: str, name: str) -> str:
+    """Markdown inside the exported template, with backslash escapes resolved."""
+    marker = f"export const {name} = `"
+    start = text.find(marker)
+    assert start >= 0, f"{name} export not found"
+    i = start + len(marker)
+    out: list[str] = []
+    while i < len(text):
+        ch = text[i]
+        if ch == "\\":
+            assert i + 1 < len(text), f"{name} template ends on a backslash"
+            out.append(text[i + 1])
+            i += 2
+            continue
+        if ch == "`":
+            return "".join(out)
+        out.append(ch)
+        i += 1
+    raise AssertionError(f"{name} template never closed")
+
+
+def _visible(text: str) -> str:
+    """Drop HTML comments. A markdown renderer does not show them."""
+    return _HTML_COMMENT.sub("", text)
+
+
+def _floors_in(text: str) -> set[str]:
+    return set(_FLOOR_RE.findall(text))
+
+
+def _reader_texts() -> dict[str, str]:
+    out: dict[str, str] = {}
+    for rel, name in _DOC_EXPORTS:
+        raw = (_REPO_ROOT / rel).read_text()
+        out[rel] = _visible(_exported_template(raw, name))
+    for rel in _GUIDANCE_FILES:
+        out[rel] = _visible((_REPO_ROOT / rel).read_text())
+    return out
 
 
 def _declared_floor() -> tuple[int, ...]:
-    floors = set()
-    for rel in _FLOOR_FILES:
-        text = (_REPO_ROOT / rel).read_text()
-        found = re.findall(r"m8tes>=([0-9]+\.[0-9]+(?:\.[0-9]+)?)", text)
-        assert found, f"no `m8tes>=` install floor found in {rel}"
+    floors: set[str] = set()
+    for rel, text in _reader_texts().items():
+        found = _floors_in(text)
+        assert found, f"no install floor in the guidance readers follow ({rel})"
         floors.update(found)
     assert len(floors) == 1, f"install floors disagree across the docs: {sorted(floors)}"
     return tuple(int(p) for p in floors.pop().split("."))
 
 
-#: The lowest m8tes version that can run all documented entry flows: 4.47.0 is the
-#: documented install floor (was 4.32.1 for scoped CLI; raised with the DX launch pin).
+def test_a_source_comment_cannot_set_the_install_floor():
+    """A comment in the TypeScript, or an HTML comment in the page, is not the install line."""
+    sample = """
+// still documented as m8tes>=4.47.0
+export const cliContent = `
+<!-- m8tes>=1.2.3 -->
+pip install -U "m8tes>=4.49.0"
+`;
+"""
+    visible = _visible(_exported_template(sample, "cliContent"))
+    assert _floors_in(visible) == {"4.49.0"}
+
+
+#: The lowest m8tes version that can run all documented entry flows. 4.49.0 is the
+#: documented install floor: the streaming page catches StreamInterruptedError, which
+#: 4.47 and 4.48 do not ship. Was 4.47.0 for the DX launch pin, and 4.32.1 before that.
 #:
 #: A plain constant, deliberately. The first attempt asserted only `floor <= current
 #: version`, which codex showed was worthless for the bug it was written for: reverting
@@ -182,7 +244,7 @@ def _declared_floor() -> tuple[int, ...]:
 #: above covers the related and more likely error (documenting an argument that does not
 #: exist at all), which is what this constant cannot see.
 # Keep the shared install command current with the documented floor.
-_REQUIRED_FLOOR = (4, 47, 0)
+_REQUIRED_FLOOR = (4, 49, 0)
 
 
 @requires_frontend
@@ -192,9 +254,9 @@ def test_the_documented_install_floor_supports_the_documented_api():
     fl, rq = ".".join(map(str, floor)), ".".join(map(str, _REQUIRED_FLOOR))
     assert floor == _REQUIRED_FLOOR, (
         f"the docs tell people to install m8tes>={fl}, but the quickstart needs >={rq} — "
-        f"the documented scoped CLI flags do not exist below it. Anyone copying that "
+        f"the documented streaming exception does not exist below it. Anyone copying that "
         f"constraint into a requirements file resolves to a version the docs' own code "
-        f"will not run on. Files that declare it: {', '.join(_FLOOR_FILES)}. If the docs "
+        f"will not run on. Files that declare it: {', '.join(_FLOOR_SOURCES)}. If the docs "
         f"now use something newer, raise _REQUIRED_FLOOR too."
     )
 

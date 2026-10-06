@@ -1,0 +1,1 @@
+- The documented install floor is `m8tes>=4.49.0`. The streaming guide catches `StreamInterruptedError`, which 4.47 and 4.48 do not ship.
