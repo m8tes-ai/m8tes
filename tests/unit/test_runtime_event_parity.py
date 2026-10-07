@@ -294,6 +294,12 @@ _ACKNOWLEDGED_SYSTEM_SUBTYPES = frozenset(
         "ui_toast",
         # Informational only — a queued feedback draft, not a failure signal.
         "feedback_draft_queued",
+        # Claude Agent SDK 0.2.164 — attachment/context warnings + permission-check
+        # telemetry. Still wrapped as system_message (TODOS: surface actionable
+        # subtypes). Acknowledged so the set cannot grow silently; not new EventTypes.
+        "file_attachments_missing",
+        "instruction_size_warning",
+        "permission_check_status",
     }
 )
 
