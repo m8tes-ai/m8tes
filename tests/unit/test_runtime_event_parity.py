@@ -300,6 +300,10 @@ _ACKNOWLEDGED_SYSTEM_SUBTYPES = frozenset(
         "file_attachments_missing",
         "instruction_size_warning",
         "permission_check_status",
+        # Claude Agent SDK 0.2.170 — remote-viewer upload checkpoint + the empty rewind
+        # placeholder in the CLI's own transcript. Inert for an API consumer.
+        "checkpoint_done",
+        "rewind_stand_in",
     }
 )
 
