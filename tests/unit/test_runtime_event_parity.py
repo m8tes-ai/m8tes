@@ -304,6 +304,12 @@ _ACKNOWLEDGED_SYSTEM_SUBTYPES = frozenset(
         # placeholder in the CLI's own transcript. Inert for an API consumer.
         "checkpoint_done",
         "rewind_stand_in",
+        # Claude Agent SDK 0.2.175 — parked-ask reconciliation after a reconnect, plugin
+        # UI placement, and an early-turn startup marker. Inert for an API consumer.
+        "inherited_asks_settled",
+        "placed",
+        "turn_began_before_init",
+        "ui_placed",
     }
 )
 
