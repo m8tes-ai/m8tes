@@ -127,8 +127,8 @@ class FakeRuns:
             SimpleNamespace(name="weekly_data.csv", size=456),
         ]
 
-    def download_file(self, run_id: int, filename: str) -> bytes:
-        self._recorder.record("runs.download_file", run_id=run_id, filename=filename)
+    def download_file(self, run_id: int, filename: str, *, format: str | None = None) -> bytes:
+        self._recorder.record("runs.download_file", run_id=run_id, filename=filename, format=format)
         return b"file-bytes"
 
     def list(self, **kwargs):

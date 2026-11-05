@@ -4,6 +4,24 @@ All notable changes to the m8tes Python SDK will be documented in this file.
 
 ## [Unreleased]
 
+## [4.50.0] - 2026-11-05
+
+### Added
+
+- `runs.download_file(run_id, filename, format=...)` converts on the way out (`"pdf"`,
+  `"html"`, `"xlsx"`, `"csv"`). A markdown report written with `format: deck` comes
+  back as a 16:9 slide deck as `"html"` or `"pdf"`.
+
+### Changed
+
+- `settings.get()` and `settings.update()` include `preferred_approval_channel` and
+  `result_notify_channel`. A Slack choice keeps the email switch on; the channel
+  says which place to try first. Omit either field to leave it unchanged.
+
+### Fixed
+
+- The documented install floor is `m8tes>=4.49.0`. The streaming guide catches `StreamInterruptedError`, which 4.47 and 4.48 do not ship.
+
 ## [4.49.0] - 2026-10-04
 
 ### Added

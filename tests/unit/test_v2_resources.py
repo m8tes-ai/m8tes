@@ -1654,6 +1654,23 @@ class TestRuns:
         assert content == b"col1,col2\na,b\n"
 
     @responses.activate
+    def test_download_file_sends_export_format(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/1/files/seo-update.md/download",
+            body=b"<!doctype html>",
+            content_type="text/html",
+        )
+        assert Runs(http).download_file(1, "seo-update.md", format="html") == b"<!doctype html>"
+        assert responses.calls[0].request.url.endswith("/download?format=html")
+
+    @responses.activate
+    def test_download_file_omits_format_by_default(self, http):
+        responses.add(responses.GET, f"{BASE}/runs/1/files/a.md/download", body=b"# a")
+        Runs(http).download_file(1, "a.md")
+        assert "format" not in responses.calls[0].request.url
+
+    @responses.activate
     def test_list_files_not_found(self, http):
         responses.add(
             responses.GET,
