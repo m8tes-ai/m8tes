@@ -310,6 +310,12 @@ _ACKNOWLEDGED_SYSTEM_SUBTYPES = frozenset(
         "placed",
         "turn_began_before_init",
         "ui_placed",
+        # Claude Agent SDK 0.2.178 — `start_folder` is a startup-cwd marker (inert).
+        # `session_writes_lost` means a full disk dropped transcript writes, so a resume
+        # may miss turns: actionable, and the runtime logs it as notable. Still wrapped as
+        # system_message (TODOS: surface actionable subtypes).
+        "start_folder",
+        "session_writes_lost",
     }
 )
 
