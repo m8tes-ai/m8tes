@@ -233,7 +233,7 @@ class ModelConnection:
 
 @dataclass
 class ApplyPreferredModelResult:
-    """Result of Confirm → apply-default for a connected model provider."""
+    """Result of apply-default: a connected model provider, or ``m8tes`` inference on Teams."""
 
     provider: str
     model: str

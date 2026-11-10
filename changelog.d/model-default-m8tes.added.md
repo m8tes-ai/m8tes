@@ -1,0 +1,1 @@
+- `client.model_connections.get_default()` reads the account default for new runs (`"auto"`, `"m8tes"` or a connected provider). `use_m8tes()` makes m8tes inference the default on a Teams plan, and `apply_default` accepts `"m8tes"`. `clear_default()` now says it returns the default to Auto.

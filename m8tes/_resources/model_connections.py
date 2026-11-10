@@ -11,6 +11,10 @@ if TYPE_CHECKING:
     from .._http import HTTPClient
 
 ModelConnectionProvider = Literal["claude", "openai", "xai", "gemini"]
+# What `apply_default` accepts: a connected provider, or "m8tes" (Teams) to skip your plans.
+ModelDefaultChoice = Literal["claude", "openai", "xai", "gemini", "m8tes"]
+# What `get_default` returns. "auto" is the default when nothing is chosen.
+ModelDefault = Literal["auto", "claude", "openai", "xai", "gemini", "m8tes"]
 AuthorizableModelConnectionProvider = Literal["claude", "openai", "xai", "gemini"]
 DeviceModelConnectionProvider = Literal["openai", "xai"]
 CodeModelConnectionProvider = Literal["claude", "gemini"]
@@ -30,12 +34,30 @@ class ModelConnections:
             next_starting_after=body.get("next_starting_after"),
         )
 
-    def apply_default(self, provider: ModelConnectionProvider) -> ApplyPreferredModelResult:
-        """Set this connected provider as the account default for NULL-alias platform mates."""
+    def get_default(self) -> ModelDefault:
+        """Read the account default for new runs.
+
+        ``"auto"`` is the connected plans in order, then m8tes inference on Teams. ``"m8tes"`` is
+        m8tes inference only (Teams). A provider name is that connected plan first, then the
+        others as Auto does.
+        """
+        body = self._http.request("GET", "/model-connections/default").json()
+        return body["default"]
+
+    def apply_default(self, provider: ModelDefaultChoice) -> ApplyPreferredModelResult:
+        """Set a connected provider, or ``"m8tes"`` (Teams), as the account default.
+
+        Applies to platform mates with no model of their own. The provider runs first and your
+        other plans follow it; ``"m8tes"`` skips your plans and runs on m8tes inference.
+        """
         body = self._http.request(
             "POST", f"/model-connections/{seg(provider)}/apply-default"
         ).json()
         return ApplyPreferredModelResult.from_dict(body)
+
+    def use_m8tes(self) -> ApplyPreferredModelResult:
+        """Make m8tes inference the account default (Teams plans). Your plans are skipped."""
+        return self.apply_default("m8tes")
 
     def set_default_model(
         self, provider: ModelConnectionProvider, *, model: str | None
@@ -51,10 +73,11 @@ class ModelConnections:
         return ModelConnection.from_dict(body)
 
     def clear_default(self) -> bool:
-        """Clear the preferred external model provider default for new Auto runs.
+        """Return the account default to Auto.
 
-        Teams use m8tes as the model provider; Hobby and Individual choose a connected
-        external model provider automatically. Explicit models and API/Embed billing are unchanged.
+        Clears a connected provider or m8tes inference chosen as the default. Auto asks the
+        connected plans in order and, on Teams, uses m8tes inference when none is left. Explicit
+        models and API/Embed billing are unchanged.
         """
         body = self._http.request("DELETE", "/model-connections/preferred-default").json()
         return bool(body.get("cleared"))

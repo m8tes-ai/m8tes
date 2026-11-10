@@ -200,6 +200,30 @@ class TestModelConnections:
         with pytest.raises(NotFoundError):
             v2_client.model_connections.disconnect_account("openai", 999_999_999)
 
+    def test_the_account_default_is_auto_until_one_is_chosen(self, v2_client):
+        # Nothing is connected on a fresh account, so no plan can be the default.
+        assert v2_client.model_connections.get_default() == "auto"
+
+    def test_m8tes_inference_is_refused_on_a_plan_without_it(self, v2_client):
+        # New signups land on inactive, which does not include m8tes inference.
+        if v2_client.auth.get_usage().plan in ("pro", "max_5x", "max_20x"):
+            pytest.skip("this account is on Teams; see the Teams test below")
+        with pytest.raises(ValidationError) as refused:
+            v2_client.model_connections.use_m8tes()
+        assert refused.value.code == "m8tes_inference_unavailable"
+        assert v2_client.model_connections.get_default() == "auto"
+
+    def test_m8tes_inference_is_chosen_and_cleared_on_a_teams_plan(self, v2_client):
+        if v2_client.auth.get_usage().plan not in ("pro", "max_5x", "max_20x"):
+            pytest.skip("needs a Teams account; new signups are not on one")
+        chosen = v2_client.model_connections.use_m8tes()
+        try:
+            assert chosen.provider == "m8tes"
+            assert v2_client.model_connections.get_default() == "m8tes"
+        finally:
+            assert v2_client.model_connections.clear_default() is True
+        assert v2_client.model_connections.get_default() == "auto"
+
 
 @pytest.mark.integration
 class TestTeammatesCRUD:

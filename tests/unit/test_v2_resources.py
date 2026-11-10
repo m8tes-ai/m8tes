@@ -388,6 +388,23 @@ class TestModelConnections:
         )
         assert ModelConnections(http).clear_default() is True
 
+    @responses.activate
+    @pytest.mark.parametrize("choice", ["auto", "m8tes", "openai"])
+    def test_get_default(self, http, choice):
+        responses.add(responses.GET, f"{BASE}/model-connections/default", json={"default": choice})
+        assert ModelConnections(http).get_default() == choice
+
+    @responses.activate
+    def test_use_m8tes_applies_the_m8tes_default(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/model-connections/m8tes/apply-default",
+            json={"provider": "m8tes", "model": "gpt-6.1-sol", "affected_mate_count": 3},
+        )
+        result = ModelConnections(http).use_m8tes()
+        assert result.provider == "m8tes"
+        assert result.affected_mate_count == 3
+
 
 # ── Teammates ────────────────────────────────────────────────────────
 
