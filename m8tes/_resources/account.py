@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
 
+from .._http import seg
+
 if TYPE_CHECKING:
     from .._http import HTTPClient
 
@@ -71,3 +73,41 @@ class Account:
             json={"current_password": current_password, "new_password": new_password},
         )
         return cast("dict[str, Any]", resp.json())
+
+    def add_reply_address(self, email: str) -> dict[str, Any]:
+        """Add an address you write from that is not the one on your account.
+
+        Your mail setup can send from another address (a send-as alias, or a mailbox whose
+        provider rewrites the From), and a reply from it is refused as an unknown sender.
+        We mail a confirmation link to ``email``, valid for 24 hours, and NOTHING is stored
+        until its owner confirms on the page the link opens. Returns
+        ``{"status": "confirmation_sent", "email": ...}``.
+
+        Once confirmed, a reply from that address counts as you, but only on a mate's own
+        reply address and only for a reply that names one of that mate's runs on your
+        account: never on ``lead@``, a readable alias, or a fresh email that answers no run.
+        An account holds up to 5. Raises 409 for your account address, an address already
+        confirmed or a full list, 422 for something that is not a plain address, 429 after 10
+        confirmation emails in a day.
+
+        Session-authenticated only: an ``m8_`` key gets a 403, because this list decides who
+        counts as the account owner.
+        """
+        resp = self._http.request("POST", "/account/reply-addresses", json={"email": email})
+        return cast("dict[str, Any]", resp.json())
+
+    def list_reply_addresses(self) -> dict[str, Any]:
+        """The confirmed reply addresses: ``{"data": [{"id", "email", "verified_at"}], ...}``.
+
+        Session-authenticated only: an ``m8_`` key gets a 403.
+        """
+        resp = self._http.request("GET", "/account/reply-addresses")
+        return cast("dict[str, Any]", resp.json())
+
+    def remove_reply_address(self, address_id: int) -> None:
+        """Stop counting an address as you. Pass the ``id`` from ``list_reply_addresses``.
+
+        A confirmation link sent before the removal can no longer bring it back. Raises 404
+        for an address that is not on this account's list. Session-authenticated only.
+        """
+        self._http.request("DELETE", f"/account/reply-addresses/{seg(address_id)}")
