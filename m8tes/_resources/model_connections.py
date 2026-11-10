@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Literal, cast
 
 from .._http import seg
 from .._types import ApplyPreferredModelResult, ModelAuthorization, ModelConnection, SyncPage
@@ -42,7 +42,8 @@ class ModelConnections:
         others as Auto does.
         """
         body = self._http.request("GET", "/model-connections/default").json()
-        return body["default"]
+        # The response is untyped JSON; the API returns one of the `ModelDefault` values.
+        return cast("ModelDefault", body["default"])
 
     def apply_default(self, provider: ModelDefaultChoice) -> ApplyPreferredModelResult:
         """Set a connected provider, or ``"m8tes"`` (Teams), as the account default.
