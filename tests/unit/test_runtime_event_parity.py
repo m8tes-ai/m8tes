@@ -316,6 +316,11 @@ _ACKNOWLEDGED_SYSTEM_SUBTYPES = frozenset(
         # system_message (TODOS: surface actionable subtypes).
         "start_folder",
         "session_writes_lost",
+        # Claude Agent SDK 0.2.180 — a plugin's native notification handed to the host,
+        # and its withdrawal. Terminal chrome like the other `ui_*` frames; no run on the
+        # API raises one. Inert for an API consumer.
+        "ui_notify",
+        "ui_notify_cancel",
     }
 )
 
