@@ -23,14 +23,24 @@ class Triggers:
         user_id: str | None = None,
         type: Literal["schedule", "webhook", "email", "app"] | None = None,
         task_id: int | None = None,
+        include_last_run: bool | None = None,
         limit: int = 20,
         starting_after: str | None = None,
     ) -> SyncPage[Trigger]:
-        """List triggers across the account, optionally scoped or filtered."""
+        """List triggers across the account, optionally scoped or filtered.
+
+        A schedule the system paused says why in ``pause_reason``. Pass
+        ``include_last_run=True`` to fill ``last_run`` and ``failure_streak`` on each
+        schedule: its newest run and how many scheduled occurrences failed in a row, from
+        the last 14 days. It is off by default because it reads run history.
+        """
         params = _build_params(
             user_id=user_id,
             type=type,
             task_id=task_id,
+            include_last_run=(
+                None if include_last_run is None else str(include_last_run).lower()
+            ),
             limit=limit,
             starting_after=starting_after,
         )
@@ -42,6 +52,7 @@ class Triggers:
                 user_id=user_id,
                 type=type,
                 task_id=task_id,
+                include_last_run=include_last_run,
                 limit=limit,
                 **kwargs,  # type: ignore[arg-type]
             )

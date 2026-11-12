@@ -1062,6 +1062,41 @@ class Task:
 
 
 @dataclass
+class TriggerLastRun:
+    """The newest run a schedule started, in the fields that say how it went.
+
+    A retry counts: it is the newest attempt. Read it with ``failure_kind`` and
+    ``next_retry_at`` to tell a run that failed from one waiting for a plan to reopen."""
+
+    run_id: int
+    status: str
+    created_at: str
+    updated_at: str | None = None
+    #: Machine-readable failure classification, when known.
+    error_code: str | None = None
+    #: ``limit`` when a quota, rate limit or spend ceiling stopped the run, ``error`` for
+    #: everything else that failed. Same meaning as on the run itself.
+    failure_kind: str | None = None
+    #: When the platform will start this run again, when it has queued that.
+    next_retry_at: str | None = None
+    #: Automatic restarts used so far.
+    auto_retry_count: int = 0
+
+    @classmethod
+    def from_dict(cls, data: dict) -> TriggerLastRun:
+        return cls(
+            run_id=data["run_id"],
+            status=data["status"],
+            created_at=data["created_at"],
+            updated_at=data.get("updated_at"),
+            error_code=data.get("error_code"),
+            failure_kind=data.get("failure_kind"),
+            next_retry_at=data.get("next_retry_at"),
+            auto_retry_count=data.get("auto_retry_count", 0),
+        )
+
+
+@dataclass
 class Trigger:
     """A trigger (schedule, webhook, email, or app) attached to a task."""
 
@@ -1082,6 +1117,18 @@ class Trigger:
     run_at: str | None = None
     timezone: str = "UTC"
     next_run: str | None = None
+    #: Schedules only. Why the SYSTEM stopped this schedule: ``funding_required`` (no usable
+    #: plan or paid balance), ``model_connection_required`` (no model provider connected)
+    #: or ``inactive_account`` (a free account away for 30 days). None while it runs and
+    #: when a person paused it.
+    pause_reason: str | None = None
+    #: Schedules only, and only when listed with ``include_last_run=True``: the newest run
+    #: this schedule started in the last 14 days. None otherwise.
+    last_run: TriggerLastRun | None = None
+    #: Schedules only, and only with ``include_last_run=True``: how many scheduled
+    #: occurrences failed in a row, newest first (last 14 days, at most 60 runs). 0 when
+    #: the newest finished occurrence delivered. None when not asked for.
+    failure_streak: int | None = None
     url: str | None = None
     address: str | None = None
     # App trigger fields (Composio)
@@ -1107,6 +1154,9 @@ class Trigger:
             run_at=data.get("run_at"),
             timezone=data.get("timezone", "UTC"),
             next_run=data.get("next_run"),
+            pause_reason=data.get("pause_reason"),
+            last_run=TriggerLastRun.from_dict(data["last_run"]) if data.get("last_run") else None,
+            failure_streak=data.get("failure_streak"),
             url=data.get("url"),
             address=data.get("address"),
             app=data.get("app"),

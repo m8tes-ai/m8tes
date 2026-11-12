@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Generator
+from datetime import datetime
 import json
 import logging
 import re
@@ -944,6 +945,9 @@ class Runs:
         task_id: int | None = None,
         user_id: str | None = None,
         status: str | None = None,
+        trigger_source: Literal["manual", "trigger", "schedule"] | None = None,
+        created_after: str | datetime | None = None,
+        started_by_teammate_id: int | None = None,
         sort: Literal["created", "priority"] | None = None,
         archived: Literal["exclude", "only", "include"] | None = None,
         exclude_platform_runs: bool | None = None,
@@ -956,6 +960,15 @@ class Runs:
         webhook-triggered task's results); user_id scopes to one end-user.
         sort: ``created`` (newest first, the default) or ``priority`` (runs waiting
         on a human first).
+
+        ``trigger_source`` keeps the runs one kind of start made: ``schedule`` (a schedule
+        fired, a restart of a scheduled run included), ``manual`` (a person, the API, or
+        an agent handing work over) or ``trigger`` (an inbound event). ``created_after``
+        keeps runs created strictly after that instant (an ISO 8601 string or a
+        ``datetime``; one without an offset is read as UTC). With
+        ``trigger_source="schedule"`` it answers "what ran today" without paging the whole
+        history. ``started_by_teammate_id`` keeps the runs that agent started from inside
+        one of its own runs (``run.started_by.teammate_id``).
 
         ``archived`` decides what the archive does to the list: ``exclude`` (the
         default — archiving hides a run), ``only`` to read the archive on its own,
@@ -982,6 +995,11 @@ class Runs:
             task_id=task_id,
             user_id=user_id,
             status=status,
+            trigger_source=trigger_source,
+            created_after=(
+                created_after.isoformat() if isinstance(created_after, datetime) else created_after
+            ),
+            started_by_teammate_id=started_by_teammate_id,
             sort=sort,
             archived=archived,
             exclude_platform_runs=(
@@ -1003,6 +1021,9 @@ class Runs:
                 task_id=task_id,
                 user_id=user_id,
                 status=status,
+                trigger_source=trigger_source,
+                created_after=created_after,
+                started_by_teammate_id=started_by_teammate_id,
                 sort=sort,
                 archived=archived,
                 exclude_platform_runs=exclude_platform_runs,

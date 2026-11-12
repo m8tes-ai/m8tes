@@ -1,5 +1,6 @@
 """Tests for v2 SDK resource classes — verify correct HTTP calls and response parsing."""
 
+from datetime import UTC, datetime
 import json
 from typing import ClassVar
 
@@ -49,6 +50,7 @@ from m8tes._types import (
     TeamMembership,
     TeamOrg,
     Trigger,
+    TriggerLastRun,
 )
 
 BASE = "https://api.test/v2"
@@ -1268,6 +1270,53 @@ class TestRuns:
         assert responses.calls[1].request.params.get("exclude_platform_runs") == "true"
 
     @responses.activate
+    def test_list_trigger_source_created_after_and_started_by_ride_the_wire(self, http):
+        responses.add(responses.GET, f"{BASE}/runs/", json={"data": [], "has_more": False})
+        Runs(http).list(
+            trigger_source="schedule",
+            created_after=datetime(2026, 11, 12, 0, 0, tzinfo=UTC),
+            started_by_teammate_id=3450,
+        )
+        params = responses.calls[0].request.params
+        assert params["trigger_source"] == "schedule"
+        assert params["created_after"] == "2026-11-12T00:00:00+00:00"
+        assert params["started_by_teammate_id"] == "3450"
+
+    @responses.activate
+    def test_list_created_after_string_is_sent_as_given(self, http):
+        responses.add(responses.GET, f"{BASE}/runs/", json={"data": [], "has_more": False})
+        Runs(http).list(created_after="2026-11-12T00:00:00Z")
+        assert responses.calls[0].request.params["created_after"] == "2026-11-12T00:00:00Z"
+
+    @responses.activate
+    def test_list_default_omits_trigger_source_created_after_and_started_by(self, http):
+        responses.add(responses.GET, f"{BASE}/runs/", json={"data": [], "has_more": False})
+        Runs(http).list()
+        params = responses.calls[0].request.params
+        for name in ("trigger_source", "created_after", "started_by_teammate_id"):
+            assert name not in params
+
+    @responses.activate
+    def test_list_trigger_source_created_after_and_started_by_survive_pagination(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/",
+            json={"data": [{"id": 1}], "has_more": True, "next_starting_after": 1},
+        )
+        responses.add(responses.GET, f"{BASE}/runs/", json={"data": [{"id": 2}], "has_more": False})
+        page = Runs(http).list(
+            trigger_source="schedule",
+            created_after=datetime(2026, 11, 12, 0, 0, tzinfo=UTC),
+            started_by_teammate_id=3450,
+            limit=1,
+        )
+        list(page.auto_paging_iter())
+        for call in responses.calls:
+            assert call.request.params["trigger_source"] == "schedule"
+            assert call.request.params["created_after"] == "2026-11-12T00:00:00+00:00"
+            assert call.request.params["started_by_teammate_id"] == "3450"
+
+    @responses.activate
     def test_list_include_end_user_runs(self, http):
         responses.add(responses.GET, f"{BASE}/runs/", json={"data": [], "has_more": False})
         Runs(http).list(include_end_user_runs=True)
@@ -2339,6 +2388,71 @@ class TestTriggers:
         }
         assert responses.calls[1].request.params["starting_after"] == "7:schedule_10"
         assert len(items) == 1
+
+    @responses.activate
+    def test_include_last_run_rides_the_wire_and_survives_pagination(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/triggers/",
+            json={
+                "data": [{"id": "schedule_10", "task_id": 7, "type": "schedule", "enabled": True}],
+                "has_more": True,
+            },
+        )
+        responses.add(responses.GET, f"{BASE}/triggers/", json={"data": [], "has_more": False})
+        page = Triggers(http).list(type="schedule", include_last_run=True, limit=1)
+        list(page.auto_paging_iter())
+        assert responses.calls[0].request.params["include_last_run"] == "true"
+        assert responses.calls[1].request.params["include_last_run"] == "true"
+
+    @responses.activate
+    def test_default_list_does_not_ask_for_run_history(self, http):
+        responses.add(responses.GET, f"{BASE}/triggers/", json={"data": [], "has_more": False})
+        Triggers(http).list(type="schedule")
+        assert "include_last_run" not in responses.calls[0].request.params
+
+    @responses.activate
+    def test_schedule_health_fields_are_parsed(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/triggers/",
+            json={
+                "data": [
+                    {
+                        "id": "schedule_10",
+                        "task_id": 7,
+                        "type": "schedule",
+                        "enabled": False,
+                        "pause_reason": "funding_required",
+                        "failure_streak": 3,
+                        "last_run": {
+                            "run_id": 99,
+                            "status": "failed",
+                            "created_at": "2026-11-12T08:00:00Z",
+                            "updated_at": "2026-11-12T08:02:00Z",
+                            "error_code": "rate_limited",
+                            "failure_kind": "limit",
+                            "next_retry_at": "2026-11-12T17:10:00Z",
+                            "auto_retry_count": 1,
+                        },
+                    },
+                    {"id": "schedule_11", "task_id": 8, "type": "schedule", "enabled": True},
+                ],
+                "has_more": False,
+            },
+        )
+        first, second = Triggers(http).list(type="schedule", include_last_run=True).data
+        assert first.pause_reason == "funding_required"
+        assert first.failure_streak == 3
+        assert isinstance(first.last_run, TriggerLastRun)
+        assert first.last_run.run_id == 99
+        assert first.last_run.failure_kind == "limit"
+        assert first.last_run.next_retry_at == "2026-11-12T17:10:00Z"
+        assert first.last_run.auto_retry_count == 1
+        # A schedule the server sent none for keeps None, never a made-up zero.
+        assert second.pause_reason is None
+        assert second.last_run is None
+        assert second.failure_streak is None
 
 
 # ── Apps ─────────────────────────────────────────────────────────────
