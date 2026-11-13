@@ -253,6 +253,58 @@ class TestValue:
 
 class TestModelConnections:
     @responses.activate
+    def test_list_reads_each_plans_state(self, http):
+        state = {
+            "reopens_at": "2026-11-13T01:00:00Z",
+            "reopens_source": "stated_window",
+            "last_refused_at": "2026-11-12T09:33:00Z",
+            "last_refused_reason": "model_unavailable",
+            "last_refused_model": "gpt-6.1-sol",
+            "refusals_14d": 3,
+            "last_served_run_at": None,
+        }
+        responses.add(
+            responses.GET,
+            f"{BASE}/model-connections/",
+            json={
+                "data": [
+                    {
+                        "provider": "openai",
+                        "display_name": "OpenAI / Codex",
+                        "connected": True,
+                        "is_default": False,
+                        "accounts": [
+                            {"id": 4, "status": "active", "state": state},
+                            {"id": 5, "status": "active", "state": None},
+                            {"id": 6, "status": "active"},
+                        ],
+                    }
+                ],
+                "has_more": False,
+            },
+        )
+
+        [connection] = ModelConnections(http).list()
+
+        first, second, third = connection.accounts
+        assert first.state is not None
+        assert first.state.reopens_at == "2026-11-13T01:00:00Z"
+        assert first.state.reopens_source == "stated_window"
+        assert first.state.last_refused_reason == "model_unavailable"
+        assert first.state.last_refused_model == "gpt-6.1-sol"
+        assert first.state.refusals_14d == 3
+        assert first.state.last_served_run_at is None
+        assert second.state is None and third.state is None
+
+    def test_a_state_with_nothing_in_it_reads_as_not_known(self):
+        from m8tes import ModelConnectionPlanState
+
+        state = ModelConnectionPlanState.from_dict({})
+
+        assert state == ModelConnectionPlanState()
+        assert state.refusals_14d == 0 and state.reopens_at is None
+
+    @responses.activate
     def test_list_authorize_poll_cancel_and_disconnect(self, http):
         responses.add(
             responses.GET,

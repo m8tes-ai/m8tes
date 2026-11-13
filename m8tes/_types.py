@@ -176,6 +176,34 @@ class Model:
 
 
 @dataclass
+class ModelConnectionPlanState:
+    """What the platform already knows about one connected plan. Read-only.
+
+    A ``None`` (or a zero ``refusals_14d``) means not known, never that the plan is fine.
+    """
+
+    reopens_at: str | None = None
+    reopens_source: str | None = None  # "stated_window" | "cooldown"
+    last_refused_at: str | None = None
+    last_refused_reason: str | None = None  # "model_unavailable": the plan does not serve it
+    last_refused_model: str | None = None
+    refusals_14d: int = 0
+    last_served_run_at: str | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ModelConnectionPlanState:
+        return cls(
+            reopens_at=data.get("reopens_at"),
+            reopens_source=data.get("reopens_source"),
+            last_refused_at=data.get("last_refused_at"),
+            last_refused_reason=data.get("last_refused_reason"),
+            last_refused_model=data.get("last_refused_model"),
+            refusals_14d=int(data.get("refusals_14d") or 0),
+            last_served_run_at=data.get("last_served_run_at"),
+        )
+
+
+@dataclass
 class ModelConnectionAccount:
     """One connected subscription account. A provider may have several."""
 
@@ -185,9 +213,12 @@ class ModelConnectionAccount:
     account_email: str | None = None
     expires_at: str | None = None
     created_at: str | None = None
+    # Returned by ``list()``; ``None`` on the responses to connecting or disconnecting.
+    state: ModelConnectionPlanState | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> ModelConnectionAccount:
+        state = data.get("state")
         return cls(
             id=int(data["id"]),
             status=data["status"],
@@ -195,6 +226,7 @@ class ModelConnectionAccount:
             account_email=data.get("account_email"),
             expires_at=data.get("expires_at"),
             created_at=data.get("created_at"),
+            state=ModelConnectionPlanState.from_dict(state) if isinstance(state, dict) else None,
         )
 
 

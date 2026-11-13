@@ -38,9 +38,7 @@ class Triggers:
             user_id=user_id,
             type=type,
             task_id=task_id,
-            include_last_run=(
-                None if include_last_run is None else str(include_last_run).lower()
-            ),
+            include_last_run=(None if include_last_run is None else str(include_last_run).lower()),
             limit=limit,
             starting_after=starting_after,
         )
