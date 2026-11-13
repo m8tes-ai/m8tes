@@ -2805,6 +2805,81 @@ class UsageTimeseries:
 
 
 @dataclass
+class UsageBreakdownTotals:
+    """Run counts and plan use over a usage-breakdown window.
+
+    `total_tokens` is the sum of each run's whole-run total, counted once per run. A
+    run's total re-counts the conversation on every model request, so it measures
+    load on the model plan, not work done: compare with `UsageBreakdownGroup.share_of_use`.
+    """
+
+    runs: int
+    delivered_runs: int
+    metered_runs: int
+    total_tokens: int
+
+    @classmethod
+    def from_dict(cls, data: dict) -> UsageBreakdownTotals:
+        return cls(
+            runs=data.get("runs", 0),
+            delivered_runs=data.get("delivered_runs", 0),
+            metered_runs=data.get("metered_runs", 0),
+            total_tokens=data.get("total_tokens", 0),
+        )
+
+
+@dataclass
+class UsageBreakdownGroup(UsageBreakdownTotals):
+    """One teammate's or one task's runs and plan use in a usage-breakdown window.
+
+    `id` is the teammate id (`group_by="teammate"`) or the task id (`group_by="task"`);
+    `None` groups the runs that came from no task. `share_of_use` is a fraction (0 to 1)
+    of the window's `totals.total_tokens`. `median_run_tokens` is what one run of this
+    group usually uses, or `None` when no run was metered.
+    """
+
+    id: int | None = None
+    share_of_use: float = 0.0
+    median_run_tokens: int | None = None
+
+    @classmethod
+    def from_dict(cls, data: dict) -> UsageBreakdownGroup:
+        return cls(
+            runs=data.get("runs", 0),
+            delivered_runs=data.get("delivered_runs", 0),
+            metered_runs=data.get("metered_runs", 0),
+            total_tokens=data.get("total_tokens", 0),
+            id=data.get("id"),
+            share_of_use=data.get("share_of_use", 0.0),
+            median_run_tokens=data.get("median_run_tokens"),
+        )
+
+
+@dataclass
+class UsageBreakdown:
+    """Runs, delivered runs and plan use per teammate or task over a UTC-day window."""
+
+    group_by: str
+    start_date: str
+    end_date: str
+    groups: list[UsageBreakdownGroup]
+    has_more: bool
+    # The whole window, not only the groups returned: `share_of_use` reads against it.
+    totals: UsageBreakdownTotals
+
+    @classmethod
+    def from_dict(cls, data: dict) -> UsageBreakdown:
+        return cls(
+            group_by=data.get("group_by", ""),
+            start_date=data.get("start_date", ""),
+            end_date=data.get("end_date", ""),
+            groups=[UsageBreakdownGroup.from_dict(g) for g in data.get("groups", [])],
+            has_more=data.get("has_more", False),
+            totals=UsageBreakdownTotals.from_dict(data.get("totals", {})),
+        )
+
+
+@dataclass
 class Receipt:
     """One prepaid top-up with its Stripe-hosted receipt link (may be None when
     the underlying checkout session is no longer retrievable)."""

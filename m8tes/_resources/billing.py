@@ -19,6 +19,7 @@ from .._types import (
     SubscriptionCheckout,
     SyncPage,
     Usage,
+    UsageBreakdown,
     UsageTimeseries,
 )
 from ._utils import _build_params, _resolve_agent_id
@@ -77,6 +78,49 @@ class Billing:
         )
         resp = self._http.request("GET", "/usage/timeseries", params=params)
         return UsageTimeseries.from_dict(resp.json())
+
+    def usage_breakdown(
+        self,
+        *,
+        group_by: str,
+        start_date: str | None = None,
+        end_date: str | None = None,
+        user_id: str | None = None,
+        group_id: int | None = None,
+        limit: int | None = None,
+    ) -> UsageBreakdown:
+        """Which teammate or task uses your plan, and how many of its runs delivered.
+
+        `group_by` is `"teammate"` or `"task"`. Defaults to the last 7 UTC days ending
+        today; the window may be at most 93 days. Dates are ISO strings (`"2026-11-06"`).
+        Each group in `.groups` carries `runs`, `delivered_runs` (runs that completed),
+        `share_of_use` (a fraction, 0 to 1, of the window's plan use) and
+        `median_run_tokens`. A run belongs to the days it was created in and counts once
+        however many times it finished or was revived. No dollar figure is returned.
+
+        `total_tokens` re-counts the conversation on every model request, so it measures
+        load on the model plan, not work done: compare groups by `share_of_use`.
+        `.totals` covers the whole window, whatever groups came back, and is what
+        `share_of_use` is read against. Pass `group_id` (a teammate or task id, matching
+        `group_by`) to read one group; pass `user_id` to scope to one end-user. Groups
+        come largest use first, at most `limit` (default 50, maximum 200); `.has_more`
+        says whether more matched.
+        """
+        # Not _build_params: it drops limit=20, and this route's default limit is 50.
+        params = {
+            key: value
+            for key, value in {
+                "group_by": group_by,
+                "start_date": start_date,
+                "end_date": end_date,
+                "user_id": user_id,
+                "group_id": group_id,
+                "limit": limit,
+            }.items()
+            if value is not None
+        }
+        resp = self._http.request("GET", "/usage/breakdown", params=params)
+        return UsageBreakdown.from_dict(resp.json())
 
     def receipts(self, *, limit: int = 20, starting_after: int | None = None) -> SyncPage[Receipt]:
         """Prepaid top-up payment history with Stripe-hosted receipt links, newest first.

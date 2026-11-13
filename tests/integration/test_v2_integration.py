@@ -5324,6 +5324,43 @@ class TestV2Billing:
         with pytest.raises(ValidationError):
             v2_client.billing.usage_timeseries(group_by="teammate")
 
+    def test_usage_breakdown_default_window_groups_add_up_to_the_totals(self, v2_client):
+        from m8tes._types import UsageBreakdown, UsageBreakdownGroup
+
+        week = v2_client.billing.usage_breakdown(group_by="teammate")
+        assert isinstance(week, UsageBreakdown)
+        assert week.group_by == "teammate"
+        # Default: the last 7 UTC days, inclusive.
+        span = datetime.fromisoformat(week.end_date) - datetime.fromisoformat(week.start_date)
+        assert span.days == 6
+        assert all(isinstance(g, UsageBreakdownGroup) for g in week.groups)
+        if not week.has_more:
+            assert sum(g.runs for g in week.groups) == week.totals.runs
+            assert sum(g.total_tokens for g in week.groups) == week.totals.total_tokens
+            assert sum(g.delivered_runs for g in week.groups) == week.totals.delivered_runs
+        assert week.totals.delivered_runs <= week.totals.runs
+
+    def test_usage_breakdown_unknown_end_user_and_group_are_empty(self, v2_client):
+        none = v2_client.billing.usage_breakdown(group_by="task", user_id="nonexistent-euid")
+        assert none.groups == []
+        assert none.totals.runs == 0
+        # A group id nobody has returns no group, and not an error.
+        missing = v2_client.billing.usage_breakdown(group_by="teammate", group_id=2_000_000_000)
+        assert missing.groups == []
+
+    def test_usage_breakdown_rejects_a_bad_request(self, v2_client):
+        with pytest.raises(ValidationError):
+            v2_client.billing.usage_breakdown(group_by="model")
+        with pytest.raises(ValidationError):
+            v2_client.billing.usage_breakdown(
+                group_by="task", start_date="2026-07-02", end_date="2026-07-01"
+            )
+        with pytest.raises(ValidationError):
+            # 94 days inclusive: one past the 93-day cap.
+            v2_client.billing.usage_breakdown(
+                group_by="task", start_date="2026-01-01", end_date="2026-04-04"
+            )
+
     def test_receipts_lists_empty_for_fresh_account(self, v2_client):
         page = v2_client.billing.receipts()
         assert isinstance(page.data, list)

@@ -5,7 +5,16 @@ import responses
 
 from m8tes._http import HTTPClient
 from m8tes._resources.billing import Billing
-from m8tes._types import Balance, Invoice, Receipt, Run, RunUsage, UsageTimeseries
+from m8tes._types import (
+    Balance,
+    Invoice,
+    Receipt,
+    Run,
+    RunUsage,
+    UsageBreakdown,
+    UsageBreakdownGroup,
+    UsageTimeseries,
+)
 
 BASE = "https://api.test/v2"
 
@@ -227,6 +236,109 @@ class TestUsageTimeseries:
         )
         billing.usage_timeseries()
         assert responses.calls[0].request.params == {}
+
+
+GROUP = {
+    "id": 3453,
+    "runs": 148,
+    "delivered_runs": 129,
+    "metered_runs": 140,
+    "total_tokens": 7_900_000_000,
+    "share_of_use": 0.205,
+    "median_run_tokens": 31_000_000,
+}
+BREAKDOWN = {
+    "group_by": "teammate",
+    "start_date": "2026-11-06",
+    "end_date": "2026-11-12",
+    "groups": [GROUP],
+    "has_more": False,
+    "totals": {
+        "runs": 771,
+        "delivered_runs": 593,
+        "metered_runs": 640,
+        "total_tokens": 22_900_000_000,
+    },
+}
+
+
+class TestUsageBreakdown:
+    @responses.activate
+    def test_parses_groups_and_the_window_totals(self, billing):
+        responses.add(responses.GET, f"{BASE}/usage/breakdown", json=BREAKDOWN)
+
+        week = billing.usage_breakdown(group_by="teammate")
+
+        assert isinstance(week, UsageBreakdown)
+        assert (week.group_by, week.start_date, week.end_date) == (
+            "teammate",
+            "2026-11-06",
+            "2026-11-12",
+        )
+        assert week.has_more is False
+        assert week.totals.runs == 771
+        assert week.totals.delivered_runs == 593
+        assert week.totals.metered_runs == 640
+        assert week.totals.total_tokens == 22_900_000_000
+        group = week.groups[0]
+        assert isinstance(group, UsageBreakdownGroup)
+        assert (group.id, group.runs, group.delivered_runs, group.metered_runs) == (
+            3453,
+            148,
+            129,
+            140,
+        )
+        assert group.total_tokens == 7_900_000_000
+        assert group.share_of_use == 0.205
+        assert group.median_run_tokens == 31_000_000
+
+    @responses.activate
+    def test_a_taskless_group_and_a_group_with_no_median_parse_as_none(self, billing):
+        responses.add(
+            responses.GET,
+            f"{BASE}/usage/breakdown",
+            json={
+                **BREAKDOWN,
+                "group_by": "task",
+                "groups": [{**GROUP, "id": None, "median_run_tokens": None}],
+            },
+        )
+
+        group = billing.usage_breakdown(group_by="task").groups[0]
+
+        assert group.id is None
+        assert group.median_run_tokens is None
+
+    @responses.activate
+    def test_sends_every_filter_as_a_param(self, billing):
+        responses.add(responses.GET, f"{BASE}/usage/breakdown", json=BREAKDOWN)
+
+        billing.usage_breakdown(
+            group_by="task",
+            start_date="2026-11-01",
+            end_date="2026-11-07",
+            user_id="alice",
+            group_id=5787,
+            limit=20,
+        )
+
+        params = responses.calls[0].request.params
+        assert params["group_by"] == "task"
+        assert params["start_date"] == "2026-11-01"
+        assert params["end_date"] == "2026-11-07"
+        assert params["user_id"] == "alice"
+        assert params["group_id"] == "5787"
+        # The route's default is 50, so an explicit 20 must reach it (the shared param
+        # builder drops limit=20 because most list routes default to it).
+        assert params["limit"] == "20"
+
+    @responses.activate
+    def test_omits_unset_params(self, billing):
+        responses.add(responses.GET, f"{BASE}/usage/breakdown", json=BREAKDOWN)
+
+        billing.usage_breakdown(group_by="teammate")
+
+        assert responses.calls[0].request.params == {"group_by": "teammate"}
 
 
 class TestInvoices:
