@@ -38,6 +38,16 @@ class TestRunStream:
         assert len(events) == 2
         assert isinstance(events[0], StreamEvent)
 
+    def test_an_opening_comment_yields_no_event(self):
+        """A run's POST stream opens with `: connected`, written before the run does anything.
+
+        It carries no event, and the CLI reads run streams only through RunStream, so this
+        covers its tasks and chat commands too.
+        """
+        lines = [": connected", "", *_sse_frame({"type": "text-delta", "delta": "Hello"}), *_DONE]
+        events = list(RunStream(self._make_response(lines)))
+        assert [event.type.value for event in events] == ["text-delta", "done"]
+
     def test_context_manager_closes_response(self):
         resp = self._make_response(_DONE)
         with RunStream(resp) as stream:
