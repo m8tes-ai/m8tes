@@ -1,0 +1,1 @@
+- `PermissionRequest.script` is now set for the run of a script tool too, not only for the gate that creates one. Its `origin` lists every origin the script may send to, separated by commas, and `preview` is the first 40 lines of its source. The approval card, Slack and the approval email read the same list.

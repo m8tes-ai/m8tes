@@ -2268,7 +2268,9 @@ class PermissionRequest:
     # manufacture urgency on a consent surface. Use it to tell a fresh gate from a stale
     # one. Defaults to the platform window when an older server omits it.
     timeout_seconds: int = 55
-    # kind=script create card only. Origin + sha256 + preview — never the source.
+    # The script card: `origin` lists every origin the script may send to (joined by commas),
+    # `sha256`, and a source preview (never the whole source). Set on `create_custom_script`
+    # and on a later call to a script tool.
     script: dict[str, str] | None = None
 
     @classmethod
