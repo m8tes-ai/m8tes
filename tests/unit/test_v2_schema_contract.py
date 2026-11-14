@@ -279,6 +279,7 @@ _NESTED_OBJECT_FIELDS = {
     ("ChannelInstallLinks", "slack"),  # SlackInstallLink — covered by test_v2_resources.py
     ("ChannelInstallLinks", "github"),  # GitHubInstallLink — same
     ("Group", "path"),  # GroupPathItem — covered by test_v2_resources.py
+    ("Trigger", "last_run"),  # TriggerLastRun — covered by test_v2_resources.py
 }
 
 
