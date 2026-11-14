@@ -20,6 +20,8 @@ from m8tes._types import (
     AuditLog,
     Channel,
     ChannelInstallLinks,
+    ContinueStoppedRuns,
+    ContinueStoppedSkipped,
     Group,
     GroupInvite,
     GroupInvitePreview,
@@ -87,6 +89,8 @@ GroupMemberResponse = _schemas.GroupMemberResponse
 GroupInviteResponse = _schemas.GroupInviteResponse
 GroupInvitePreviewResponse = _schemas.GroupInvitePreview
 JudgmentResponse = _schemas.JudgmentResponse
+ContinueStoppedRunsResponse = _schemas.ContinueStoppedRunsResponse
+ContinueStoppedSkippedResponse = _schemas.ContinueStoppedSkipped
 
 
 def _pydantic_fields(model: type) -> set[str]:
@@ -123,6 +127,8 @@ SCHEMA_PAIRS = [
     (GroupMemberResponse, GroupMember, set()),
     (GroupInviteResponse, GroupInvite, set()),
     (GroupInvitePreviewResponse, GroupInvitePreview, set()),
+    (ContinueStoppedRunsResponse, ContinueStoppedRuns, set()),
+    (ContinueStoppedSkippedResponse, ContinueStoppedSkipped, set()),
 ]
 
 
@@ -214,6 +220,8 @@ def _probe_value(field: dataclasses.Field):
         return _UNSUPPORTED
     if base == "list[RunFile]":
         return _UNSUPPORTED
+    if base == "list[ContinueStoppedSkipped]":
+        return _UNSUPPORTED
     if base == "list" or base.startswith("list["):
         return ["probe"]
     if base == "JudgmentUsage":
@@ -280,6 +288,8 @@ _NESTED_OBJECT_FIELDS = {
     ("ChannelInstallLinks", "github"),  # GitHubInstallLink — same
     ("Group", "path"),  # GroupPathItem — covered by test_v2_resources.py
     ("Trigger", "last_run"),  # TriggerLastRun — covered by test_v2_resources.py
+    # ContinueStoppedSkipped — covered by test_v2_resources.py::test_continue_stopped_names_runs...
+    ("ContinueStoppedRuns", "skipped"),
 }
 
 

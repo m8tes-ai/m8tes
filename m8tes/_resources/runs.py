@@ -14,6 +14,7 @@ from .._exceptions import StreamInterruptedError
 from .._http import IDEMPOTENCY_HEADER, REPLAY_HEADER, seg
 from .._streaming import RunStream, _run_id_from
 from .._types import (
+    ContinueStoppedRuns,
     NeedsYou,
     PermissionMode,
     PermissionModeResponse,
@@ -1233,6 +1234,39 @@ class Runs:
             return self._stream_or_replay(resp, raise_on_error=False, run_id=run_id)
         resp = self._http.request("POST", f"/runs/{seg(run_id)}/reply", json=body, headers=headers)
         return Run.from_dict(resp.json())
+
+    def continue_stopped(self, run_ids: _list[int] | None = None) -> ContinueStoppedRuns:
+        """Continue the runs a plan's usage limit stopped, paced by the plans that are open.
+
+        A run is stopped by a limit when it is ``failed`` with ``failure_kind == "limit"``
+        (queued for an automatic retry, or out of tries) or ``paused`` and held until its plan
+        reopens, it has a conversation to continue, and its work was not already started again as
+        a new run (``retried_by_run_id`` is ``None``). Each is sent "Continue" the way
+        ``reply(..., reset_auto_recovery=True)`` does, but not all at once and never into a
+        plan that is known to be closed:
+
+        - every connected plan is closed: nothing starts, every eligible run is in ``waiting``
+          and ``next_plan_opens_at`` says when the first plan reopens;
+        - a plan is open, or none is connected: at most three runs start per open plan (three
+          in all with no plan connected), oldest stopped first, and the rest are in
+          ``waiting``. Call again for more.
+
+        A ``waiting`` run is left exactly as it was (its queued automatic start and its tries
+        are untouched). A ``started`` run gets a fresh automatic-retry budget and no try is
+        spent on it. When the account's cap on runs live at once refuses a start, starting
+        stops there: that run and the rest wait.
+
+        Omit ``run_ids`` for every such run of the account (its own runs, not its end users').
+        Then ``skipped`` holds only a run a limit had stopped when the call began and that was
+        not started: its start was refused, or it changed while the call worked (archived,
+        stopped, or started by someone else). Pass ids, at most 200, to learn why each run that
+        is left alone is left alone: every named run that cannot be continued lands in
+        ``skipped`` with a ``reason``. Calling again is safe: a run already running is
+        ``already_running`` and nothing starts twice.
+        """
+        body: dict = {} if run_ids is None else {"run_ids": list(run_ids)}
+        resp = self._http.request("POST", "/runs/continue-stopped", json=body)
+        return ContinueStoppedRuns.from_dict(resp.json())
 
     def cancel(self, run_id: int, *, user_id: str | None = None) -> Run:
         """Cancel an active run or its pending automatic recovery.

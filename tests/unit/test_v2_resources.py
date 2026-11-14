@@ -33,6 +33,8 @@ from m8tes._types import (
     AppConnectionInitiation,
     AppConnectionResult,
     AuditLog,
+    ContinueStoppedRuns,
+    ContinueStoppedSkipped,
     Model,
     PermissionMode,
     PermissionRequest,
@@ -1009,6 +1011,80 @@ class TestRuns:
         assert result.teams_count == 0
         assert result.awaiting_count == 0
         assert result.latest_change_at is None
+
+    @responses.activate
+    def test_continue_stopped_sends_an_empty_body_for_every_run_and_parses_the_answer(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/continue-stopped",
+            json={
+                "started": [11, 12],
+                "waiting": [13],
+                "skipped": [],
+                "plans_connected": 2,
+                "plans_open": 1,
+                "next_plan_opens_at": None,
+            },
+        )
+
+        result = Runs(http).continue_stopped()
+
+        assert isinstance(result, ContinueStoppedRuns)
+        call = responses.calls[0].request
+        assert (call.method, call.url) == ("POST", f"{BASE}/runs/continue-stopped")
+        assert json.loads(call.body) == {}
+        # The server ignores the header, so the SDK does not mint one per call (reply does).
+        assert "Idempotency-Key" not in call.headers
+        assert (result.started, result.waiting, result.skipped) == ([11, 12], [13], [])
+        assert (result.plans_connected, result.plans_open) == (2, 1)
+        assert result.next_plan_opens_at is None
+
+    @responses.activate
+    def test_continue_stopped_names_runs_and_reads_each_reason(self, http):
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/continue-stopped",
+            json={
+                "started": [],
+                "waiting": [3, 1],
+                "skipped": [
+                    {"run_id": 9, "reason": "archived"},
+                    {"run_id": 8, "reason": "not_found"},
+                ],
+                "plans_connected": 1,
+                "plans_open": 0,
+                "next_plan_opens_at": "2026-11-12T18:10:00Z",
+            },
+        )
+
+        result = Runs(http).continue_stopped(run_ids=(3, 1, 9, 8))
+
+        assert json.loads(responses.calls[0].request.body) == {"run_ids": [3, 1, 9, 8]}
+        assert result.waiting == [3, 1]
+        assert result.skipped == [
+            ContinueStoppedSkipped(run_id=9, reason="archived"),
+            ContinueStoppedSkipped(run_id=8, reason="not_found"),
+        ]
+        assert result.next_plan_opens_at == "2026-11-12T18:10:00Z"
+
+    @responses.activate
+    def test_continue_stopped_with_an_empty_list_asks_for_nothing_not_everything(self, http):
+        """[] and None differ on the wire: the server reads a missing field as 'every run'."""
+        responses.add(
+            responses.POST,
+            f"{BASE}/runs/continue-stopped",
+            json={
+                "started": [],
+                "waiting": [],
+                "skipped": [],
+                "plans_connected": 0,
+                "plans_open": 0,
+            },
+        )
+
+        Runs(http).continue_stopped(run_ids=[])
+
+        assert json.loads(responses.calls[0].request.body) == {"run_ids": []}
 
     @responses.activate
     def test_share_and_unshare(self, http):

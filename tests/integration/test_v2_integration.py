@@ -35,6 +35,8 @@ from m8tes._types import (
     AccountSettings,
     AuditLog,
     BuiltInTool,
+    ContinueStoppedRuns,
+    ContinueStoppedSkipped,
     EmailInbox,
     EndUser,
     Feedback,
@@ -2523,6 +2525,38 @@ class TestRunsReadOnly:
         with pytest.raises(NotFoundError):
             v2_client.runs.unarchive(999999)
 
+    def test_continue_stopped_asking_for_nothing_starts_nothing(self, v2_client):
+        """An empty list asks for nothing: it does not mean every run (that is the omitted list)."""
+        result = v2_client.runs.continue_stopped(run_ids=[])
+        assert isinstance(result, ContinueStoppedRuns)
+        assert (result.started, result.waiting, result.skipped) == ([], [], [])
+        assert 0 <= result.plans_open <= result.plans_connected
+        # Only a call that found every connected plan closed names a reopening time.
+        if result.plans_connected == 0 or result.plans_open > 0:
+            assert result.next_plan_opens_at is None
+
+    def test_continue_stopped_names_a_run_that_does_not_exist(self, v2_client):
+        """A missing id is an answer, not an error: the call says `not_found` and carries on."""
+        result = v2_client.runs.continue_stopped(run_ids=[999999, 999999, 2**31])
+        assert result.started == [] and result.waiting == []
+        assert result.skipped == [
+            ContinueStoppedSkipped(run_id=999999, reason="not_found"),
+            ContinueStoppedSkipped(run_id=2**31, reason="not_found"),
+        ]
+
+    def test_continue_stopped_refuses_more_ids_than_it_takes(self, v2_client):
+        with pytest.raises(ValidationError) as refused:
+            v2_client.runs.continue_stopped(run_ids=list(range(1, 202)))
+        assert refused.value.status_code == 422
+        # Exactly the limit is fine.
+        assert v2_client.runs.continue_stopped(run_ids=[999999] * 200).started == []
+
+    def test_continue_stopped_refuses_a_body_it_cannot_honour(self, v2_client):
+        for body in ({"run_ids": "42"}, {"run_ids": ["x"]}, {"run_ids": [1], "dry_run": True}):
+            with pytest.raises(ValidationError) as refused:
+                v2_client._http.request("POST", "/runs/continue-stopped", json=body)
+            assert refused.value.status_code == 422
+
 
 @pytest.mark.integration
 class TestRunsWithFiles:
@@ -2651,6 +2685,35 @@ class TestRunShareArchiveRuntime:
             assert any(r.id == run.id for r in v2_client.runs.list(limit=100).data)
             only_after = {r.id for r in v2_client.runs.list(archived="only", limit=100).data}
             assert run.id not in only_after
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+
+@pytest.mark.integration
+@pytest.mark.runtime
+class TestRunContinueStoppedRuntime:
+    """A real run that no limit stopped is left alone, and says why."""
+
+    def test_a_run_no_limit_stopped_is_skipped_and_nothing_starts(self, v2_client):
+        tm = v2_client.teammates.create(name="ContinueStoppedHost")
+        try:
+            run = v2_client.runs.create(teammate_id=tm.id, message="not stopped", stream=False)
+            with contextlib.suppress(M8tesError):
+                v2_client.runs.cancel(run.id)
+
+            result = v2_client.runs.continue_stopped(run_ids=[run.id])
+
+            assert (result.started, result.waiting) == ([], [])
+            assert [s.run_id for s in result.skipped] == [run.id]
+            # Cancelled, completed or still running: none of them is a run a limit stopped.
+            assert result.skipped[0].reason in {"not_stopped_by_a_limit", "already_running"}
+
+            # An archived run is never restarted, and says so before anything else.
+            v2_client.runs.archive(run.id)
+            archived = v2_client.runs.continue_stopped(run_ids=[run.id])
+            assert (archived.started, archived.waiting) == ([], [])
+            assert archived.skipped == [ContinueStoppedSkipped(run_id=run.id, reason="archived")]
+            assert v2_client.runs.get(run.id).archived is True
         finally:
             v2_client.teammates.delete(tm.id)
 
