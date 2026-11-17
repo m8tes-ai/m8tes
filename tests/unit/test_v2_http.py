@@ -1,5 +1,7 @@
 """Tests for v2 SDK HTTP client."""
 
+import threading
+
 import pytest
 import responses
 
@@ -40,6 +42,143 @@ class TestHTTPClient:
         responses.add(responses.GET, "https://api.m8tes.ai/v2/apps", json=[], status=200)
         client.request("GET", "/apps")
         assert responses.calls[0].request.url == "https://api.m8tes.ai/v2/apps"
+
+
+class TestContentTypeIsPerRequest:
+    """The JSON Content-Type belongs to the request, never to the shared session.
+
+    An upload used to pop the session's Content-Type and put it back in a ``finally``.
+    Every other thread on the same client saw the edit: one finished upload restored
+    ``application/json`` onto another upload that was still preparing or retrying, and
+    the server rejected the multipart body.
+    """
+
+    BASE = "https://api.m8tes.ai/v2"
+
+    @staticmethod
+    def _upload(http, name: str):
+        return http.request(
+            "POST",
+            "/runs/with-files",
+            data={"payload": "{}"},
+            files={"file": (name, b"data of " + name.encode())},
+        )
+
+    @staticmethod
+    def _call_for(name: str):
+        needle = f'filename="{name}"'.encode()
+        matches = [c for c in responses.calls if needle in (c.request.body or b"")]
+        assert len(matches) == 1, f"expected one request for {name}, got {len(matches)}"
+        return matches[0].request
+
+    @responses.activate
+    def test_upload_never_edits_the_shared_session_headers(self, http, monkeypatch):
+        responses.add(responses.POST, f"{self.BASE}/runs/with-files", json={"id": 1})
+        before = dict(http._session.headers)
+        seen: list[dict] = []
+        real_request = http._session.request
+
+        def spy(method, url, **kwargs):
+            # The moment the upload is on the wire is the moment another thread could look.
+            seen.append(dict(http._session.headers))
+            return real_request(method, url, **kwargs)
+
+        monkeypatch.setattr(http._session, "request", spy)
+        self._upload(http, "a.txt")
+
+        assert seen == [before]
+        assert dict(http._session.headers) == before
+
+    @responses.activate
+    def test_overlapping_uploads_each_go_out_as_multipart(self, http, monkeypatch):
+        responses.add(responses.POST, f"{self.BASE}/runs/with-files", json={"id": 1})
+        a_on_the_wire = threading.Event()
+        b_on_the_wire = threading.Event()
+        a_finished = threading.Event()
+        errors: list[BaseException] = []
+        real_request = http._session.request
+
+        def gate(method, url, **kwargs):
+            # A is on the wire first and stays there until B has started its own upload.
+            # B then waits until A has completely finished (its cleanup included) before
+            # it builds its request: the window in which a restored header leaks onto B.
+            if kwargs["files"]["file"][0] == "a.txt":
+                a_on_the_wire.set()
+                assert b_on_the_wire.wait(5), "B never started"
+            else:
+                assert a_on_the_wire.wait(5), "A never started"
+                b_on_the_wire.set()
+                assert a_finished.wait(5), "A never finished"
+            return real_request(method, url, **kwargs)
+
+        monkeypatch.setattr(http._session, "request", gate)
+
+        def run(name: str) -> None:
+            try:
+                self._upload(http, name)
+            except BaseException as exc:  # surfaced below, a thread would swallow it
+                errors.append(exc)
+            finally:
+                if name == "a.txt":
+                    a_finished.set()
+
+        thread_a = threading.Thread(target=run, args=("a.txt",))
+        thread_a.start()
+        assert a_on_the_wire.wait(5)
+        thread_b = threading.Thread(target=run, args=("b.txt",))
+        thread_b.start()
+        thread_a.join(10)
+        thread_b.join(10)
+
+        assert not thread_a.is_alive() and not thread_b.is_alive()
+        assert errors == []
+        for name in ("a.txt", "b.txt"):
+            content_type = self._call_for(name).headers["Content-Type"]
+            assert content_type.startswith("multipart/form-data; boundary="), (name, content_type)
+
+    @responses.activate
+    @pytest.mark.parametrize("sent", ["Content-Type", "content-type"])
+    def test_upload_drops_a_callers_own_content_type(self, http, sent):
+        responses.add(responses.POST, f"{self.BASE}/runs/with-files", json={"id": 1})
+        http.request(
+            "POST",
+            "/runs/with-files",
+            data={"payload": "{}"},
+            files={"file": ("a.txt", b"x")},
+            headers={sent: "application/json", "Idempotency-Key": "k1"},
+        )
+        request = responses.calls[0].request
+        assert request.headers["Content-Type"].startswith("multipart/form-data; boundary=")
+        assert request.headers["Idempotency-Key"] == "k1"
+
+    @responses.activate
+    def test_requests_without_files_still_send_json(self, http):
+        responses.add(responses.GET, f"{self.BASE}/runs/1", json={"id": 1})
+        responses.add(responses.POST, f"{self.BASE}/runs/", json={"id": 1})
+        http.request("GET", "/runs/1")
+        http.request("POST", "/runs/", json={"message": "hi"})
+        assert [c.request.headers["Content-Type"] for c in responses.calls] == [
+            "application/json",
+            "application/json",
+        ]
+
+    @responses.activate
+    @pytest.mark.parametrize("sent", ["Content-Type", "content-type"])
+    def test_a_callers_content_type_wins_without_files(self, http, sent):
+        responses.add(responses.POST, f"{self.BASE}/raw", json={"ok": True})
+        http.request("POST", "/raw", data=b"a,b", headers={sent: "text/csv"})
+        assert responses.calls[0].request.headers["Content-Type"] == "text/csv"
+
+    @responses.activate
+    def test_streams_send_json_too(self, http):
+        responses.add(
+            responses.POST,
+            f"{self.BASE}/runs/",
+            body=b"data: {}\n\n",
+            content_type="text/event-stream",
+        )
+        http.stream("POST", "/runs/", json={"message": "hi"})
+        assert responses.calls[0].request.headers["Content-Type"] == "application/json"
 
 
 class TestErrorMapping:

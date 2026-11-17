@@ -7,6 +7,7 @@ from typing import Any
 from urllib.parse import quote
 
 import requests
+from requests.structures import CaseInsensitiveDict
 
 from ._exceptions import STATUS_MAP, APIError, ValidationError
 
@@ -288,7 +289,6 @@ class HTTPClient:
     def __init__(self, api_key: str, base_url: str, timeout: int = 300):
         self._session = requests.Session()
         self._session.headers["Authorization"] = f"Bearer {api_key}"
-        self._session.headers["Content-Type"] = "application/json"
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout
 
@@ -296,25 +296,22 @@ class HTTPClient:
         self, method: str, url: str, *, path: str = "", is_stream: bool = False, **kwargs: Any
     ) -> requests.Response:
         """Send request with retry on 429/5xx. Respects Retry-After header."""
+        # Content-Type is decided per request and never stored on the shared session.
+        # A session header that an upload removes and restores is visible to every other
+        # thread on this client: one finished upload put application/json back onto
+        # another upload that was still preparing or retrying, and the server rejected
+        # the multipart body.
+        headers = CaseInsensitiveDict(kwargs.get("headers") or {})
         if "files" in kwargs:
-            # Multipart upload: drop the session-level JSON Content-Type so
-            # requests sets multipart/form-data with its boundary instead.
-            # Never set Content-Type to None (that produced ValidationError
-            # "Invalid type: None" against prod); pop from both the per-request
-            # headers and the session defaults for this call only.
-            headers = dict(kwargs.get("headers") or {})
+            # Multipart upload: send no Content-Type of our own so requests sets
+            # multipart/form-data with its boundary. Never set it to None (that produced
+            # ValidationError "Invalid type: None" against prod); drop it from this
+            # request's headers, whatever case the caller spelled it in.
             headers.pop("Content-Type", None)
-            kwargs["headers"] = headers
-            session_ct = self._session.headers.pop("Content-Type", None)
         else:
-            session_ct = None
-        try:
-            return self._request_with_retry_body(
-                method, url, path=path, is_stream=is_stream, **kwargs
-            )
-        finally:
-            if session_ct is not None:
-                self._session.headers["Content-Type"] = session_ct
+            headers.setdefault("Content-Type", "application/json")
+        kwargs["headers"] = dict(headers)
+        return self._request_with_retry_body(method, url, path=path, is_stream=is_stream, **kwargs)
 
     def _request_with_retry_body(
         self, method: str, url: str, *, path: str = "", is_stream: bool = False, **kwargs: Any
