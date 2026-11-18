@@ -320,6 +320,7 @@ class TestUsageBreakdown:
             user_id="alice",
             group_id=5787,
             limit=20,
+            tokens_by="day",
         )
 
         params = responses.calls[0].request.params
@@ -331,6 +332,7 @@ class TestUsageBreakdown:
         # The route's default is 50, so an explicit 20 must reach it (the shared param
         # builder drops limit=20 because most list routes default to it).
         assert params["limit"] == "20"
+        assert params["tokens_by"] == "day"
 
     @responses.activate
     def test_omits_unset_params(self, billing):

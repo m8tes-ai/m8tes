@@ -5442,6 +5442,17 @@ class TestV2Billing:
             assert sum(g.delivered_runs for g in week.groups) == week.totals.delivered_runs
         assert week.totals.delivered_runs <= week.totals.runs
 
+    def test_usage_breakdown_by_day_adds_up_to_the_timeseries_total(self, v2_client):
+        start = (datetime.now(UTC) - timedelta(days=6)).date().isoformat()
+        series = v2_client.billing.usage_timeseries(start_date=start)
+        by_day = v2_client.billing.usage_breakdown(
+            group_by="teammate", start_date=start, tokens_by="day", limit=200
+        )
+        # One headline, one ranking: a token counts on the day it was processed in both reads.
+        assert by_day.totals.total_tokens == series.totals.total_tokens
+        if not by_day.has_more:
+            assert sum(g.total_tokens for g in by_day.groups) == by_day.totals.total_tokens
+
     def test_usage_breakdown_unknown_end_user_and_group_are_empty(self, v2_client):
         none = v2_client.billing.usage_breakdown(group_by="task", user_id="nonexistent-euid")
         assert none.groups == []
@@ -5453,6 +5464,8 @@ class TestV2Billing:
     def test_usage_breakdown_rejects_a_bad_request(self, v2_client):
         with pytest.raises(ValidationError):
             v2_client.billing.usage_breakdown(group_by="model")
+        with pytest.raises(ValidationError):
+            v2_client.billing.usage_breakdown(group_by="teammate", tokens_by="week")
         with pytest.raises(ValidationError):
             v2_client.billing.usage_breakdown(
                 group_by="task", start_date="2026-07-02", end_date="2026-07-01"

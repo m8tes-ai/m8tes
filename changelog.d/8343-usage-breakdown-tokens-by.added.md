@@ -1,0 +1,1 @@
+- `client.billing.usage_breakdown(..., tokens_by="day")` counts each token on the day it was processed, as `usage_timeseries()` does, so the groups add up to that read's `total_tokens`. A teammate that only continued an older run still appears, with `runs` 0. The default, `"run"`, is unchanged: a run's whole total counts on the day it was created.

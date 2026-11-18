@@ -88,6 +88,7 @@ class Billing:
         user_id: str | None = None,
         group_id: int | None = None,
         limit: int | None = None,
+        tokens_by: str | None = None,
     ) -> UsageBreakdown:
         """Which teammate or task uses your plan, and how many of its runs delivered.
 
@@ -105,6 +106,12 @@ class Billing:
         `group_by`) to read one group; pass `user_id` to scope to one end-user. Groups
         come largest use first, at most `limit` (default 50, maximum 200); `.has_more`
         says whether more matched.
+
+        `tokens_by` is `"run"` (the default) or `"day"`. With `"day"` each token counts on
+        the day it was processed, as `usage_timeseries()` counts it, so the groups add up
+        to its `total_tokens`, and a teammate that only continued an older run still
+        appears, with `runs` 0. Run counts and the median always describe the runs created
+        in the window.
         """
         # Not _build_params: it drops limit=20, and this route's default limit is 50.
         params = {
@@ -116,6 +123,7 @@ class Billing:
                 "user_id": user_id,
                 "group_id": group_id,
                 "limit": limit,
+                "tokens_by": tokens_by,
             }.items()
             if value is not None
         }
