@@ -364,7 +364,7 @@ class Teammate:
     # Claude model alias ("sonnet" | "opus"); None = platform default.
     model: str | None = None
     # Reasoning effort ("low"|"medium"|"high"|"xhigh"|"max"); None = platform
-    # default (max on Claude models, high on others; see Model.max_effort).
+    # default (high; each model's ceiling is Model.max_effort).
     effort: str | None = None
     # Built-in tool defaults; None = inherit the platform default (enabled).
     enable_memory: bool | None = None
