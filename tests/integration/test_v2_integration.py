@@ -2559,6 +2559,45 @@ class TestRunsReadOnly:
 
 
 @pytest.mark.integration
+class TestRunWake:
+    """`runs.wake()` is a hint: it answers nothing for any run the caller can read."""
+
+    def test_wake_nonexistent_run(self, v2_client):
+        with pytest.raises(NotFoundError):
+            v2_client.runs.wake(999999)
+
+    def test_wake_answers_nothing_and_leaves_the_run_alone(self, v2_client):
+        """A run that just finished has no sandbox to start, or is inside its first minute:
+        the call answers 204 either way, and repeating it is harmless."""
+        tm = v2_client.teammates.create(name="WakeHost")
+        try:
+            run = v2_client.runs.create(teammate_id=tm.id, message="wake me", stream=False)
+            with contextlib.suppress(M8tesError):
+                v2_client.runs.cancel(run.id)
+
+            assert v2_client.runs.wake(run.id) is None
+            assert v2_client.runs.wake(run.id) is None
+            assert v2_client.runs.get(run.id).id == run.id
+        finally:
+            v2_client.teammates.delete(tm.id)
+
+    def test_wake_honors_the_end_user_scope(self, v2_client):
+        alice = v2_client.teammates.create(name="AliceWake", user_id="alice")
+        try:
+            run = v2_client.runs.create(
+                teammate_id=alice.id, message="scoped wake", stream=False, user_id="alice"
+            )
+            with contextlib.suppress(M8tesError):
+                v2_client.runs.cancel(run.id, user_id="alice")
+
+            assert v2_client.runs.wake(run.id, user_id="alice") is None
+            with pytest.raises(NotFoundError):
+                v2_client.runs.wake(run.id, user_id="bob")
+        finally:
+            v2_client.teammates.delete(alice.id)
+
+
+@pytest.mark.integration
 class TestRunsWithFiles:
     def test_create_with_files_multipart(self, v2_client):
         """files= routes through /runs/with-files; local backends without sandbox

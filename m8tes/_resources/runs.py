@@ -1320,6 +1320,23 @@ class Runs:
         )
         return Run.from_dict(resp.json())
 
+    def wake(self, run_id: int, *, user_id: str | None = None) -> None:
+        """Start a finished run's sandbox ahead of a reply, so the reply does not wait for it.
+
+        Call it when your user starts typing a reply, and at most every 30 seconds while
+        they go on. A reply to a finished run restores its sandbox, which takes 36 to 61
+        seconds at the median; starting it while the message is written hides part of that.
+
+        It is a hint: it returns ``None`` for any run you can read and starts nothing unless
+        the run is finished, a person started it, its sandbox is stopped or archived, and the
+        account can pay for the reply and has room for the sandbox. A run is woken at most
+        once per 30 minutes.
+        Pass ``user_id`` when the account has strict multi-tenant mode on.
+        """
+        self._http.request(
+            "POST", f"/runs/{seg(run_id)}/wake", params=_build_params(user_id=user_id)
+        )
+
     def desktop(self, run_id: int) -> str:
         """Whether the run's computer view is live.
 

@@ -1154,6 +1154,19 @@ class TestRuns:
         assert responses.calls[0].request.params.get("user_id") == "alice"
 
     @responses.activate
+    def test_wake_posts_to_the_run_and_returns_nothing(self, http):
+        responses.add(responses.POST, f"{BASE}/runs/42/wake", status=204)
+        assert Runs(http).wake(42) is None
+        assert len(responses.calls) == 1
+        assert "user_id" not in responses.calls[0].request.params
+
+    @responses.activate
+    def test_wake_forwards_user_id(self, http):
+        responses.add(responses.POST, f"{BASE}/runs/42/wake", status=204)
+        Runs(http).wake(42, user_id="alice")
+        assert responses.calls[0].request.params.get("user_id") == "alice"
+
+    @responses.activate
     def test_desktop_live(self, http):
         responses.add(
             responses.GET,
