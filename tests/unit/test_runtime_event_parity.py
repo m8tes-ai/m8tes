@@ -321,6 +321,13 @@ _ACKNOWLEDGED_SYSTEM_SUBTYPES = frozenset(
         # API raises one. Inert for an API consumer.
         "ui_notify",
         "ui_notify_cancel",
+        # Claude Agent SDK 0.2.184 — `shell_cwd` (a Bash call's folder, opt-in hosts only)
+        # and `voice_call_talk` are inert. `late_allow_not_run` says an approval arrived
+        # but its call did not run: actionable, logged as notable by the runtime. Still
+        # wrapped as system_message (TODOS: surface actionable subtypes).
+        "shell_cwd",
+        "voice_call_talk",
+        "late_allow_not_run",
     }
 )
 
