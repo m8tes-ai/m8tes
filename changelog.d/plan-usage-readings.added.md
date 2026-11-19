@@ -1,0 +1,1 @@
+- `client.model_connections.list()` returns `state.windows` (`ModelConnectionPlanWindow`): each usage window still ahead (`kind`, `used` from 0 to 1, `resets_at`, `observed_at`). Empty when nothing current is known. A reading whose reset has passed is left out.

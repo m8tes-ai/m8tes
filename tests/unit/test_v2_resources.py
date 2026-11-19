@@ -264,6 +264,14 @@ class TestModelConnections:
             "last_refused_model": "gpt-6.1-sol",
             "refusals_14d": 3,
             "last_served_run_at": None,
+            "windows": [
+                {
+                    "kind": "five_hour",
+                    "used": 0.25,
+                    "resets_at": "2026-11-12T16:00:00Z",
+                    "observed_at": "2026-11-12T12:00:00Z",
+                }
+            ],
         }
         responses.add(
             responses.GET,
@@ -296,6 +304,10 @@ class TestModelConnections:
         assert first.state.last_refused_model == "gpt-6.1-sol"
         assert first.state.refusals_14d == 3
         assert first.state.last_served_run_at is None
+        assert len(first.state.windows) == 1
+        assert first.state.windows[0].kind == "five_hour"
+        assert first.state.windows[0].used == 0.25
+        assert first.state.windows[0].resets_at == "2026-11-12T16:00:00Z"
         assert second.state is None and third.state is None
 
     def test_a_state_with_nothing_in_it_reads_as_not_known(self):
@@ -305,6 +317,35 @@ class TestModelConnections:
 
         assert state == ModelConnectionPlanState()
         assert state.refusals_14d == 0 and state.reopens_at is None
+        assert state.windows == []
+
+    def test_a_window_that_is_not_a_reading_is_left_out(self):
+        from m8tes import ModelConnectionPlanState
+
+        state = ModelConnectionPlanState.from_dict(
+            {
+                "windows": [
+                    {
+                        "kind": "five_hour",
+                        "used": 0.25,
+                        "resets_at": "2026-11-12T16:00:00Z",
+                        "observed_at": "2026-11-12T12:00:00Z",
+                    },
+                    "nope",
+                    {"kind": 3},
+                    {
+                        "kind": "seven_day",
+                        "used": True,
+                        "resets_at": "2026-11-19T12:00:00Z",
+                        "observed_at": "2026-11-12T12:00:00Z",
+                    },
+                    {"kind": "seven_day", "used": 0.5, "resets_at": "2026-11-19T12:00:00Z"},
+                ]
+            }
+        )
+
+        assert len(state.windows) == 1
+        assert state.windows[0].kind == "five_hour"
 
     @responses.activate
     def test_list_authorize_poll_cancel_and_disconnect(self, http):

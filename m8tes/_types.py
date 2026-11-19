@@ -176,10 +176,37 @@ class Model:
 
 
 @dataclass
+class ModelConnectionPlanWindow:
+    """One usage window of a connected plan, from the last reading still ahead."""
+
+    kind: str
+    used: float
+    resets_at: str
+    observed_at: str
+
+    @classmethod
+    def from_dict(cls, data: dict) -> ModelConnectionPlanWindow | None:
+        kind = data.get("kind")
+        used = data.get("used")
+        resets_at = data.get("resets_at")
+        observed_at = data.get("observed_at")
+        if (
+            not isinstance(kind, str)
+            or isinstance(used, bool)
+            or not isinstance(used, int | float)
+            or not isinstance(resets_at, str)
+            or not isinstance(observed_at, str)
+        ):
+            return None
+        return cls(kind=kind, used=float(used), resets_at=resets_at, observed_at=observed_at)
+
+
+@dataclass
 class ModelConnectionPlanState:
     """What the platform already knows about one connected plan. Read-only.
 
     A ``None`` (or a zero ``refusals_14d``) means not known, never that the plan is fine.
+    ``windows`` is empty when no reading is still ahead: a passed reset is not 0.
     """
 
     reopens_at: str | None = None
@@ -189,9 +216,19 @@ class ModelConnectionPlanState:
     last_refused_model: str | None = None
     refusals_14d: int = 0
     last_served_run_at: str | None = None
+    windows: list[ModelConnectionPlanWindow] = field(default_factory=list)
 
     @classmethod
     def from_dict(cls, data: dict) -> ModelConnectionPlanState:
+        windows: list[ModelConnectionPlanWindow] = []
+        raw = data.get("windows")
+        if isinstance(raw, list):
+            for item in raw:
+                if not isinstance(item, dict):
+                    continue
+                window = ModelConnectionPlanWindow.from_dict(item)
+                if window is not None:
+                    windows.append(window)
         return cls(
             reopens_at=data.get("reopens_at"),
             reopens_source=data.get("reopens_source"),
@@ -200,6 +237,7 @@ class ModelConnectionPlanState:
             last_refused_model=data.get("last_refused_model"),
             refusals_14d=int(data.get("refusals_14d") or 0),
             last_served_run_at=data.get("last_served_run_at"),
+            windows=windows,
         )
 
 
