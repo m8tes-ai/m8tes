@@ -1634,6 +1634,9 @@ class RunFile:
     name: str
     size: int
     label: str | None = None
+    #: "input" when the user attached the file, "output" when the mate made it, None when
+    #: the run has no record of its uploads. Listings put outputs first.
+    origin: Literal["input", "output"] | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> RunFile:
@@ -1641,6 +1644,7 @@ class RunFile:
             name=data["name"],
             size=data["size"],
             label=data.get("label"),
+            origin=data.get("origin"),
         )
 
 

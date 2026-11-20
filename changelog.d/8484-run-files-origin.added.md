@@ -1,0 +1,1 @@
+- `RunFile.origin`: `"input"` for a file you attached to the run, `"output"` for one the mate made, `None` when the run has no record of its uploads. `runs.list_files()` now lists the mate's files first.
