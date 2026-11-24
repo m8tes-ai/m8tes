@@ -977,7 +977,8 @@ class Runs:
         request or conversation text contains the term (case-insensitive). Mate names,
         task names and the first 200 characters of the first request match across the whole
         history; the full conversation text, which holds the final message, matches within
-        the newest 1,000 runs of whatever else you filtered by, so pair it with ``teammate_id`` or ``team_id`` to reach further back. ``team_id`` keeps
+        the newest 1,000 runs of whatever else you filtered by, so pair it with
+        ``teammate_id`` or ``team_id`` to reach further back. ``team_id`` keeps
         the runs of mates in that team or any team under it.
 
         ``archived`` decides what the archive does to the list: ``exclude`` (the
