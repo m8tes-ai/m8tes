@@ -1465,6 +1465,29 @@ class TestRuns:
         assert params["started_by_teammate_id"] == "3450"
 
     @responses.activate
+    def test_list_q_and_team_id_ride_the_wire_and_survive_pagination(self, http):
+        responses.add(
+            responses.GET,
+            f"{BASE}/runs/",
+            json={"data": [{"id": 1}], "has_more": True, "next_starting_after": 1},
+        )
+        responses.add(responses.GET, f"{BASE}/runs/", json={"data": [{"id": 2}], "has_more": False})
+        page = Runs(http).list(q="invoice sweep", team_id=7, limit=1)
+        list(page.auto_paging_iter())
+        assert len(responses.calls) == 2
+        for call in responses.calls:
+            assert call.request.params["q"] == "invoice sweep"
+            assert call.request.params["team_id"] == "7"
+
+    @responses.activate
+    def test_list_default_omits_q_and_team_id(self, http):
+        responses.add(responses.GET, f"{BASE}/runs/", json={"data": [], "has_more": False})
+        Runs(http).list()
+        params = responses.calls[0].request.params
+        assert "q" not in params
+        assert "team_id" not in params
+
+    @responses.activate
     def test_list_created_after_string_is_sent_as_given(self, http):
         responses.add(responses.GET, f"{BASE}/runs/", json={"data": [], "has_more": False})
         Runs(http).list(created_after="2026-11-12T00:00:00Z")

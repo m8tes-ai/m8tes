@@ -949,6 +949,8 @@ class Runs:
         trigger_source: Literal["manual", "trigger", "schedule"] | None = None,
         created_after: str | datetime | None = None,
         started_by_teammate_id: int | None = None,
+        q: str | None = None,
+        team_id: int | None = None,
         sort: Literal["created", "priority"] | None = None,
         archived: Literal["exclude", "only", "include"] | None = None,
         exclude_platform_runs: bool | None = None,
@@ -970,6 +972,13 @@ class Runs:
         ``trigger_source="schedule"`` it answers "what ran today" without paging the whole
         history. ``started_by_teammate_id`` keeps the runs that agent started from inside
         one of its own runs (``run.started_by.teammate_id``).
+
+        ``q`` finds a run again: it keeps the runs whose mate name, task name, first
+        request or conversation text contains the term (case-insensitive). Mate names,
+        task names and the first 200 characters of the first request match across the whole
+        history; the full conversation text, which holds the final message, matches within
+        the newest 1,000 runs of whatever else you filtered by, so pair it with ``teammate_id`` or ``team_id`` to reach further back. ``team_id`` keeps
+        the runs of mates in that team or any team under it.
 
         ``archived`` decides what the archive does to the list: ``exclude`` (the
         default — archiving hides a run), ``only`` to read the archive on its own,
@@ -1001,6 +1010,8 @@ class Runs:
                 created_after.isoformat() if isinstance(created_after, datetime) else created_after
             ),
             started_by_teammate_id=started_by_teammate_id,
+            q=q,
+            team_id=team_id,
             sort=sort,
             archived=archived,
             exclude_platform_runs=(
@@ -1025,6 +1036,8 @@ class Runs:
                 trigger_source=trigger_source,
                 created_after=created_after,
                 started_by_teammate_id=started_by_teammate_id,
+                q=q,
+                team_id=team_id,
                 sort=sort,
                 archived=archived,
                 exclude_platform_runs=exclude_platform_runs,
