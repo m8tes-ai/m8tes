@@ -1,0 +1,1 @@
+- `client.settings.update(default_effort=...)` and `AccountSettings.default_effort` set how hard new runs think (`low`, `medium`, `high`, `xhigh` or `max`) when no run, task or mate names a depth. It applies to runs in your own account only, not to runs for your end-users. Pass `None` to return to the platform default; omit it to leave it unchanged.

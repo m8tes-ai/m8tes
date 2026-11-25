@@ -10,7 +10,7 @@ if TYPE_CHECKING:
     from .._http import HTTPClient
 
 # Sentinel so update() can distinguish "omit" from "explicitly set to None"
-# (passing None clears a per-end-user cap; omitting leaves it unchanged).
+# (passing None clears a per-end-user cap or the default effort; omitting leaves it unchanged).
 _UNSET: Any = object()
 
 
@@ -38,6 +38,7 @@ class Settings:
         result_slack_enabled: bool | None = None,
         preferred_approval_channel: str | None = None,
         result_notify_channel: str | None = None,
+        default_effort: str | None = _UNSET,
     ) -> AccountSettings:
         """Update account settings.
 
@@ -60,6 +61,11 @@ class Settings:
         first when a run waits on you. The other places still follow unless their
         switch is off. ``result_notify_channel`` (``email`` or ``slack``) is the
         finished-run place the preferences page shows. Omit either to leave it.
+        ``default_effort`` (``low``, ``medium``, ``high``, ``xhigh`` or ``max``) is how hard new
+        runs think when no run, task or mate names a depth. A model that cannot go that high
+        runs at its own highest depth. It applies to runs in your own account only: runs for
+        your end-users (``user_id``) keep the platform default. Pass ``None`` to return to
+        the platform default, or omit it to leave it unchanged.
         """
         body: dict = {}
         if per_end_user_run_limit is not _UNSET:
@@ -84,5 +90,7 @@ class Settings:
             body["preferred_approval_channel"] = preferred_approval_channel
         if result_notify_channel is not None:
             body["result_notify_channel"] = result_notify_channel
+        if default_effort is not _UNSET:
+            body["default_effort"] = default_effort
         resp = self._http.request("PATCH", "/settings/", json=body)
         return AccountSettings.from_dict(resp.json())

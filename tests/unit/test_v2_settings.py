@@ -218,3 +218,23 @@ def test_update_sends_the_place_to_try_first():
     }
     assert settings.preferred_approval_channel == "slack"
     assert settings.result_notify_channel == "slack"
+
+
+@responses.activate
+def test_default_effort_is_sent_and_none_clears_it():
+    responses.add(responses.PATCH, f"{BASE}/settings/", json={"default_effort": "max"})
+    settings = Settings(_http()).update(default_effort="max")
+    assert json.loads(responses.calls[0].request.body) == {"default_effort": "max"}
+    assert settings.default_effort == "max"
+
+    responses.add(responses.PATCH, f"{BASE}/settings/", json={"default_effort": None})
+    cleared = Settings(_http()).update(default_effort=None)
+    assert json.loads(responses.calls[1].request.body) == {"default_effort": None}
+    assert cleared.default_effort is None
+
+
+@responses.activate
+def test_default_effort_is_left_out_when_not_given():
+    responses.add(responses.PATCH, f"{BASE}/settings/", json={})
+    Settings(_http()).update(retention_mode="standard")
+    assert json.loads(responses.calls[0].request.body) == {"retention_mode": "standard"}

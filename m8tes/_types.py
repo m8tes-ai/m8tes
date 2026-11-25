@@ -2547,6 +2547,8 @@ class AccountSettings:
     preferred_approval_channel: str | None = None
     # Which finished-run place the preferences page shows. None = no explicit choice.
     result_notify_channel: str | None = None
+    # How hard new runs think when nothing else names a depth. None = the platform default.
+    default_effort: str | None = None
 
     @classmethod
     def from_dict(cls, data: dict) -> AccountSettings:
@@ -2562,6 +2564,7 @@ class AccountSettings:
             result_slack_enabled=data.get("result_slack_enabled", True),
             preferred_approval_channel=data.get("preferred_approval_channel"),
             result_notify_channel=data.get("result_notify_channel"),
+            default_effort=data.get("default_effort"),
         )
 
 
