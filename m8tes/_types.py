@@ -2301,6 +2301,10 @@ class PermissionRequest:
     # would be stored and then ignored. Omit any "always allow" control rather than
     # show one whose press cannot change the outcome.
     can_remember: bool = True
+    # One plain sentence for why `can_remember` is False (a shared run, a command that is not on
+    # the reviewed list, a field the rule does not know, a decision made each time). Written by
+    # the server for the owner; show it where the control would be. None when it is offered.
+    remember_blocked_reason: str | None = None
     # False when the "always allow" control should start UNTICKED (force-ask floor:
     # spend, access, destroy). The control stays available; the default is opt-in.
     remember_default: bool = True
@@ -2334,6 +2338,7 @@ class PermissionRequest:
             fields=data.get("fields"),
             prose=data.get("prose"),
             can_remember=data.get("can_remember", True),
+            remember_blocked_reason=data.get("remember_blocked_reason"),
             remember_default=data.get("remember_default", True),
             timeout_seconds=data.get("timeout_seconds", 55),
             resolved_at=data.get("resolved_at"),

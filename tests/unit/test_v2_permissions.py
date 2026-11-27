@@ -129,3 +129,22 @@ def test_permission_request_remember_default_parses_and_defaults_true():
         PermissionRequest.from_dict({**base, "remember_default": False}).remember_default is False
     )
     assert PermissionRequest.from_dict(base).remember_default is True
+
+
+def test_permission_request_remember_blocked_reason_parses_and_defaults_none():
+    """The server's one sentence for why `can_remember` is False; an older server sends none."""
+    from m8tes._types import PermissionRequest
+
+    base = {
+        "request_id": "req-1",
+        "tool_name": "mcp__x__decide",
+        "status": "pending",
+        "created_at": "2026-11-27",
+    }
+    why = "This is a decision you make each time, so it can't be remembered."
+    withheld = PermissionRequest.from_dict(
+        {**base, "can_remember": False, "remember_blocked_reason": why}
+    )
+    assert withheld.can_remember is False
+    assert withheld.remember_blocked_reason == why
+    assert PermissionRequest.from_dict(base).remember_blocked_reason is None

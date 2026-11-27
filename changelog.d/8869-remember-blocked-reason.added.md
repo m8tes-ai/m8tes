@@ -1,0 +1,1 @@
+- `PermissionRequest.remember_blocked_reason`: one plain sentence, written by the server, for why `can_remember` is `False` (a shared run, a command that is not on the reviewed list, a field the remember rule does not know, a decision made each time). `None` when the control is offered.
