@@ -1,0 +1,1 @@
+- `Run.model` and `Run.effort` name the model and reasoning effort a run is on. A run keeps both for every follow-up, resume and retry; both are `None` until its first turn.

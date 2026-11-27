@@ -898,6 +898,10 @@ class Run:
     # Set when an agent started this run from inside one of its own runs: that run and
     # its agent. None when a person, a schedule or an event started it.
     started_by: RunStartedBy | None = None
+    # The model and reasoning effort this run is on. A run keeps both for every follow-up,
+    # resume and retry; None until its first turn, and while a provider switch sets them aside.
+    model: str | None = None
+    effort: str | None = None
     run_mode: str | None = None
     archived: bool = False
     share_token: str | None = None
@@ -1014,6 +1018,8 @@ class Run:
             ),
             channel=data.get("channel"),
             billing_surface=data.get("billing_surface") or "platform",
+            model=data.get("model"),
+            effort=data.get("effort"),
             run_mode=data.get("run_mode"),
             archived=bool(data.get("archived", False)),
             share_token=data.get("share_token"),
